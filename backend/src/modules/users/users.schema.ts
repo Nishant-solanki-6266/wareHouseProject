@@ -1,0 +1,22 @@
+import { z } from 'zod';
+import { ROLES, RoleType } from '../../common/constants/roles.js';
+
+export const createUserSchema = z.object({
+  name: z.string().min(2, 'Name is required'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters long'),
+  roleKey: z.enum(['super_admin', 'operations', 'documentation', 'agent']),
+  department: z.string().optional(),
+  phone: z.string().optional(),
+  agentId: z.string().uuid().optional(),
+});
+
+export const updateUserSchema = createUserSchema.partial().omit({ password: true });
+
+export const userQuerySchema = z.object({
+  page: z.coerce.number().optional().default(1),
+  limit: z.coerce.number().optional().default(20),
+  role: z.string().optional(),
+  status: z.string().optional(),
+  search: z.string().optional(),
+});

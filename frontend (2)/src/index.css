@@ -1,0 +1,17 @@
+/* ==========================================================================
+   VI Customs Brokers & Logistics — CORE ENTRYPOINT CSS
+   ========================================================================== */
+
+@import './styles/variables.css';
+@import './styles/global.css';
+@import './styles/components.css';
+@import './styles/print.css';
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}

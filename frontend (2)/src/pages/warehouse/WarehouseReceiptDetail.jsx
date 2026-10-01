@@ -1,0 +1,188 @@
+import React, { useState } from 'react';
+import { PageHeader } from '../../components/common/PageHeader';
+import { WarehouseReceiptViewer } from '../../components/documents/WarehouseReceiptViewer';
+import { CargoLabelModal } from '../../components/modals/CargoLabelModal';
+import { WarehouseReceiptModal } from '../../components/modals/WarehouseReceiptModal';
+import { DeleteConfirmModal } from '../../components/modals/DeleteConfirmModal';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { WorkflowIndicator } from '../../components/common/WorkflowIndicator';
+import { Package, ArrowLeft, Printer, Layers, Edit2, Trash2, FileText } from 'lucide-react';
+import { useAppData } from '../../context/AppDataContext';
+
+export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
+  const { warehouseReceipts, updateWarehouseReceipt, deleteWarehouseReceipt } = useAppData();
+  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const receipt = warehouseReceipts.find(r => r.id === receiptId || r.receiptNumber === receiptId);
+
+  if (!receipt) {
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+        <h3>Warehouse Receipt Not Found</h3>
+        <button onClick={() => onNavigate('warehouse-receipts')} className="btn btn-primary btn-sm mt-4">
+          Back to Receipts List
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '1100px', margin: '0 auto' }}>
+      <PageHeader
+        title={`Warehouse Receipt ${receipt.receiptNumber}`}
+        subtitle={`Intake on ${receipt.date} for ${receipt.customer} (${receipt.destinationPort})`}
+        icon={Package}
+        breadcrumbs={[
+          { label: 'Warehouse Receipts', href: '#' },
+          { label: receipt.receiptNumber }
+        ]}
+        actions={
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => onNavigate('warehouse-receipts')}
+              className="btn btn-outline btn-sm"
+            >
+              <ArrowLeft size={15} />
+              <span>Back</span>
+            </button>
+            <button
+              onClick={() => setShowLabelModal(true)}
+              className="btn btn-outline btn-sm"
+            >
+              <Printer size={15} />
+              <span>Preview 4x6 Label</span>
+            </button>
+            {!receipt.assignedHouseBillId && (
+              <button
+                onClick={() => onNavigate('house-bills', 'create')}
+                className="btn btn-outline btn-sm"
+                style={{ borderColor: '#2563EB', color: '#2563EB' }}
+              >
+                <FileText size={15} />
+                <span>+ Create House B/L</span>
+              </button>
+            )}
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="btn btn-secondary btn-sm"
+            >
+              <Edit2 size={15} />
+              <span>Edit Receipt</span>
+            </button>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="btn btn-danger btn-sm"
+            >
+              <Trash2 size={15} />
+              <span>Delete Receipt</span>
+            </button>
+            {receipt.status === 'Ready for Consolidation' && (
+              <button
+                onClick={() => onNavigate('consolidations', 'create')}
+                className="btn btn-primary btn-sm"
+              >
+                <Layers size={15} />
+                <span>Consolidate Cargo</span>
+              </button>
+            )}
+          </div>
+        }
+      />
+
+      <WorkflowIndicator currentStage="warehouse-receipts" onNavigate={onNavigate} />
+
+      {/* Status + Next Step Card (Prompt Section 14) */}
+      <div
+        style={{
+          background: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderRadius: '8px',
+          padding: '1rem 1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+          borderLeft: '4px solid #D97706',
+          boxShadow: '0 1px 3px rgba(10, 25, 47, 0.05)'
+        }}
+      >
+        <div>
+          <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>
+            Current Status
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+            <StatusBadge status={receipt.status} />
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0A192F', fontFamily: 'JetBrains Mono, monospace' }}>
+              {receipt.receiptNumber}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, minWidth: '220px' }}>
+          <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>
+            Next Step
+          </div>
+          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0284C7', marginTop: '2px' }}>
+            {receipt.status === 'Ready for Consolidation'
+              ? 'Ready for Operations Consolidation into ocean container'
+              : receipt.status === 'Consolidated'
+              ? `Consolidated in ${receipt.assignedConsolidationId || 'Ocean Box'}`
+              : 'Staged in CFS warehouse awaiting assignment'}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => onNavigate('cargo')}
+            className="btn btn-outline btn-sm"
+          >
+            <span>View in Cargo Inventory</span>
+          </button>
+          {receipt.status === 'Ready for Consolidation' && (
+            <button
+              onClick={() => onNavigate('consolidations', 'create')}
+              className="btn btn-primary btn-sm"
+            >
+              <span>Build Consolidation</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Document Layout */}
+      <WarehouseReceiptViewer receipt={receipt} onNavigate={onNavigate} />
+
+      {/* 4x6 Roll Label Preview & Print Modal */}
+      <CargoLabelModal
+        isOpen={showLabelModal}
+        onClose={() => setShowLabelModal(false)}
+        cargo={receipt}
+      />
+
+      {/* Edit Modal */}
+      <WarehouseReceiptModal
+        isOpen={showEditModal}
+        receipt={receipt}
+        onClose={() => setShowEditModal(false)}
+        onSave={async (updates) => {
+          await updateWarehouseReceipt(receipt.id, updates);
+        }}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        itemName={receipt.receiptNumber}
+        itemType="Warehouse Receipt"
+        onConfirm={async () => {
+          await deleteWarehouseReceipt(receipt.id);
+          onNavigate('warehouse-receipts');
+        }}
+      />
+    </div>
+  );
+};

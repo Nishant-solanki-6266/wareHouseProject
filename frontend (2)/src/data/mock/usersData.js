@@ -1,0 +1,135 @@
+export const initialUsers = [
+  {
+    id: "USR-001",
+    name: "Marcus Vance",
+    email: "marcus.vance@vicustoms.com",
+    role: "Super Admin",
+    roleKey: "super_admin",
+    department: "Executive & Global Operations",
+    status: "Active",
+    avatar: "MV",
+    lastLogin: "2026-08-29 08:30 AM",
+    phone: "+1 (305) 555-0100"
+  },
+  {
+    id: "USR-002",
+    name: "Sarah Jenkins",
+    email: "sarah.j@vicustoms.com",
+    role: "Documentation Staff",
+    roleKey: "documentation",
+    department: "B/L Documentation & Billing",
+    status: "Active",
+    avatar: "SJ",
+    lastLogin: "2026-08-29 09:12 AM",
+    phone: "+1 (305) 555-0142"
+  },
+  {
+    id: "USR-003",
+    name: "Carlos Mendez",
+    email: "carlos.m@vicustoms.com",
+    role: "Warehouse / Operations",
+    roleKey: "operations",
+    department: "Miami CFS Warehouse",
+    status: "Active",
+    avatar: "CM",
+    lastLogin: "2026-08-29 07:45 AM",
+    phone: "+1 (305) 555-0188"
+  },
+  {
+    id: "USR-004",
+    name: "David Cartwright",
+    email: "operations@caribbeanexpressbahamas.com",
+    role: "Agent",
+    roleKey: "agent",
+    department: "Caribbean Express Freight Ltd. (Bahamas)",
+    agentId: "AGT-001",
+    status: "Active",
+    avatar: "DC",
+    lastLogin: "2026-08-29 10:15 AM",
+    phone: "+1 (242) 555-9000"
+  },
+  {
+    id: "USR-005",
+    name: "Elena Rostova",
+    email: "elena.r@vicustoms.com",
+    role: "Warehouse / Operations",
+    roleKey: "operations",
+    department: "Vessel Operations & Consolidations",
+    status: "Active",
+    avatar: "ER",
+    lastLogin: "2026-08-29 08:05 AM",
+    phone: "+1 (305) 555-0199"
+  }
+];
+
+export const initialRolesPermissions = [
+  {
+    roleKey: "super_admin",
+    roleName: "Super Admin",
+    description: "Full global system access, role management, user administration, financial overrides and hold releases.",
+    userCount: 1,
+    permissions: {
+      warehouseReceipts: { view: true, create: true, edit: true, delete: true },
+      cargo: { view: true, create: true, edit: true, delete: true },
+      consolidations: { view: true, create: true, edit: true, delete: true },
+      shipments: { view: true, create: true, edit: true, delete: true },
+      billsOfLading: { view: true, create: true, edit: true, placeHold: true, clearHold: true, release: true, cancel: true },
+      manifests: { view: true, generate: true, export: true },
+      agentPortal: { view: true, manage: true },
+      auditTrail: { view: true, export: true },
+      systemSettings: { view: true, edit: true }
+    }
+  },
+  {
+    roleKey: "operations",
+    roleName: "Warehouse / Operations",
+    description: "Receives cargo, measures packages, prints labels, creates WRs, and prepares House B/Ls.",
+    userCount: 10,
+    permissions: {
+      warehouseReceipts: { view: true, create: true, edit: true, delete: false },
+      cargo: { view: true, create: true, edit: true, delete: false },
+      consolidations: { view: true, create: true, edit: true, delete: false },
+      shipments: { view: true, create: true, edit: true, delete: false },
+      billsOfLading: { view: true, create: true, edit: true, placeHold: true, clearHold: false, release: false, cancel: false },
+      manifests: { view: true, generate: true, export: true },
+      agentPortal: { view: false, manage: false },
+      auditTrail: { view: true, export: false },
+      systemSettings: { view: false, edit: false },
+      customers: { view: true, create: true, edit: false, delete: false }
+    }
+  },
+  {
+    roleKey: "documentation",
+    roleName: "Documentation Staff",
+    description: "Issues Bills of Lading, manages hold/release, generates manifests, manages vessels and consolidations.",
+    userCount: 3,
+    permissions: {
+      warehouseReceipts: { view: true, create: true, edit: true, delete: true },
+      cargo: { view: true, create: true, edit: true, delete: true },
+      consolidations: { view: true, create: true, edit: true, delete: true },
+      shipments: { view: true, create: true, edit: true, delete: true },
+      billsOfLading: { view: true, create: true, edit: true, placeHold: true, clearHold: true, release: true, cancel: true },
+      manifests: { view: true, generate: true, export: true },
+      agentPortal: { view: false, manage: false },
+      auditTrail: { view: true, export: false },
+      systemSettings: { view: false, edit: false }
+    }
+  },
+  {
+    roleKey: "agent",
+    roleName: "Agent",
+    description: "Dedicated portal access for agents. Export manifests, view assigned shipments, update consolidation statuses, receive cargo, and prepare HBLs.",
+    userCount: 8,
+    permissions: {
+      warehouseReceipts: { view: true, create: true, edit: true, delete: false },
+      cargo: { view: true, create: true, edit: true, delete: false },
+      consolidations: { view: true, create: false, edit: true, delete: false },
+      shipments: { view: true, create: false, edit: false, delete: false },
+      billsOfLading: { view: true, create: true, edit: true, placeHold: false, clearHold: false, release: false, cancel: false },
+      manifests: { view: true, generate: false, export: false },
+      agentPortal: { view: true, manage: false },
+      auditTrail: { view: false, export: false },
+      systemSettings: { view: false, edit: false }
+    }
+  }
+];
