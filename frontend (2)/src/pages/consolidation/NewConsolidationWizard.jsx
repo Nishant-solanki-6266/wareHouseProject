@@ -18,12 +18,18 @@ import {
   Building2
 } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const NewConsolidationWizard = ({ onNavigate }) => {
   const { warehouseReceipts, houseBills, vessels, voyages, containers, agents, ports, createConsolidation } = useAppData();
+  const { currentUser, isAgent } = useAuth();
+
+  const defaultDestinationCode = isAgent
+    ? (currentUser?.destinationPortCode || 'NAS')
+    : (ports.find(p => p.code === 'NAS')?.code || ports[0]?.code || 'NAS');
 
   const [currentStep, setCurrentStep] = useState(1);
-  const [destinationFilter, setDestinationFilter] = useState(ports[0]?.code || 'NAS');
+  const [destinationFilter, setDestinationFilter] = useState(defaultDestinationCode);
   const [selectedWrIds, setSelectedWrIds] = useState([]);
 
   // Eligible staged Warehouse Receipts for chosen destination

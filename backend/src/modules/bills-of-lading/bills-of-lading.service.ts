@@ -164,6 +164,22 @@ export class BillsOfLadingService {
 
     return this.repo.updateHoldStatus(id, BL_STATUSES.RELEASED, holdDetails);
   }
+
+  async createBill(data: any) {
+    return this.repo.create(data);
+  }
+
+  async updateBill(idOrNumber: string, data: any) {
+    const updated = await this.repo.update(idOrNumber, data);
+    if (!updated) throw new NotFoundError('Bill of Lading');
+    return updated;
+  }
+
+  async deleteBill(idOrNumber: string) {
+    const deleted = await this.repo.delete(idOrNumber);
+    if (!deleted) throw new NotFoundError('Bill of Lading');
+    return { deleted: true };
+  }
 }
 
 export const billsOfLadingService = new BillsOfLadingService();

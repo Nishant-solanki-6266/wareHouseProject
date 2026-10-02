@@ -40,10 +40,15 @@ export class ManifestsRepository {
   }
 
   async findByIdOrNumber(idOrNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(manifests.id, idOrNumber), eq(manifests.manifestNumber, idOrNumber))
+      : eq(manifests.manifestNumber, idOrNumber);
+
     const result = await db
       .select()
       .from(manifests)
-      .where(or(eq(manifests.id, idOrNumber), eq(manifests.manifestNumber, idOrNumber)))
+      .where(whereCondition)
       .limit(1);
 
     return result[0] || null;

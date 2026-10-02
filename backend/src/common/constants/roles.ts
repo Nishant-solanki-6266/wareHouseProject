@@ -1,17 +1,21 @@
 export const ROLES = {
   SUPER_ADMIN: 'super_admin',
-  WAREHOUSE_STAFF: 'operations',
+  OPERATIONS: 'operations',
+  WAREHOUSE: 'warehouse',
+  WAREHOUSE_STAFF: 'warehouse',
+  OPERATIONS_COORDINATOR: 'operations',
   DOCUMENTATION_STAFF: 'documentation',
   PORT_AGENT: 'agent',
 } as const;
 
-export type RoleType = typeof ROLES[keyof typeof ROLES];
+export type RoleType = 'super_admin' | 'operations' | 'warehouse' | 'documentation' | 'agent';
 
 export const ROLE_DISPLAY_NAMES: Record<RoleType, string> = {
-  [ROLES.SUPER_ADMIN]: 'Super Admin',
-  [ROLES.WAREHOUSE_STAFF]: 'Warehouse / Operations',
-  [ROLES.DOCUMENTATION_STAFF]: 'Documentation Staff',
-  [ROLES.PORT_AGENT]: 'Agent',
+  super_admin: 'Super Admin',
+  operations: 'Operations Coordinator',
+  warehouse: 'Warehouse Staff',
+  documentation: 'Documentation Staff',
+  agent: 'Agent',
 };
 
-export const ALL_ROLES = Object.values(ROLES);
+export const ALL_ROLES: RoleType[] = ['super_admin', 'operations', 'warehouse', 'documentation', 'agent'];

@@ -19,6 +19,8 @@ import { documentsRoutes } from '../modules/documents/documents.routes.js';
 import { trackingRoutes } from '../modules/tracking/tracking.routes.js';
 import { auditRoutes } from '../modules/audit/audit.routes.js';
 import { settingsRoutes } from '../modules/settings/settings.routes.js';
+import { adminRoutes } from '../modules/admin/admin.routes.js';
+import { menuRoutes } from '../modules/menus/menus.routes.js';
 import { APP_CONSTANTS } from '../config/constants.js';
 
 export async function registerAppRoutes(app: FastifyInstance): Promise<void> {
@@ -48,6 +50,8 @@ export async function registerAppRoutes(app: FastifyInstance): Promise<void> {
       await v1.register(trackingRoutes, { prefix: '/tracking' });
       await v1.register(auditRoutes, { prefix: '/audit' });
       await v1.register(settingsRoutes, { prefix: '/settings' });
+      await v1.register(adminRoutes, { prefix: '/admin' });
+      await v1.register(menuRoutes);
     },
     { prefix: APP_CONSTANTS.API_PREFIX }
   );

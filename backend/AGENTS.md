@@ -23,24 +23,26 @@
    - Work phase-by-phase (e.g., Auth ➔ Customers ➔ Warehouse Receipts ➔ House Bills ➔ Consolidations ➔ MBL ➔ Manifests ➔ Tracking).
    - Test and verify each phase with the user before moving to the next.
 
-4. **MAINTAIN ALL 4 LOGIN PERSONAS:**
-   - Always preserve the 4 functional workflow users:
-     - **Marcus Vance:** `marcus.vance@vicustoms.com` (`super_admin` — HQ Console)
-     - **Sarah Jenkins:** `sarah.j@vicustoms.com` (`documentation` — Maritime Docs & HBLs)
-     - **Carlos Mendez:** `carlos.m@vicustoms.com` (`operations` — Miami CFS Intake & WRs)
+4. **MAINTAIN ALL 5 LOGIN PERSONAS:**
+   - Always preserve the 5 functional workflow users:
+     - **Marcus Vance:** `marcus.vance@vicustoms.com` (`super_admin` — HQ Console & System Settings)
+     - **Elena Rostova:** `elena.r@vicustoms.com` (`operations` — 4-Step Consolidation Wizard, Shipments)
+     - **Sarah Jenkins:** `sarah.j@vicustoms.com` (`documentation` — Maritime Docs, HBLs, Holds, Manifests)
+     - **Carlos Mendez:** `carlos.m@vicustoms.com` (`warehouse` — Miami CFS Intake & WRs)
      - **David Cartwright:** `operations@caribbeanexpressbahamas.com` (`agent` — Nassau Port Hub)
-   - Default test password: `Password123!`
+   - Default test password: `password123`
 
 5. **CONSULT MASTER DOCUMENTATION BEFORE IMPLEMENTATION:**
-   - Check [`backend/API_MAP.md`](backend/API_MAP.md) for exact route definitions, payloads, and JWT headers.
-   - Check [`backend/DATABASE_SCHEMA.md`](backend/DATABASE_SCHEMA.md) for table column types and relationships.
-   - Check [`backend/A_TO_Z_DATA_FLOW_MANUAL.md`](backend/A_TO_Z_DATA_FLOW_MANUAL.md) for business rules and calculations (e.g., CFT/CBM math, Hold/Release logic).
-   - Check [`backend/FULL_SYSTEM_VALIDATION.md`](backend/FULL_SYSTEM_VALIDATION.md) for test protocols.
+   - Check [`backend/API_MAP.md`](file:///e:/KiyaanProject/WereHousePRoject/backend/API_MAP.md) for exact route definitions, payloads, and JWT headers.
+   - Check [`backend/DATABASE_SCHEMA.md`](file:///e:/KiyaanProject/WereHousePRoject/backend/DATABASE_SCHEMA.md) for table column types and relationships.
+   - Check [`backend/A_TO_Z_DATA_FLOW_MANUAL.md`](file:///e:/KiyaanProject/WereHousePRoject/backend/A_TO_Z_DATA_FLOW_MANUAL.md) for business rules and calculations (e.g., CFT/CBM math, Hold/Release logic).
+   - Check [`backend/FULL_SYSTEM_VALIDATION.md`](file:///e:/KiyaanProject/WereHousePRoject/backend/FULL_SYSTEM_VALIDATION.md) for test protocols.
+   - Check [`backend/PROJECT_STATE_AND_ROADMAP.md`](file:///e:/KiyaanProject/WereHousePRoject/backend/PROJECT_STATE_AND_ROADMAP.md) for completed phases 1–11 and upcoming phases 12–16.
 
 ---
 
 ## 🛠️ Environment Reference
 - **Frontend URL:** `http://localhost:5173`
-- **Backend API URL:** `http://127.0.0.1:5000/api/v1`
+- **Backend API URL:** `http://127.0.0.1:5001/api/v1`
 - **Database Connection:** `postgresql://postgres:123456@localhost:5432/wereHouseDb`
 - **Build Verification:** Run `npm run build` in `frontend (2)` to ensure zero compilation or bundling errors.

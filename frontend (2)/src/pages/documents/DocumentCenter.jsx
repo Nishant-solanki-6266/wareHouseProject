@@ -181,7 +181,7 @@ export const DocumentCenter = ({ onNavigate }) => {
             className="btn btn-primary btn-sm"
           >
             <Plus size={15} />
-            <span>+ Upload Document</span>
+            <span>Upload Document</span>
           </button>
         }
       />

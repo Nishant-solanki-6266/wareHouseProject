@@ -50,15 +50,15 @@ export class WarehouseRepository {
   }
 
   async findByIdOrReceiptNumber(idOrReceiptNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrReceiptNumber);
+    const condition = isUuid
+      ? or(eq(warehouseReceipts.id, idOrReceiptNumber), eq(warehouseReceipts.receiptNumber, idOrReceiptNumber))
+      : eq(warehouseReceipts.receiptNumber, idOrReceiptNumber);
+
     const result = await db
       .select()
       .from(warehouseReceipts)
-      .where(
-        or(
-          eq(warehouseReceipts.id, idOrReceiptNumber),
-          eq(warehouseReceipts.receiptNumber, idOrReceiptNumber)
-        )
-      )
+      .where(condition)
       .limit(1);
 
     return result[0] || null;
@@ -83,28 +83,51 @@ export class WarehouseRepository {
       ...data,
       updatedAt: new Date(),
     };
-    if (data.lengthInches !== undefined) updateValues.lengthInches = String(data.lengthInches);
-    if (data.widthInches !== undefined) updateValues.widthInches = String(data.widthInches);
-    if (data.heightInches !== undefined) updateValues.heightInches = String(data.heightInches);
-    if (data.weightLbs !== undefined) updateValues.weightLbs = String(data.weightLbs);
+    if (data.customer || data.customerName) {
+      updateValues.customerName = data.customerName || data.customer;
+    }
+    delete updateValues.customer;
+    delete updateValues.cft;
+    delete updateValues.cbm;
+
+    if (data.lengthInches !== undefined && data.lengthInches !== null) updateValues.lengthInches = String(data.lengthInches);
+    if (data.widthInches !== undefined && data.widthInches !== null) updateValues.widthInches = String(data.widthInches);
+    if (data.heightInches !== undefined && data.heightInches !== null) updateValues.heightInches = String(data.heightInches);
+    if (data.weightLbs !== undefined && data.weightLbs !== null) updateValues.weightLbs = String(data.weightLbs);
+    if (data.weightKg !== undefined && data.weightKg !== null) updateValues.weightKg = String(data.weightKg);
+    if (data.totalCft !== undefined && data.totalCft !== null) updateValues.totalCft = String(data.totalCft);
+    else if ((data as any).cft !== undefined && (data as any).cft !== null) updateValues.totalCft = String((data as any).cft);
+    if (data.totalCbm !== undefined && data.totalCbm !== null) updateValues.totalCbm = String(data.totalCbm);
+    else if ((data as any).cbm !== undefined && (data as any).cbm !== null) updateValues.totalCbm = String((data as any).cbm);
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(warehouseReceipts.id, id), eq(warehouseReceipts.receiptNumber, id))
+      : eq(warehouseReceipts.receiptNumber, id);
 
     const [updated] = await db
       .update(warehouseReceipts)
       .set(updateValues)
-      .where(or(eq(warehouseReceipts.id, id), eq(warehouseReceipts.receiptNumber, id)))
+      .where(condition)
       .returning();
 
     return updated || null;
   }
 
   async delete(id: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(warehouseReceipts.id, id), eq(warehouseReceipts.receiptNumber, id))
+      : eq(warehouseReceipts.receiptNumber, id);
+
     const [deleted] = await db
       .delete(warehouseReceipts)
-      .where(or(eq(warehouseReceipts.id, id), eq(warehouseReceipts.receiptNumber, id)))
+      .where(condition)
       .returning();
 
     return !!deleted;
   }
 }
+
 
 export const warehouseRepository = new WarehouseRepository();

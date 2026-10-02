@@ -14,12 +14,12 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
 
   // Database connectivity readiness check
   app.get('/db', async (_request: FastifyRequest, reply: FastifyReply) => {
-    const isDbConnected = await testDbConnection();
+    const dbStatus = await testDbConnection();
 
-    if (!isDbConnected) {
+    if (!dbStatus.connected) {
       return reply.status(503).send({
         success: false,
-        message: 'PostgreSQL connection failed or unavailable',
+        message: dbStatus.error ?? 'PostgreSQL connection failed or unavailable',
         database: 'disconnected',
         timestamp: new Date().toISOString(),
       });
@@ -27,8 +27,9 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
 
     reply.send({
       success: true,
-      message: 'PostgreSQL database connected and healthy',
+      message: `PostgreSQL database '${dbStatus.databaseName}' connected and healthy`,
       database: 'connected',
+      databaseName: dbStatus.databaseName,
       timestamp: new Date().toISOString(),
     });
   });

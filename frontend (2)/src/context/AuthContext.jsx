@@ -11,7 +11,19 @@ export const AuthProvider = ({ children }) => {
     return getStored(KEYS.USERS, initialUsers);
   });
 
-  const syncUsers = useCallback(() => {
+  const syncUsers = useCallback(async () => {
+    try {
+      const res = await apiClient.get('users');
+      if (res && res.data) {
+        const backendUsers = Array.isArray(res.data) ? res.data : (res.data.items || res.data.users || []);
+        if (backendUsers.length > 0) {
+          setUsersList(backendUsers);
+          return;
+        }
+      }
+    } catch {
+      // Fallback to storage or initial
+    }
     setUsersList(getStored(KEYS.USERS, initialUsers));
   }, []);
 
@@ -20,13 +32,59 @@ export const AuthProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : (getStored(KEYS.USERS, initialUsers)[0] || initialUsers[0]);
   });
 
-  // Persist authentication so refreshing a route keeps the user session
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('kers_is_authenticated') === 'true';
+    const hasToken = !!localStorage.getItem('kers_token') || !!localStorage.getItem('kers_jwt_token');
+    const wasAuth = localStorage.getItem('kers_is_authenticated') === 'true';
+    return hasToken || wasAuth;
   });
 
+  const persistToken = (token) => {
+    if (token) {
+      localStorage.setItem('kers_token', token);
+      localStorage.setItem('kers_jwt_token', token);
+      apiClient.setToken(token);
+      setAuthToken(token);
+    } else {
+      localStorage.removeItem('kers_token');
+      localStorage.removeItem('kers_jwt_token');
+      apiClient.setToken(null);
+      setAuthToken(null);
+    }
+  };
+
+  // Validate server session on initial mount
   useEffect(() => {
-    localStorage.setItem('kers_active_user', JSON.stringify(currentUser));
+    const checkServerSession = async () => {
+      const token = apiClient.getToken() || localStorage.getItem('kers_token') || localStorage.getItem('kers_jwt_token');
+      if (!token) return;
+
+      persistToken(token);
+
+      try {
+        const res = await apiClient.get('auth/me');
+        if (res && res.data) {
+          setCurrentUser(res.data);
+          setIsAuthenticated(true);
+          localStorage.setItem('kers_active_user', JSON.stringify(res.data));
+          localStorage.setItem('kers_is_authenticated', 'true');
+        }
+      } catch (err) {
+        if (err.status === 401) {
+          console.warn('[AuthContext] Stored token is invalid or expired. Resetting session.');
+          persistToken(null);
+          localStorage.removeItem('kers_is_authenticated');
+          setIsAuthenticated(false);
+        }
+      }
+    };
+
+    checkServerSession();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('kers_active_user', JSON.stringify(currentUser));
+    }
   }, [currentUser]);
 
   // Validate or initialize backend token on mount
@@ -94,10 +152,39 @@ export const AuthProvider = ({ children }) => {
     if (!found) {
       found = allUsers[0] || initialUsers[0];
     }
-    setCurrentUser(found);
+  };
+
+  const login = async (emailOrId, password = 'password123') => {
+    const allUsers = getStored(KEYS.USERS, initialUsers);
+    let targetUser = allUsers.find(
+      u => u.id === emailOrId || u.email.toLowerCase() === String(emailOrId).toLowerCase()
+    );
+
+    const email = targetUser ? targetUser.email : emailOrId;
+    const pwd = password || 'password123';
+
+    try {
+      const res = await apiClient.post('auth/login', { email, password: pwd });
+      if (res && res.data && res.data.token) {
+        persistToken(res.data.token);
+        const loggedUser = res.data.user;
+        setCurrentUser(loggedUser);
+        setIsAuthenticated(true);
+        localStorage.setItem('kers_is_authenticated', 'true');
+        localStorage.setItem('kers_active_user', JSON.stringify(loggedUser));
+        return loggedUser;
+      }
+    } catch (err) {
+      console.warn('[AuthContext] Backend login call failed, falling back to local session:', err.message);
+    }
+
+    // Local fallback for offline/demo resilience
+    const fallbackUser = targetUser || allUsers[0] || initialUsers[0];
+    setCurrentUser(fallbackUser);
     setIsAuthenticated(true);
     localStorage.setItem('kers_is_authenticated', 'true');
-    return found;
+    fetchJwtToken(fallbackUser);
+    return fallbackUser;
   };
 
   const logout = async () => {
@@ -134,6 +221,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasPermission = (module, action) => {
+    if (isSuperAdmin) return true;
     const permissions = getRolePermissions();
     if (!permissions || !permissions[module]) return false;
     return !!permissions[module][action];

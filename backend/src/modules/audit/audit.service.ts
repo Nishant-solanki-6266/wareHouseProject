@@ -16,10 +16,14 @@ export class AuditService {
       timeStyle: 'short',
     });
 
+    const isUuid = input.userId
+      ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.userId)
+      : false;
+
     return this.repo.create({
       logNumber,
       timestamp,
-      userId: input.userId,
+      userId: isUuid ? input.userId : undefined,
       userName: input.userName,
       userRole: input.userRole,
       module: input.module,

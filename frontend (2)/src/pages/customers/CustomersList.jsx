@@ -105,7 +105,7 @@ export const CustomersList = ({ onNavigate }) => {
             style={{ padding: '0.25rem 0.45rem', color: '#0284C7' }}
           >
             <Package size={13} />
-            <span className="hide-mobile">+ WR</span>
+            <span className="hide-mobile">WR</span>
           </button>
 
           <button
@@ -165,7 +165,7 @@ export const CustomersList = ({ onNavigate }) => {
             className="btn btn-primary btn-sm"
           >
             <Plus size={15} />
-            <span>+ New Customer Profile</span>
+            <span>New Customer Profile</span>
           </button>
         }
       />

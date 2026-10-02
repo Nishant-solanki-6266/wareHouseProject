@@ -1,33 +1,35 @@
 import { z } from 'zod';
 
+export const contactObjectSchema = z.union([
+  z.string().transform(name => ({ name, address: 'Miami, FL' })),
+  z.object({
+    name: z.string().min(1),
+    address: z.string().optional().default('Miami, FL'),
+    contact: z.string().optional(),
+    taxId: z.string().optional(),
+  }),
+]);
+
 export const createHouseBillSchema = z.object({
-  customerId: z.string().uuid().optional(),
+  customerId: z
+    .string()
+    .optional()
+    .nullable()
+    .transform(val => (val && val.includes('-') && val.length === 36 ? val : undefined)),
   customerName: z.string().min(2),
-  shipper: z.object({
-    name: z.string().min(2),
-    address: z.string().min(2),
-    contact: z.string().optional(),
-    taxId: z.string().optional(),
-  }),
-  consignee: z.object({
-    name: z.string().min(2),
-    address: z.string().min(2),
-    taxId: z.string().optional(),
-    contact: z.string().optional(),
-  }),
-  notifyParty: z
-    .object({
-      name: z.string(),
-      address: z.string(),
-      contact: z.string().optional(),
-    })
-    .optional(),
-  agentId: z.string().uuid().optional(),
+  shipper: contactObjectSchema,
+  consignee: contactObjectSchema,
+  notifyParty: contactObjectSchema.optional(),
+  agentId: z
+    .string()
+    .optional()
+    .nullable()
+    .transform(val => (val && val.includes('-') && val.length === 36 ? val : undefined)),
   agentName: z.string().optional(),
   originPort: z.string().optional().default('Port of Miami (USMIA), FL'),
   destinationPort: z.string().min(2),
   destinationCode: z.string().min(2),
-  warehouseReceiptIds: z.array(z.string()).min(1, 'At least one Warehouse Receipt must be linked'),
+  warehouseReceiptIds: z.array(z.string()).optional().default([]),
   cargoDescription: z.string().optional(),
   packages: z.array(z.unknown()).optional().default([]),
   totalPackages: z.coerce.number().optional().default(0),
@@ -39,6 +41,22 @@ export const createHouseBillSchema = z.object({
   freightTerms: z.string().optional().default('Freight Prepaid'),
   notes: z.string().optional(),
 });
+
+export const updateHouseBillSchema = createHouseBillSchema.partial().extend({
+  status: z.string().optional(),
+  assignedConsolidationId: z.string().optional(),
+  assignedMasterBLId: z.string().optional(),
+  assignedShipmentId: z.string().optional(),
+});
+
+export const houseBillHoldSchema = z.object({
+  reason: z.string().min(2, 'Hold reason is required'),
+  holdNotes: z.string().optional(),
+  holdCategory: z.string().optional().default('Documentation Hold'),
+  contactEmail: z.string().optional(),
+  contactPhone: z.string().optional(),
+});
+
 
 export const houseBillQuerySchema = z.object({
   page: z.coerce.number().optional().default(1),

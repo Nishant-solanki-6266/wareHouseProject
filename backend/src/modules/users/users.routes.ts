@@ -5,13 +5,14 @@ import { requireRole } from '../../middleware/role.middleware.js';
 import { ROLES } from '../../common/constants/roles.js';
 
 export async function usersRoutes(app: FastifyInstance): Promise<void> {
-  // All user management routes require authentication and Super Admin role
   app.addHook('preHandler', authenticate);
-  app.addHook('preHandler', requireRole(ROLES.SUPER_ADMIN));
 
+  // GET users is allowed for all authenticated staff for directory/user selection
   app.get('/', usersController.list);
   app.get('/:id', usersController.getById);
-  app.post('/', usersController.create);
-  app.patch('/:id', usersController.update);
-  app.delete('/:id', usersController.delete);
+
+  // User modification requires Super Admin privileges
+  app.post('/', { preHandler: [requireRole(ROLES.SUPER_ADMIN)] }, usersController.create);
+  app.patch('/:id', { preHandler: [requireRole(ROLES.SUPER_ADMIN)] }, usersController.update);
+  app.delete('/:id', { preHandler: [requireRole(ROLES.SUPER_ADMIN)] }, usersController.delete);
 }

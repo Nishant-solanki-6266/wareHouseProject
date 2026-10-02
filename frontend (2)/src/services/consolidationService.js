@@ -1,9 +1,24 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
+import { apiFetch } from './apiConfig';
 
 export const consolidationService = {
   async getConsolidations(filters = {}) {
-    const list = getStored(KEYS.CONSOLIDATIONS);
+    try {
+      const res = await apiClient.get('consolidations', { params: { ...filters, limit: 100 } });
+      if (res && res.data) {
+        const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
+        if (liveList.length > 0) {
+          setStored(KEYS.CONSOLIDATIONS, liveList);
+          return liveList;
+        }
+      }
+    } catch (err) {
+      console.warn('Backend API /consolidations fetch failed, using local store:', err?.message || err);
+    }
+
+    const list = getStored(KEYS.CONSOLIDATIONS, []);
     let filtered = [...list];
 
     if (filters.search) {
@@ -28,14 +43,58 @@ export const consolidationService = {
   },
 
   async getConsolidationById(id) {
-    const list = getStored(KEYS.CONSOLIDATIONS);
+    if (!id) return null;
+    try {
+      const res = await apiClient.get(`consolidations/${encodeURIComponent(id)}`);
+      if (res && res.data) return res.data;
+    } catch (err) {
+      console.warn(`API error fetching consolidation by id ${id}:`, err?.message || err);
+    }
+
+    const list = getStored(KEYS.CONSOLIDATIONS, []);
     return list.find(item => item.id === id || item.consolidationNumber === id) || null;
   },
 
   async createConsolidation(consolidationData, currentUser = "Operations Staff") {
+    try {
+      const payload = {
+        title: consolidationData.title || `Consolidation - ${consolidationData.destinationPort || 'NAS'}`,
+        destinationPort: consolidationData.destinationPort || 'Port of Nassau (BSNAS)',
+        destinationCode: consolidationData.destinationCode || 'NAS',
+        status: consolidationData.status || 'Loaded',
+        containerNumber: consolidationData.containerNumber || 'MSKU-948291-4',
+        containerType: consolidationData.containerType || "40' High Cube",
+        containerCapacityCbm: Number(consolidationData.containerCapacityCbm) || 67.7,
+        sealNumber: consolidationData.sealNumber || 'SEAL-01',
+        vesselName: consolidationData.vesselName || 'MV Caribbean Carrier',
+        voyageNumber: consolidationData.voyageNumber || 'V.2026-20W',
+        carrier: consolidationData.carrier || 'Tropical Shipping Line',
+        loadingPort: consolidationData.loadingPort || 'Port of Miami (USMIA)',
+        dischargePort: consolidationData.dischargePort || consolidationData.destinationPort || 'Port of Nassau (BSNAS)',
+        houseBillIds: consolidationData.houseBillIds || [],
+        receiptIds: consolidationData.receiptIds || [],
+        totalPackages: Number(consolidationData.totalPackages) || 0,
+        totalPieces: Number(consolidationData.totalPieces) || 0,
+        totalWeightLbs: Number(consolidationData.totalWeightLbs) || 0,
+        totalWeightKg: Number(consolidationData.totalWeightKg) || 0,
+        totalCft: Number(consolidationData.totalCft) || 0,
+        totalCbm: Number(consolidationData.totalCbm) || 0,
+        containerFillPercentage: Number(consolidationData.containerFillPercentage) || 0,
+        agentId: consolidationData.agentId || undefined,
+        agentName: consolidationData.agentName || 'Caribbean Express Freight Ltd.',
+        etd: consolidationData.etd || new Date().toISOString().split('T')[0],
+        eta: consolidationData.eta || '2026-09-06',
+        notes: consolidationData.notes || '',
+      };
+      await apiClient.post('consolidations', payload);
+    } catch (err) {
+      console.warn('API error creating consolidation cascade:', err);
+    }
+
     const list = getStored(KEYS.CONSOLIDATIONS);
     const nextSeq = 820 + list.length + 1;
     const id = consolidationData.consolidationNumber || `CNS-2026-${nextSeq}`;
+
     const shipmentId = `SHP-2026-${291 + list.length + 1}`;
     const blId = `BL-VI-2026-${String(95 + list.length + 1).padStart(4, '0')}`;
     const manifestId = `MNF-2026-${443 + list.length}`;
@@ -76,13 +135,14 @@ export const consolidationService = {
     totalCft = Number(totalCft.toFixed(2));
     totalCbm = Number(totalCbm.toFixed(2));
 
-    const capacity = Number(consolidationData.containerCapacityCbm) || 67.7;
-    const containerFillPercentage = Number(((totalCbm / capacity) * 100).toFixed(1));
-
-    const newConsolidation = {
+    let createdConsolidation = null;
+    const payload = {
       ...consolidationData,
       id,
       consolidationNumber: id,
+      title: consolidationData.title || `Consolidation ${id} - ${consolidationData.destinationPort || 'NAS'}`,
+      destinationPort: consolidationData.destinationPort || 'NAS - Nassau, Bahamas',
+      destinationCode: consolidationData.destinationCode || (consolidationData.destinationPort?.includes(' - ') ? consolidationData.destinationPort.split(' - ')[0].trim() : 'NAS'),
       createdDate: new Date().toISOString().split('T')[0],
       status: consolidationData.status || "Loaded",
       totalHouseBills: selectedHbls.length || selectedHblIds.length,
@@ -101,7 +161,23 @@ export const consolidationService = {
       assignedManifestId: manifestId
     };
 
-    const updatedConsolidations = [newConsolidation, ...list];
+    try {
+      const res = await apiFetch('/consolidations', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      if (res && res.data) {
+        createdConsolidation = res.data;
+      }
+    } catch (err) {
+      console.warn('Backend createConsolidation failed, saving locally:', err.message);
+    }
+
+    if (!createdConsolidation) {
+      createdConsolidation = payload;
+    }
+
+    const updatedConsolidations = [createdConsolidation, ...list.filter(c => c.id !== createdConsolidation.id && c.consolidationNumber !== createdConsolidation.consolidationNumber)];
     setStored(KEYS.CONSOLIDATIONS, updatedConsolidations);
 
     // 4. Update linked House Bills in storage
@@ -382,16 +458,29 @@ export const consolidationService = {
       `Consolidation ${id} created with ${selectedHblIds.length} House B/L(s) (${allReceiptIds.length} WRs) in container ${consolidationData.containerNumber}. Generated Shipment ${shipmentId}, Master B/L ${blId} & Manifest ${manifestId}.`
     );
 
-    return newConsolidation;
+    return createdConsolidation;
   },
 
   async updateConsolidation(id, updates, currentUser = "Operations Staff") {
-    const list = getStored(KEYS.CONSOLIDATIONS);
+    let updatedConsolidation = null;
+    try {
+      const res = await apiFetch(`/consolidations/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+      if (res && res.data) {
+        updatedConsolidation = res.data;
+      }
+    } catch (err) {
+      console.warn(`Backend updateConsolidation ${id} failed:`, err.message);
+    }
+
+    const list = getStored(KEYS.CONSOLIDATIONS, []);
     const index = list.findIndex(item => item.id === id || item.consolidationNumber === id);
     if (index !== -1) {
       list[index] = {
         ...list[index],
-        ...updates
+        ...(updatedConsolidation || updates)
       };
       setStored(KEYS.CONSOLIDATIONS, list);
 
@@ -405,14 +494,20 @@ export const consolidationService = {
 
       return list[index];
     }
-    return null;
+    return updatedConsolidation;
   },
 
   async deleteConsolidation(id, currentUser = "Operations Staff") {
-    const list = getStored(KEYS.CONSOLIDATIONS);
-    const existing = list.find(item => item.id === id || item.consolidationNumber === id);
-    if (!existing) return false;
+    try {
+      await apiFetch(`/consolidations/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.warn(`Backend deleteConsolidation ${id} failed:`, err.message);
+    }
 
+    const list = getStored(KEYS.CONSOLIDATIONS, []);
+    const existing = list.find(item => item.id === id || item.consolidationNumber === id);
     const filtered = list.filter(item => item.id !== id && item.consolidationNumber !== id);
     setStored(KEYS.CONSOLIDATIONS, filtered);
 
@@ -421,7 +516,7 @@ export const consolidationService = {
       "Consolidation",
       "Deleted Consolidation",
       id,
-      `Deleted Consolidation ${id} (${existing.title}).`
+      `Deleted Consolidation ${id} (${existing?.title || 'Consolidation'}).`
     );
 
     return true;

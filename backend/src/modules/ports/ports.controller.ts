@@ -29,6 +29,12 @@ export class PortsController {
     const updated = await this.service.updatePort(id, body);
     reply.send(successResponse(updated, 'Port updated successfully'));
   };
+
+  delete = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    await this.service.deletePort(id);
+    reply.send(successResponse({ deleted: true }, 'Port deleted successfully'));
+  };
 }
 
 export const portsController = new PortsController();

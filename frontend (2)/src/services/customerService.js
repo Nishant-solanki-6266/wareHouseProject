@@ -1,19 +1,38 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
+import { apiFetch } from './apiConfig';
 
 export const customerService = {
   async getCustomers(filters = {}) {
-    const list = getStored(KEYS.CUSTOMERS);
+    try {
+      const res = await apiClient.get('customers', { params: { ...filters, limit: 100 } });
+      const apiData = res?.data ? (Array.isArray(res.data) ? res.data : (res.data.items || [])) : (Array.isArray(res) ? res : []);
+      if (apiData.length > 0) {
+        const mapped = apiData.map(c => ({
+          ...c,
+          customerNumber: c.customerNumber || c.id,
+          telephone: c.telephone || c.phone || '',
+        }));
+        setStored(KEYS.CUSTOMERS, mapped);
+        return mapped;
+      }
+    } catch (err) {
+      console.warn('Backend customers API notice, using local store:', err?.message || err);
+    }
+
+    const list = getStored(KEYS.CUSTOMERS, []);
     let filtered = [...list];
 
     if (filters.search) {
       const q = filters.search.toLowerCase();
       filtered = filtered.filter(item =>
-        item.name?.toLowerCase().includes(q) ||
         item.customerNumber?.toLowerCase().includes(q) ||
+        item.name?.toLowerCase().includes(q) ||
         item.contactPerson?.toLowerCase().includes(q) ||
         item.email?.toLowerCase().includes(q) ||
-        item.telephone?.toLowerCase().includes(q) ||
+        item.telephone?.includes(q) ||
+        item.phone?.includes(q) ||
         item.destinationPort?.toLowerCase().includes(q)
       );
     }
@@ -28,22 +47,36 @@ export const customerService = {
   },
 
   async getCustomerById(id) {
-    const list = getStored(KEYS.CUSTOMERS);
+    if (!id) return null;
+    try {
+      const res = await apiClient.get(`customers/${encodeURIComponent(id)}`);
+      const apiData = res?.data || res;
+      if (apiData && apiData.id) {
+        return {
+          ...apiData,
+          customerNumber: apiData.customerNumber || apiData.id,
+          telephone: apiData.telephone || apiData.phone || '',
+        };
+      }
+    } catch (err) {
+      console.warn(`Backend API fetch for customer ${id} failed:`, err?.message || err);
+    }
+
+    const list = getStored(KEYS.CUSTOMERS, []);
     return list.find(item => item.id === id || item.customerNumber === id || item.name === id) || null;
   },
 
   async createCustomer(data, currentUser = "Warehouse Staff") {
-    const list = getStored(KEYS.CUSTOMERS);
+    const list = getStored(KEYS.CUSTOMERS, []);
     const nextSeq = list.length + 1;
-    const id = `CUS-2026-${String(nextSeq).padStart(4, '0')}`;
+    const id = data.customerNumber || `CUS-2026-${String(nextSeq).padStart(4, '0')}`;
 
-    const newCustomer = {
+    const payload = {
       ...data,
-      id,
       customerNumber: id,
       name: data.name || data.companyName || "New Customer",
       companyName: data.companyName || data.name || "New Customer",
-      contactPerson: data.contactPerson || "Primary Contact",
+      contactPerson: data.contactPerson || "",
       email: data.email || "",
       telephone: data.telephone || data.phone || "",
       phone: data.telephone || data.phone || "",
@@ -54,62 +87,99 @@ export const customerService = {
       accountType: data.accountType || "Commercial Importer",
       creditTerms: data.creditTerms || "Net 30",
       notes: data.notes || "",
-      createdDate: data.createdDate || new Date().toISOString().split('T')[0],
       status: data.status || "Active"
     };
 
-    const updated = [newCustomer, ...list];
+    let createdCustomer = null;
+    try {
+      const res = await apiClient.post('customers', payload);
+      if (res && res.data) {
+        createdCustomer = {
+          ...res.data,
+          customerNumber: res.data.customerNumber || res.data.id || id,
+        };
+      }
+    } catch (err) {
+      console.warn('Backend createCustomer failed, saving locally:', err?.message || err);
+    }
+
+    if (!createdCustomer) {
+      createdCustomer = {
+        ...payload,
+        id
+      };
+    }
+
+    const updated = [createdCustomer, ...list.filter(c => c.id !== createdCustomer.id && c.customerNumber !== createdCustomer.customerNumber)];
     setStored(KEYS.CUSTOMERS, updated);
 
     await auditService.logAction(
       currentUser,
-      "Customer",
-      "Created Customer Profile",
-      id,
-      `Created Customer Profile ${id} for ${newCustomer.name} (${newCustomer.destinationPort}).`
+      "Customer Directory",
+      "Created Customer",
+      createdCustomer.customerNumber || createdCustomer.id,
+      `Registered client ${createdCustomer.name} (${createdCustomer.customerNumber}, ${createdCustomer.destinationPort}).`
     );
 
-    return newCustomer;
+    return createdCustomer;
   },
 
   async updateCustomer(id, updates, currentUser = "Warehouse Staff") {
-    const list = getStored(KEYS.CUSTOMERS);
+    let updatedCustomer = null;
+    try {
+      const res = await apiClient.put(`customers/${encodeURIComponent(id)}`, updates);
+      if (res && res.data) {
+        updatedCustomer = res.data;
+      }
+    } catch (err) {
+      console.warn(`Backend updateCustomer ${id} failed:`, err?.message || err);
+    }
+
+    const list = getStored(KEYS.CUSTOMERS, []);
     const index = list.findIndex(item => item.id === id || item.customerNumber === id);
     if (index !== -1) {
       list[index] = {
         ...list[index],
-        ...updates
+        ...(updatedCustomer || updates),
+        telephone: updates.telephone || updates.phone || list[index].telephone,
+        phone: updates.telephone || updates.phone || list[index].phone
       };
       setStored(KEYS.CUSTOMERS, list);
 
       await auditService.logAction(
         currentUser,
-        "Customer",
-        "Updated Customer Profile",
+        "Customer Directory",
+        "Updated Customer",
         id,
-        `Updated customer profile for ${list[index].name} (${id}).`
+        `Updated master records for customer ${list[index].name} (${list[index].customerNumber}).`
       );
 
       return list[index];
     }
-    return null;
+    return updatedCustomer;
   },
 
   async deleteCustomer(id, currentUser = "Super Admin") {
-    const list = getStored(KEYS.CUSTOMERS);
-    const existing = list.find(item => item.id === id || item.customerNumber === id);
-    if (!existing) return false;
+    try {
+      await apiClient.delete(`customers/${encodeURIComponent(id)}`);
+    } catch (err) {
+      console.warn(`Backend deleteCustomer ${id} failed:`, err?.message || err);
+    }
 
+    const list = getStored(KEYS.CUSTOMERS, []);
+    const existing = list.find(item => item.id === id || item.customerNumber === id);
     const filtered = list.filter(item => item.id !== id && item.customerNumber !== id);
     setStored(KEYS.CUSTOMERS, filtered);
 
-    await auditService.logAction(
-      currentUser,
-      "Customer",
-      "Deleted Customer Profile",
-      id,
-      `Deleted customer profile ${existing.name} (${id}).`
-    );
+    if (existing) {
+      await auditService.logAction(
+        currentUser,
+        "Customer Directory",
+        "Deleted Customer",
+        id,
+        `Removed customer account ${existing.name} (${existing.customerNumber}).`
+      );
+    }
 
     return true;
   }

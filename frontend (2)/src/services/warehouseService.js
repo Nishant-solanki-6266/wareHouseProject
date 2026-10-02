@@ -1,9 +1,29 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
+import { apiFetch } from './apiConfig';
 
 export const warehouseService = {
   async getReceipts(filters = {}) {
-    const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
+    try {
+      const res = await apiClient.get('warehouse-receipts', { params: { ...filters, limit: 100 } });
+      const apiData = res?.data ? (Array.isArray(res.data) ? res.data : (res.data.items || [])) : (Array.isArray(res) ? res : []);
+      if (apiData.length > 0) {
+        const localList = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
+        const mergedMap = new Map();
+        [...localList, ...apiData].forEach(item => {
+          const key = item.id || item.receiptNumber;
+          if (key) mergedMap.set(key, { ...mergedMap.get(key), ...item });
+        });
+        const merged = Array.from(mergedMap.values());
+        setStored(KEYS.WAREHOUSE_RECEIPTS, merged);
+        return merged;
+      }
+    } catch (err) {
+      console.warn('Backend warehouse-receipts fetch note, using cached store:', err?.message || err);
+    }
+
+    const list = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
     let filtered = [...list];
 
     if (filters.search) {
@@ -34,15 +54,20 @@ export const warehouseService = {
   },
 
   async getReceiptById(id) {
-    const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
+    if (!id) return null;
+    try {
+      const res = await apiClient.get(`warehouse-receipts/${encodeURIComponent(id)}`);
+      const apiData = res?.data || res;
+      if (apiData && (apiData.id || apiData.receiptNumber)) return apiData;
+    } catch (err) {
+      console.warn(`Backend API fetch for receipt ${id} failed:`, err?.message || err);
+    }
+
+    const list = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
     return list.find(item => item.id === id || item.receiptNumber === id) || null;
   },
 
   async createReceipt(receiptData, currentUser = "Warehouse Staff") {
-    const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
-    const nextSeq = 1040 + list.length + 1;
-    const id = receiptData.receiptNumber || `WR-2026-${nextSeq}`;
-    
     // Process packages array if provided, or build single package default
     let packages = receiptData.packages || [];
     if (packages.length === 0) {
@@ -60,7 +85,7 @@ export const warehouseService = {
       }
 
       packages = [{
-        id: `PKG-${id.replace('WR-2026-', '')}-01`,
+        id: `PKG-${receiptData.receiptNumber || '01'}-01`,
         packageType: receiptData.packageType || "Carton",
         description: receiptData.cargoDescription || "General Cargo",
         lengthInches: l,
@@ -90,72 +115,106 @@ export const warehouseService = {
     totalCbm = Number(totalCbm.toFixed(2));
     const totalWeightKg = Number((totalWeightLbs * 0.453592).toFixed(1));
 
-    const newReceipt = {
+    const destPort = receiptData.destinationPort || "NAS - Nassau Container Port";
+    const destCode = receiptData.destinationCode || (destPort.includes(' - ') ? destPort.split(' - ')[0].trim() : 'NAS');
+
+    const payload = {
       ...receiptData,
-      id,
-      receiptNumber: id,
+      receiptNumber: receiptData.receiptNumber,
       date: receiptData.date || new Date().toISOString().split('T')[0],
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       customerId: receiptData.customerId || null,
-      customer: receiptData.customer || receiptData.customerName || "General Cargo",
-      customerName: receiptData.customer || receiptData.customerName || "General Cargo",
-      destinationPort: receiptData.destinationPort || "NAS - Nassau, Bahamas",
-      destinationCode: receiptData.destinationCode || (receiptData.destinationPort ? receiptData.destinationPort.split(' - ')[0] : 'NAS'),
+      customer: receiptData.customer || receiptData.customerName || "General Cargo Consignee",
+      customerName: receiptData.customerName || receiptData.customer || "General Cargo Consignee",
+      destinationPort: destPort,
+      destinationCode: destCode,
       status: receiptData.status || "Ready for Consolidation",
       packages,
       packageCount: packages.length,
-      totalPieces,
+      totalPieces: totalPieces || 1,
       weightLbs: totalWeightLbs,
       weightKg: totalWeightKg,
       cft: totalCft,
       cbm: totalCbm,
-      barcode: `WR${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      qrCode: `VI-${id}-${receiptData.destinationCode || 'NAS'}-${totalPieces}PK`,
-      assignedHouseBillId: null,
-      assignedConsolidationId: null,
-      assignedShipmentId: null
+      warehouseLocation: receiptData.warehouseLocation || 'Bay A-1 (CFS Staging)'
     };
 
-    const updated = [newReceipt, ...list];
+    let createdReceipt = null;
+    try {
+      const res = await apiClient.post('warehouse-receipts', payload);
+      if (res && res.data) {
+        createdReceipt = res.data;
+      }
+    } catch (err) {
+      console.warn('Backend createReceipt failed, falling back to local:', err?.message || err);
+    }
+
+    if (!createdReceipt) {
+      const list = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
+      const id = payload.receiptNumber || String(3100 + list.length);
+      createdReceipt = {
+        ...payload,
+        id,
+        receiptNumber: id,
+        barcode: `WR${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+        qrCode: `VI-${id}-${destCode}-${totalPieces}PK`,
+        assignedHouseBillId: null,
+        assignedConsolidationId: null,
+        assignedShipmentId: null
+      };
+    }
+
+    const list = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
+    const updated = [createdReceipt, ...list.filter(r => r.id !== createdReceipt.id && r.receiptNumber !== createdReceipt.receiptNumber)];
     setStored(KEYS.WAREHOUSE_RECEIPTS, updated);
 
     // Also add to cargo inventory
-    const cargoList = getStored(KEYS.CARGO);
+    const cargoList = getStored(KEYS.CARGO, []);
     const newCargo = {
-      id: `CRG-${id.replace('WR-2026-', '')}-01`,
-      warehouseReceiptId: id,
-      receiptNumber: id,
-      customer: newReceipt.customer,
-      description: newReceipt.cargoDescription || packages[0]?.description || "General Freight",
-      packageCount: newReceipt.packageCount,
-      totalPieces,
-      packageType: packages[0]?.packageType || "Cartons",
+      id: `CRG-${createdReceipt.receiptNumber || createdReceipt.id}-01`,
+      warehouseReceiptId: createdReceipt.id || createdReceipt.receiptNumber,
+      receiptNumber: createdReceipt.receiptNumber || createdReceipt.id,
+      customer: createdReceipt.customer || createdReceipt.customerName,
+      description: createdReceipt.cargoDescription || packages[0]?.description || "General Freight",
+      packageCount: createdReceipt.packageCount || 1,
+      totalPieces: createdReceipt.totalPieces || totalPieces,
+      packageType: packages[0]?.packageType || "Carton",
       weightLbs: totalWeightLbs,
       cft: totalCft,
       cbm: totalCbm,
-      warehouseLocation: newReceipt.warehouseLocation || "Bay A-01",
-      destinationPort: newReceipt.destinationPort,
-      destinationCode: newReceipt.destinationCode,
+      warehouseLocation: createdReceipt.warehouseLocation || "Bay A-1 (CFS Staging)",
+      destinationPort: createdReceipt.destinationPort,
+      destinationCode: createdReceipt.destinationCode,
       status: "Ready for Consolidation",
       barcode: `CRG${Math.floor(10000000 + Math.random() * 90000000)}`,
-      qrCode: `VI-CRG-${id}`
+      qrCode: `VI-CRG-${createdReceipt.receiptNumber || createdReceipt.id}`
     };
-    setStored(KEYS.CARGO, [newCargo, ...cargoList]);
+    setStored(KEYS.CARGO, [newCargo, ...cargoList.filter(c => c.warehouseReceiptId !== newCargo.warehouseReceiptId)]);
 
     // Audit log
     await auditService.logAction(
       currentUser,
       "Warehouse Receipt",
       "Created Warehouse Receipt",
-      id,
-      `Intake completed for ${newReceipt.customer} (${id}): ${packages.length} package type(s), ${totalPieces} total piece(s), ${totalCbm} CBM.`
+      createdReceipt.receiptNumber || createdReceipt.id,
+      `Intake completed for ${createdReceipt.customer || createdReceipt.customerName} (${createdReceipt.receiptNumber || createdReceipt.id}): ${packages.length} package type(s), ${totalPieces} total piece(s), ${totalCbm} CBM.`
     );
 
-    return newReceipt;
+    return createdReceipt;
   },
 
   async updateReceipt(id, updates, currentUser = "Warehouse Staff") {
-    const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
+    let updatedReceipt = null;
+    try {
+      const res = await apiClient.put(`warehouse-receipts/${encodeURIComponent(id)}`, updates);
+      if (res && res.data) {
+        updatedReceipt = res.data;
+      }
+    } catch (err) {
+      console.warn(`Backend updateReceipt ${id} failed:`, err?.message || err);
+    }
+
+    const list = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
     const index = list.findIndex(item => item.id === id || item.receiptNumber === id);
     if (index !== -1) {
       let packages = updates.packages || list[index].packages || [];
@@ -185,7 +244,7 @@ export const warehouseService = {
 
       list[index] = {
         ...list[index],
-        ...updates,
+        ...(updatedReceipt || updates),
         packages,
         packageCount: packages.length || list[index].packageCount,
         totalPieces,
@@ -197,7 +256,7 @@ export const warehouseService = {
       setStored(KEYS.WAREHOUSE_RECEIPTS, list);
 
       // Update linked cargo
-      const cargoList = getStored(KEYS.CARGO);
+      const cargoList = getStored(KEYS.CARGO, []);
       const cargoIdx = cargoList.findIndex(c => c.warehouseReceiptId === id || c.receiptNumber === id);
       if (cargoIdx !== -1) {
         cargoList[cargoIdx] = {
@@ -221,34 +280,40 @@ export const warehouseService = {
         "Warehouse Receipt",
         "Updated Warehouse Receipt",
         id,
-        `Updated details for ${id} (${list[index].customer}).`
+        `Updated details for ${id} (${list[index].customer || list[index].customerName}).`
       );
 
       return list[index];
     }
-    return null;
+    return updatedReceipt;
   },
 
   async deleteReceipt(id, currentUser = "Warehouse Staff") {
-    const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
-    const existing = list.find(item => item.id === id || item.receiptNumber === id);
-    if (!existing) return false;
+    try {
+      await apiClient.delete(`warehouse-receipts/${encodeURIComponent(id)}`);
+    } catch (err) {
+      console.warn(`Backend deleteReceipt ${id} failed:`, err?.message || err);
+    }
 
+    const list = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
+    const existing = list.find(item => item.id === id || item.receiptNumber === id);
     const filtered = list.filter(item => item.id !== id && item.receiptNumber !== id);
     setStored(KEYS.WAREHOUSE_RECEIPTS, filtered);
 
     // Also remove from cargo if exists
-    const cargoList = getStored(KEYS.CARGO);
+    const cargoList = getStored(KEYS.CARGO, []);
     const filteredCargo = cargoList.filter(c => c.warehouseReceiptId !== id && c.receiptNumber !== id);
     setStored(KEYS.CARGO, filteredCargo);
 
-    await auditService.logAction(
-      currentUser,
-      "Warehouse Receipt",
-      "Deleted Warehouse Receipt",
-      id,
-      `Deleted ${id} for customer ${existing.customer}.`
-    );
+    if (existing) {
+      await auditService.logAction(
+        currentUser,
+        "Warehouse Receipt",
+        "Deleted Warehouse Receipt",
+        id,
+        `Deleted ${id} for customer ${existing.customer || existing.customerName}.`
+      );
+    }
 
     return true;
   }

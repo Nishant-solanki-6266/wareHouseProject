@@ -157,7 +157,7 @@ export const SettingsPage = () => {
                 className="btn btn-primary btn-sm"
               >
                 <Plus size={15} />
-                <span>+ Add Island Port Destination</span>
+                <span>Add Island Port Destination</span>
               </button>
             </div>
 

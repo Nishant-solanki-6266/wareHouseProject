@@ -43,10 +43,15 @@ export class ConsolidationRepository {
   }
 
   async findByIdOrNumber(idOrNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const condition = isUuid
+      ? or(eq(consolidations.id, idOrNumber), eq(consolidations.consolidationNumber, idOrNumber))
+      : eq(consolidations.consolidationNumber, idOrNumber);
+
     const result = await db
       .select()
       .from(consolidations)
-      .where(or(eq(consolidations.id, idOrNumber), eq(consolidations.consolidationNumber, idOrNumber)))
+      .where(condition)
       .limit(1);
 
     return result[0] || null;
@@ -87,3 +92,4 @@ export class ConsolidationRepository {
 }
 
 export const consolidationRepository = new ConsolidationRepository();
+

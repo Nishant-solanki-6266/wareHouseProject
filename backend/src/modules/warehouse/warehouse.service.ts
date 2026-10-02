@@ -2,6 +2,10 @@ import { WarehouseRepository, warehouseRepository } from './warehouse.repository
 import { WarehouseReceiptFilterParams, CreateWarehouseReceiptInput, UpdateWarehouseReceiptInput } from './warehouse.types.js';
 import { NotFoundError } from '../../common/errors/not-found-error.js';
 import { calculateDimensions, convertLbsToKg } from '../../common/utils/calculations.js';
+import { db } from '../../db/index.js';
+import { cargo, customers } from '../../db/schema/index.js';
+import { eq, or } from 'drizzle-orm';
+
 
 export class WarehouseService {
   constructor(private readonly repo: WarehouseRepository = warehouseRepository) {}
@@ -18,9 +22,17 @@ export class WarehouseService {
     return receipt;
   }
 
-  async createReceipt(input: CreateWarehouseReceiptInput) {
-    const nextSeq = await this.repo.getNextSequenceNumber();
-    const receiptNumber = String(nextSeq);
+  async createReceipt(input: CreateWarehouseReceiptInput & { receiptNumber?: string; sequenceNumber?: number; totalPieces?: number; customer?: string }) {
+    let nextSeq: number;
+    if (input.sequenceNumber && !isNaN(Number(input.sequenceNumber))) {
+      nextSeq = Number(input.sequenceNumber);
+    } else if (input.receiptNumber && !isNaN(Number(input.receiptNumber))) {
+      nextSeq = Number(input.receiptNumber);
+    } else {
+      nextSeq = await this.repo.getNextSequenceNumber();
+    }
+
+    const receiptNumber = input.receiptNumber || String(nextSeq);
 
     let packages = input.packages ?? [];
     if (packages.length === 0) {
@@ -58,7 +70,9 @@ export class WarehouseService {
       totalCbm += Number(pkg.cbm) || 0;
     }
 
-    const totalWeightKg = convertLbsToKg(totalWeightLbs);
+    if (totalPieces === 0 && input.totalPieces) {
+      totalPieces = Number(input.totalPieces);
+    }
 
     const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
     const validCustomerId = input.customerId && UUID_REGEX.test(input.customerId) ? input.customerId : null;
@@ -79,8 +93,8 @@ export class WarehouseService {
       destinationCode: input.destinationCode,
       cargoDescription: input.cargoDescription,
       packageCount: packages.length,
-      totalPieces,
-      packageType: input.packageType || packages[0]?.packageType || 'Cartons',
+      totalPieces: totalPieces || 1,
+      packageType: input.packageType || (packages[0]?.packageType as string) || 'Carton',
       packages,
       lengthInches: input.lengthInches ? String(input.lengthInches) : null,
       widthInches: input.widthInches ? String(input.widthInches) : null,
@@ -89,15 +103,46 @@ export class WarehouseService {
       weightKg: String(totalWeightKg),
       totalCft: String(totalCft.toFixed(2)),
       totalCbm: String(totalCbm.toFixed(2)),
-      warehouseLocation: input.warehouseLocation || 'CFS Miami',
+      warehouseLocation: input.warehouseLocation || 'Bay A-1 (CFS Staging)',
       status: input.status || 'Ready for Consolidation',
       hazardous: input.hazardous ?? false,
       fragile: input.fragile ?? false,
-      notes: input.notes,
+      notes: input.notes || '',
       barcode: `WR${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      qrCode: `VI-${receiptNumber}-${input.destinationCode}-${totalPieces}PK`,
+      qrCode: `VI-${receiptNumber}-${destCode}-${totalPieces}PK`,
     });
+
+    // Also populate cargo inventory table
+    await db
+      .insert(cargo)
+      .values({
+        cargoNumber: `CRG-${receiptNumber}-01`,
+        warehouseReceiptId: created.id,
+        receiptNumber: created.receiptNumber,
+        customer: created.customerName,
+        description: created.cargoDescription || (packages[0]?.description as string) || 'General Cargo',
+        packageCount: created.packageCount,
+        totalPieces: created.totalPieces,
+        packageType: created.packageType,
+        lengthInches: created.lengthInches,
+        widthInches: created.widthInches,
+        heightInches: created.heightInches,
+        weightLbs: created.weightLbs,
+        weightKg: created.weightKg,
+        cft: created.totalCft,
+        cbm: created.totalCbm,
+        warehouseLocation: created.warehouseLocation,
+        destinationPort: created.destinationPort,
+        destinationCode: created.destinationCode,
+        status: created.status,
+        barcode: `CRG${Math.floor(10000000 + Math.random() * 90000000)}`,
+        qrCode: `VI-CRG-${created.receiptNumber}`,
+      })
+      .catch(() => {});
+
+    return created;
   }
+
 
   async updateReceipt(id: string, input: UpdateWarehouseReceiptInput) {
     await this.getReceipt(id);

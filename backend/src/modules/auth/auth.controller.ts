@@ -35,6 +35,10 @@ export class AuthController {
     const user = await this.service.getMe(currentUserId);
     reply.send(successResponse(user));
   };
+
+  logout = async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    reply.send(successResponse({ loggedOut: true }, 'Logout successful'));
+  };
 }
 
 export const authController = new AuthController();

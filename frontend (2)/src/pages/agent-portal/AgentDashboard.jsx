@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatCard } from '../../components/common/StatCard';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -14,17 +14,70 @@ import {
   Clock,
   CheckCircle2,
   Lock,
-  Package
+  Package,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
-import { useAppData } from '../../context/AppDataContext';
+import { agentPortalService } from '../../services/agentPortalService';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 export const AgentDashboard = ({ onNavigate }) => {
-  const { shipments, billsOfLading } = useAppData();
+  const { currentUser } = useAuth();
+  const { showToast } = useToast();
 
-  // Agent assigned shipments (for AGT-001 Caribbean Express Freight)
-  const agentShipments = shipments.filter(s => s.agentId === 'AGT-001' || s.destinationCode === 'NAS');
-  const agentBLs = billsOfLading.filter(b => b.agentId === 'AGT-001' || b.portOfDischarge?.includes('Nassau'));
-  const holdBLs = agentBLs.filter(b => b.status === 'On Hold' || b.holdDetails?.isOnHold);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const [shipments, setShipments] = useState([]);
+  const [billsOfLading, setBillsOfLading] = useState([]);
+  const [manifests, setManifests] = useState([]);
+  const [holdBLs, setHoldBLs] = useState([]);
+  const [stats, setStats] = useState({
+    assignedCount: 0,
+    holdCount: 0,
+    documentsCount: 0,
+    totalCbm: '0.0',
+    totalPackages: 0,
+  });
+
+  const loadData = useCallback(async (isSilent = false) => {
+    if (!isSilent) setIsLoading(true);
+    else setIsRefreshing(true);
+    setError(null);
+
+    try {
+      const data = await agentPortalService.getDashboardData();
+      setShipments(data.shipments);
+      setBillsOfLading(data.billsOfLading);
+      setManifests(data.manifests);
+      setHoldBLs(data.holdBLs);
+      setStats(data.stats);
+    } catch (err) {
+      console.error('Failed to load agent dashboard data from API:', err);
+      setError(err.message || 'Failed to fetch live agent data from backend');
+      showToast(err.message || 'Error loading dashboard from server', 'danger', 'API Error');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: '400px', alignItems: 'center', justifyContent: 'center' }}>
+        <Loader2 size={36} className="animate-spin" style={{ color: '#0284C7' }} />
+        <div style={{ color: '#64748B', fontSize: '0.9rem', fontWeight: 600 }}>
+          Connecting to PostgreSQL Backend &amp; Loading Inbound Consignments...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -32,14 +85,48 @@ export const AgentDashboard = ({ onNavigate }) => {
         title="Agent Portal Dashboard"
         subtitle="Caribbean Express Freight Ltd. (Nassau Port Hub) — Manage assigned cargo, clearance documents, and vessel arrivals."
         icon={Shield}
+        actions={
+          <button
+            onClick={() => loadData(true)}
+            className="btn btn-outline btn-sm"
+            disabled={isRefreshing}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+            <span>{isRefreshing ? 'Syncing...' : 'Sync Live DB'}</span>
+          </button>
+        }
       />
+
+      {/* Error Alert if API failed */}
+      {error && (
+        <div style={{
+          background: '#FEF2F2',
+          border: '1px solid #FECACA',
+          borderRadius: '8px',
+          padding: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          color: '#991B1B',
+          fontSize: '0.85rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={18} />
+            <span><strong>Connection Issue:</strong> {error}</span>
+          </div>
+          <button onClick={() => loadData()} className="btn btn-sm btn-danger" style={{ padding: '0.25rem 0.6rem' }}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Prominent Hold Warning Banner for Agent */}
       {holdBLs.length > 0 && (
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {holdBLs.map(bl => (
             <HoldAlertBanner
-              key={bl.id}
+              key={bl.id || bl.blNumber}
               blNumber={bl.blNumber}
               holdDetails={bl.holdDetails}
               variant="danger"
@@ -52,7 +139,7 @@ export const AgentDashboard = ({ onNavigate }) => {
       <div className="grid grid-cols-4 gap-4">
         <StatCard
           title="Assigned Shipments"
-          value={agentShipments.length}
+          value={stats.assignedCount}
           subtitle="Nassau Port destination"
           icon={Ship}
           accent="navy"
@@ -62,17 +149,17 @@ export const AgentDashboard = ({ onNavigate }) => {
         />
         <StatCard
           title="B/L On Hold (Locked)"
-          value={holdBLs.length}
-          subtitle={holdBLs.length > 0 ? "Document release restricted" : "No holds"}
+          value={stats.holdCount}
+          subtitle={stats.holdCount > 0 ? "Document release restricted" : "No holds"}
           icon={AlertTriangle}
           accent="warning"
-          trend={holdBLs.length > 0 ? "Hold Active" : "Clear"}
-          trendType={holdBLs.length > 0 ? "down" : "up"}
+          trend={stats.holdCount > 0 ? "Hold Active" : "Clear"}
+          trendType={stats.holdCount > 0 ? "down" : "up"}
           onClick={() => onNavigate('agent-documents')}
         />
         <StatCard
           title="Documents Ready"
-          value={agentBLs.length}
+          value={stats.documentsCount}
           subtitle="Bills of Lading & Manifests"
           icon={FileStack}
           accent="cyan"
@@ -82,11 +169,11 @@ export const AgentDashboard = ({ onNavigate }) => {
         />
         <StatCard
           title="Inbound Volume"
-          value={`${agentShipments.reduce((sum, s) => sum + (Number(s.totalCbm) || 0), 0).toFixed(1)} CBM`}
-          subtitle={`${agentShipments.reduce((sum, s) => sum + (Number(s.totalPackages) || 0), 0)} packages scheduled`}
+          value={`${stats.totalCbm} CBM`}
+          subtitle={`${stats.totalPackages} packages scheduled`}
           icon={Package}
           accent="gold"
-          trend={agentShipments.length > 0 ? "Active Inbound" : "No Cargo"}
+          trend={stats.assignedCount > 0 ? "Active Inbound" : "No Cargo"}
           trendType="neutral"
           onClick={() => onNavigate('agent-shipments')}
         />
@@ -126,36 +213,36 @@ export const AgentDashboard = ({ onNavigate }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {agentShipments.length === 0 ? (
+                    {shipments.length === 0 ? (
                       <tr>
                         <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#64748B' }}>
-                          No inbound assigned shipments found.
+                          No inbound assigned shipments found in database.
                         </td>
                       </tr>
                     ) : (
-                      agentShipments.map(s => (
-                        <tr key={s.id}>
+                      shipments.map(s => (
+                        <tr key={s.id || s.shipmentNumber}>
                           <td>
                             <strong style={{ fontFamily: 'JetBrains Mono, monospace', color: '#0A192F' }}>{s.shipmentNumber}</strong>
                             <div style={{ fontSize: '0.72rem', color: '#64748B' }}>Trk: {s.trackingNumber}</div>
                           </td>
                           <td>
                             <div style={{ fontWeight: 600 }}>{s.vesselName}</div>
-                            <div style={{ fontSize: '0.72rem', color: '#64748B' }}>{s.voyageNumber}</div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748B' }}>{s.voyageNumber} • {s.carrier}</div>
                           </td>
                           <td>
                             <strong>{s.totalCbm} CBM</strong>
-                            <div style={{ fontSize: '0.72rem', color: '#64748B' }}>{s.totalPackages} pkgs</div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748B' }}>{s.totalPackages} pkgs ({Number(s.totalWeightLbs || 0).toLocaleString()} lbs)</div>
                           </td>
                           <td>
                             <strong style={{ color: '#0284C7' }}>{s.eta}</strong>
                           </td>
                           <td>
-                            <StatusBadge status={s.blStatus} />
+                            <StatusBadge status={s.blStatus || 'Released'} />
                           </td>
                           <td>
                             <button
-                              onClick={() => onNavigate('agent-bl-detail', s.billOfLadingId || s.id)}
+                              onClick={() => onNavigate('agent-bl-detail', s.billOfLadingNumber || s.billOfLadingId || s.id)}
                               className="btn btn-sm btn-outline"
                               style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
                             >

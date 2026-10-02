@@ -1,6 +1,9 @@
 import { HouseBillsRepository, houseBillsRepository } from './house-bills.repository.js';
 import { HouseBillFilterParams, CreateHouseBillInput } from './house-bills.types.js';
 import { NotFoundError } from '../../common/errors/not-found-error.js';
+import { db } from '../../db/index.js';
+import { customers } from '../../db/schema/index.js';
+import { eq, or } from 'drizzle-orm';
 
 export class HouseBillsService {
   constructor(private readonly repo: HouseBillsRepository = houseBillsRepository) {}
@@ -21,10 +24,28 @@ export class HouseBillsService {
     const hblNumber = `HBL-2026-${seq}`;
     const createdDate = new Date().toISOString().split('T')[0];
 
+    let resolvedCustomerId: string | undefined = undefined;
+    if (input.customerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.customerId)) {
+      resolvedCustomerId = input.customerId;
+    } else {
+      const match = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(
+          or(
+            input.customerId ? eq(customers.customerNumber, input.customerId) : undefined,
+            eq(customers.name, input.customerName)
+          )
+        )
+        .limit(1);
+      if (match.length > 0) resolvedCustomerId = match[0].id;
+    }
+
     return this.repo.create({
       hblNumber,
-      customerId: input.customerId,
+      customerId: resolvedCustomerId,
       customerName: input.customerName,
+
       shipper: input.shipper,
       consignee: input.consignee,
       notifyParty: input.notifyParty,
@@ -46,9 +67,45 @@ export class HouseBillsService {
       freightTerms: input.freightTerms || 'Freight Prepaid',
       createdDate,
       issueDate: createdDate,
-      notes: input.notes,
+      });
+  }
+
+  async updateHouseBill(idOrHblNumber: string, input: any) {
+
+    await this.getHouseBill(idOrHblNumber);
+    return this.repo.update(idOrHblNumber, input);
+  }
+
+  async deleteHouseBill(idOrHblNumber: string) {
+    await this.getHouseBill(idOrHblNumber);
+    return this.repo.delete(idOrHblNumber);
+  }
+
+  async placeHold(
+    idOrHblNumber: string,
+    params: {
+      reason: string;
+      placedBy: string;
+      holdNotes?: string;
+      holdCategory?: string;
+    }
+  ) {
+    await this.getHouseBill(idOrHblNumber);
+    return this.repo.update(idOrHblNumber, {
+      status: 'On Hold',
+      notes: params.holdNotes
+        ? `HOLD: ${params.reason} - ${params.holdNotes}`
+        : `HOLD: ${params.reason}`,
+    });
+  }
+
+  async releaseHold(idOrHblNumber: string) {
+    await this.getHouseBill(idOrHblNumber);
+    return this.repo.update(idOrHblNumber, {
+      status: 'Active',
     });
   }
 }
 
 export const houseBillsService = new HouseBillsService();
+
