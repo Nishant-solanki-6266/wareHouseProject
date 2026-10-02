@@ -107,6 +107,7 @@ export const AppDataProvider = ({ children }) => {
   // 1. Customers CRUD
   const createCustomer = async (customerData) => {
     const created = await customerService.createCustomer(customerData, currentUser?.name || "Warehouse Staff");
+    setCustomers(getStored(KEYS.CUSTOMERS));
     refreshAll();
     showToast(`Customer Profile ${created.customerNumber} (${created.name}) created successfully.`, 'success', 'Customer Created');
     return created;
@@ -114,6 +115,7 @@ export const AppDataProvider = ({ children }) => {
 
   const updateCustomer = async (id, updates) => {
     const updated = await customerService.updateCustomer(id, updates, currentUser?.name || "Warehouse Staff");
+    setCustomers(getStored(KEYS.CUSTOMERS));
     refreshAll();
     showToast(`Customer Profile ${id} updated successfully.`, 'success', 'Customer Updated');
     return updated;
@@ -122,6 +124,7 @@ export const AppDataProvider = ({ children }) => {
   const deleteCustomer = async (id) => {
     const success = await customerService.deleteCustomer(id, currentUser?.name || "Super Admin");
     if (success) {
+      setCustomers(getStored(KEYS.CUSTOMERS));
       refreshAll();
       showToast(`Customer Profile ${id} deleted successfully.`, 'info', 'Customer Deleted');
     }
@@ -509,6 +512,7 @@ export const AppDataProvider = ({ children }) => {
     setStored(KEYS.SETTINGS, newSettings);
     setSettings(newSettings);
     await settingsService.updateAllSettings(newSettings);
+    refreshAll();
     showToast(`System settings updated successfully.`, 'success', 'Settings Saved');
   };
 

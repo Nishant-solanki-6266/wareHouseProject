@@ -10,11 +10,13 @@ export const portService = {
         const ports = Array.isArray(res.data) ? res.data : (res.data.items || res.data.ports || []);
         if (ports.length > 0) {
           // Normalize code property so both code and portCode are accessible
-          return ports.map(p => ({
+          const mapped = ports.map(p => ({
             ...p,
             code: p.code || p.portCode,
             portCode: p.portCode || p.code,
           }));
+          setStored(KEYS.PORTS, mapped);
+          return mapped;
         }
       }
     } catch (e) {
@@ -56,20 +58,23 @@ export const portService = {
 
   async createPort(data, currentUser = "Super Admin") {
     const code = (data.code || data.portCode || 'PRT').toUpperCase().trim();
+    let createdPort = null;
     try {
       const payload = {
         portCode: code,
         name: data.name || `${code} Commercial Port`,
         island: data.island || 'Island',
         country: data.country || 'Bahamas',
+        defaultAgent: data.defaultAgent || 'Local Port Agency',
         status: data.status || 'Active',
       };
       const res = await apiClient.post('ports', payload);
       if (res && res.data) {
-        return {
+        createdPort = {
           ...res.data,
           code: res.data.code || res.data.portCode,
           portCode: res.data.portCode || res.data.code,
+          defaultAgent: res.data.defaultAgent || data.defaultAgent || 'Local Port Agency'
         };
       }
     } catch (e) {
@@ -77,9 +82,9 @@ export const portService = {
     }
 
     const list = getStored(KEYS.PORTS);
-    const id = data.id || `PORT-${code}`;
+    const id = createdPort?.id || data.id || `PORT-${code}`;
 
-    const newPort = {
+    const newPort = createdPort || {
       ...data,
       id,
       code,
@@ -90,7 +95,7 @@ export const portService = {
       defaultAgent: data.defaultAgent || 'Local Port Agency'
     };
 
-    const updated = [...list, newPort];
+    const updated = [...list.filter(p => p.code !== newPort.code && p.id !== newPort.id), newPort];
     setStored(KEYS.PORTS, updated);
 
     await auditService.logAction(
@@ -105,6 +110,7 @@ export const portService = {
   },
 
   async updatePort(id, updates, currentUser = "Super Admin") {
+    let updatedPort = null;
     try {
       const payload = {
         name: updates.name,
@@ -114,7 +120,7 @@ export const portService = {
       };
       const res = await apiClient.patch(`ports/${id}`, payload);
       if (res && res.data) {
-        return {
+        updatedPort = {
           ...res.data,
           code: res.data.code || res.data.portCode,
           portCode: res.data.portCode || res.data.code,
@@ -127,7 +133,7 @@ export const portService = {
     const list = getStored(KEYS.PORTS);
     const index = list.findIndex(item => item.id === id || item.code === id);
     if (index !== -1) {
-      list[index] = {
+      list[index] = updatedPort || {
         ...list[index],
         ...updates
       };
@@ -143,13 +149,12 @@ export const portService = {
 
       return list[index];
     }
-    return null;
+    return updatedPort;
   },
 
   async deletePort(id, currentUser = "Super Admin") {
     try {
       await apiClient.delete(`ports/${id}`);
-      return true;
     } catch (e) {
       console.warn('[portService] API delete port failed, using local storage:', e.message);
     }

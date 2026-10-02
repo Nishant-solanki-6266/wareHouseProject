@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Settings, Save, RotateCcw, Building, FileText, Printer, Anchor, Plus, Edit2, Trash2, ShieldAlert, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
@@ -52,6 +52,18 @@ export const SettingsPage = () => {
       defaultCurrency: "USD ($)"
     }
   });
+
+  useEffect(() => {
+    if (settings && Object.keys(settings).length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        companyProfile: { ...prev.companyProfile, ...(settings.companyProfile || {}) },
+        numberingRules: { ...prev.numberingRules, ...(settings.numberingRules || {}) },
+        labelSettings: { ...prev.labelSettings, ...(settings.labelSettings || {}) },
+        unitsAndCurrencies: { ...prev.unitsAndCurrencies, ...(settings.unitsAndCurrencies || {}) }
+      }));
+    }
+  }, [settings]);
 
   const handleSave = (e) => {
     e.preventDefault();

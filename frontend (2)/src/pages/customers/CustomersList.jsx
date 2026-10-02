@@ -196,7 +196,10 @@ export const CustomersList = ({ onNavigate }) => {
         customer={editingCustomer}
         onClose={() => setEditingCustomer(null)}
         onSave={async (updates) => {
-          await updateCustomer(editingCustomer.id, updates);
+          if (editingCustomer) {
+            await updateCustomer(editingCustomer.id, updates);
+            setEditingCustomer(null);
+          }
         }}
       />
 
@@ -207,7 +210,10 @@ export const CustomersList = ({ onNavigate }) => {
         itemName={deletingCustomer?.name}
         itemType="Customer Profile"
         onConfirm={async () => {
-          await deleteCustomer(deletingCustomer.id);
+          if (deletingCustomer) {
+            await deleteCustomer(deletingCustomer.id);
+            setDeletingCustomer(null);
+          }
         }}
       />
     </div>

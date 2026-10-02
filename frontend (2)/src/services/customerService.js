@@ -14,15 +14,13 @@ export const customerService = {
 
       if (res && res.data) {
         const customers = Array.isArray(res.data) ? res.data : (res.data.items || res.data.customers || []);
-        if (customers.length > 0) {
-          const mapped = customers.map(c => ({
-            ...c,
-            customerNumber: c.customerNumber || c.id,
-            telephone: c.telephone || c.phone || '',
-          }));
-          setStored(KEYS.CUSTOMERS, mapped);
-          return mapped;
-        }
+        const mapped = customers.map(c => ({
+          ...c,
+          customerNumber: c.customerNumber || c.id,
+          telephone: c.telephone || c.phone || '',
+        }));
+        setStored(KEYS.CUSTOMERS, mapped);
+        return mapped;
       }
 
     } catch (e) {
@@ -71,6 +69,7 @@ export const customerService = {
   },
 
   async createCustomer(data, currentUser = "Warehouse Staff") {
+    let createdItem = null;
     try {
       const payload = {
         name: data.name || data.companyName || "New Customer",
@@ -89,9 +88,10 @@ export const customerService = {
       };
       const res = await apiClient.post('customers', payload);
       if (res && res.data) {
-        return {
+        createdItem = {
           ...res.data,
           customerNumber: res.data.customerNumber || res.data.id,
+          telephone: res.data.telephone || res.data.phone || payload.telephone || '',
         };
       }
     } catch (e) {
@@ -99,6 +99,21 @@ export const customerService = {
     }
 
     const list = getStored(KEYS.CUSTOMERS);
+    if (createdItem) {
+      const updated = [createdItem, ...list.filter(item => item.id !== createdItem.id && item.customerNumber !== createdItem.customerNumber)];
+      setStored(KEYS.CUSTOMERS, updated);
+
+      await auditService.logAction(
+        currentUser,
+        "Customer",
+        "Created Customer Profile",
+        createdItem.id || createdItem.customerNumber,
+        `Created Customer Profile ${createdItem.customerNumber} for ${createdItem.name}.`
+      );
+
+      return createdItem;
+    }
+
     const nextSeq = list.length + 1;
     const id = `CUS-2026-${String(nextSeq).padStart(4, '0')}`;
 
@@ -138,12 +153,34 @@ export const customerService = {
   },
 
   async updateCustomer(id, updates, currentUser = "Warehouse Staff") {
+    let apiUpdated = null;
     try {
-      const res = await apiClient.patch(`customers/${id}`, updates);
+      const payload = {
+        name: updates.name || updates.companyName,
+        companyName: updates.companyName || updates.name,
+        contactPerson: updates.contactPerson,
+        email: updates.email,
+        telephone: updates.telephone || updates.phone,
+        phone: updates.telephone || updates.phone,
+        address: updates.address,
+        destinationPort: updates.destinationPort,
+        destinationCode: updates.destinationCode || (updates.destinationPort ? updates.destinationPort.split(' - ')[0] : undefined),
+        taxId: updates.taxId,
+        accountType: updates.accountType,
+        creditTerms: updates.creditTerms,
+        notes: updates.notes,
+        status: updates.status,
+      };
+
+      // Clean undefined keys
+      Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+      const res = await apiClient.patch(`customers/${id}`, payload);
       if (res && res.data) {
-        return {
+        apiUpdated = {
           ...res.data,
           customerNumber: res.data.customerNumber || res.data.id,
+          telephone: res.data.telephone || res.data.phone || updates.telephone || '',
         };
       }
     } catch (e) {
@@ -153,10 +190,12 @@ export const customerService = {
     const list = getStored(KEYS.CUSTOMERS);
     const index = list.findIndex(item => item.id === id || item.customerNumber === id);
     if (index !== -1) {
-      list[index] = {
+      const merged = {
         ...list[index],
-        ...updates
+        ...updates,
+        ...(apiUpdated || {})
       };
+      list[index] = merged;
       setStored(KEYS.CUSTOMERS, list);
 
       await auditService.logAction(
@@ -164,10 +203,14 @@ export const customerService = {
         "Customer",
         "Updated Customer Profile",
         id,
-        `Updated customer profile for ${list[index].name} (${id}).`
+        `Updated customer profile for ${merged.name} (${id}).`
       );
 
-      return list[index];
+      return merged;
+    } else if (apiUpdated) {
+      list.unshift(apiUpdated);
+      setStored(KEYS.CUSTOMERS, list);
+      return apiUpdated;
     }
     return null;
   },
@@ -175,15 +218,12 @@ export const customerService = {
   async deleteCustomer(id, currentUser = "Super Admin") {
     try {
       await apiClient.delete(`customers/${id}`);
-      return true;
     } catch (e) {
       console.warn('[customerService] API deleteCustomer failed, using fallback:', e.message);
     }
 
     const list = getStored(KEYS.CUSTOMERS);
     const existing = list.find(item => item.id === id || item.customerNumber === id);
-    if (!existing) return false;
-
     const filtered = list.filter(item => item.id !== id && item.customerNumber !== id);
     setStored(KEYS.CUSTOMERS, filtered);
 
@@ -192,7 +232,7 @@ export const customerService = {
       "Customer",
       "Deleted Customer Profile",
       id,
-      `Deleted customer profile ${existing.name} (${id}).`
+      `Deleted customer profile ${existing?.name || id} (${id}).`
     );
 
     return true;
