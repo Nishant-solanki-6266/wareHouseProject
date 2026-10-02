@@ -122,49 +122,16 @@ export const AuthProvider = ({ children }) => {
   }, [currentUser?.email]);
 
   const login = async (emailOrId, password = 'Password123!') => {
-    try {
-      let email = emailOrId;
-      if (!email.includes('@')) {
-        const allUsers = getStored(KEYS.USERS, initialUsers);
-        const match = allUsers.find(u => u.id === emailOrId);
-        if (match?.email) email = match.email;
-      }
-
-      const res = await apiClient.post('/auth/login', {
-        email: email,
-        password: password || 'Password123!',
-      });
-
-      if (res?.data?.token) {
-        apiClient.setToken(res.data.token);
-        const authedUser = res.data.user;
-        setCurrentUser(authedUser);
-        setIsAuthenticated(true);
-        localStorage.setItem('kers_is_authenticated', 'true');
-        return authedUser;
-      }
-    } catch (err) {
-      console.warn('Backend login fallback:', err.message);
-    }
-
-    const allUsers = getStored(KEYS.USERS, initialUsers);
-    let found = allUsers.find(u => u.id === emailOrId || u.email.toLowerCase() === emailOrId.toLowerCase());
-    if (!found) {
-      found = allUsers[0] || initialUsers[0];
-    }
-  };
-
-  const login = async (emailOrId, password = 'password123') => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
     let targetUser = allUsers.find(
-      u => u.id === emailOrId || u.email.toLowerCase() === String(emailOrId).toLowerCase()
+      u => u.id === emailOrId || u.email?.toLowerCase() === String(emailOrId).toLowerCase()
     );
 
-    const email = targetUser ? targetUser.email : emailOrId;
-    const pwd = password || 'password123';
+    const email = targetUser?.email || (String(emailOrId).includes('@') ? emailOrId : 'carlos.m@vicustoms.com');
+    const pwd = password || 'Password123!';
 
     try {
-      const res = await apiClient.post('auth/login', { email, password: pwd });
+      const res = await apiClient.post('/auth/login', { email, password: pwd });
       if (res && res.data && res.data.token) {
         persistToken(res.data.token);
         const loggedUser = res.data.user;
@@ -183,7 +150,9 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(fallbackUser);
     setIsAuthenticated(true);
     localStorage.setItem('kers_is_authenticated', 'true');
-    fetchJwtToken(fallbackUser);
+    if (typeof fetchJwtToken === 'function') {
+      fetchJwtToken(fallbackUser);
+    }
     return fallbackUser;
   };
 
