@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, integer, numeric, jsonb, timestamp } from 'drizzle-orm/pg-core';
-import { consolidations } from './consolidations.schema';
-import { agents } from './agents.schema';
+import { consolidations } from './consolidations.schema.js';
+import { agents } from './agents.schema.js';
 
 export interface HoldDetails {
   isOnHold: boolean;

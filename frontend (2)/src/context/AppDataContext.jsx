@@ -69,18 +69,9 @@ export const AppDataProvider = ({ children }) => {
       const isLive = await apiClient.checkHealth();
       setIsBackendConnected(isLive);
       if (isLive) {
+        // Only fetch protected data if user is authenticated with a token
         if (!apiClient.getToken()) {
-          try {
-            const loginRes = await apiClient.post('/auth/login', {
-              email: currentUser?.email || 'elena.r@vicustoms.com',
-              password: 'Password123!',
-            });
-            if (loginRes?.data?.token) {
-              apiClient.setToken(loginRes.data.token);
-            }
-          } catch (loginErr) {
-            console.warn('Auto-token acquisition notice:', loginErr.message);
-          }
+          return;
         }
 
         const [
@@ -236,7 +227,7 @@ export const AppDataProvider = ({ children }) => {
 
   // ON-DEMAND API Fetcher: Triggers ONLY the API corresponding to the clicked menu
   const fetchMenuApi = useCallback(async (tabName) => {
-    if (!tabName) return;
+    if (!tabName || !apiClient.getToken()) return;
     setActiveMenuTab(tabName);
 
     try {
@@ -436,9 +427,11 @@ export const AppDataProvider = ({ children }) => {
   }, [currentRole]);
 
   useEffect(() => {
-    refreshAll();
-    // Fetch initial active menu API on mount
-    fetchMenuApi(activeMenuTab);
+    if (apiClient.getToken()) {
+      refreshAll();
+      // Fetch initial active menu API on mount
+      fetchMenuApi(activeMenuTab);
+    }
   }, []);
 
   // 1. Customers CRUD

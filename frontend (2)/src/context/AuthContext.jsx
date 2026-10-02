@@ -29,14 +29,24 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const [currentUser, setCurrentUser] = useState(() => {
+    const isAuth = localStorage.getItem('kers_is_authenticated') === 'true';
+    const token = localStorage.getItem('kers_token') || localStorage.getItem('kers_jwt_token');
     const saved = localStorage.getItem('kers_active_user');
-    return saved ? JSON.parse(saved) : (getStored(KEYS.USERS, initialUsers)[0] || initialUsers[0]);
+    if (isAuth && token && saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return null;
+      }
+    }
+    return null;
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const hasToken = !!localStorage.getItem('kers_token') || !!localStorage.getItem('kers_jwt_token');
-    const wasAuth = localStorage.getItem('kers_is_authenticated') === 'true';
-    return hasToken || wasAuth;
+    const isAuth = localStorage.getItem('kers_is_authenticated') === 'true';
+    const token = localStorage.getItem('kers_token') || localStorage.getItem('kers_jwt_token');
+    const saved = localStorage.getItem('kers_active_user');
+    return !!(isAuth && token && saved);
   });
 
   const persistToken = (token) => {
@@ -53,27 +63,34 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Validate server session on initial mount
+  // Validate server session on initial mount if token exists
   useEffect(() => {
     const checkServerSession = async () => {
-      const token = apiClient.getToken() || localStorage.getItem('kers_token') || localStorage.getItem('kers_jwt_token');
-      if (!token) return;
+      const token = localStorage.getItem('kers_token') || localStorage.getItem('kers_jwt_token');
+      if (!token) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        return;
+      }
 
       persistToken(token);
 
       try {
-        const res = await apiClient.get('auth/me');
+        const res = await apiClient.get('/auth/me');
         if (res && res.data) {
-          setCurrentUser(res.data);
+          const user = res.data.user || res.data;
+          setCurrentUser(user);
           setIsAuthenticated(true);
-          localStorage.setItem('kers_active_user', JSON.stringify(res.data));
+          localStorage.setItem('kers_active_user', JSON.stringify(user));
           localStorage.setItem('kers_is_authenticated', 'true');
         }
       } catch (err) {
-        if (err.status === 401) {
+        if (err?.status === 401 || err?.response?.status === 401) {
           console.warn('[AuthContext] Stored token is invalid or expired. Resetting session.');
           persistToken(null);
           localStorage.removeItem('kers_is_authenticated');
+          localStorage.removeItem('kers_active_user');
+          setCurrentUser(null);
           setIsAuthenticated(false);
         }
       }
@@ -87,48 +104,6 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('kers_active_user', JSON.stringify(currentUser));
     }
   }, [currentUser]);
-
-  // Validate or initialize backend token on mount
-  useEffect(() => {
-    const initAuth = async () => {
-      const token = apiClient.getToken();
-      if (token) {
-        try {
-          const res = await apiClient.get('/auth/me');
-          if (res?.data?.user) {
-            setCurrentUser(res.data.user);
-            setIsAuthenticated(true);
-            return;
-          }
-        } catch {
-          // Token expired or invalid
-        }
-      }
-
-      // Auto-authenticate with backend in dev if needed
-      try {
-        let loginRes;
-        try {
-          loginRes = await apiClient.post('/auth/login', {
-            email: currentUser?.email || 'carlos.m@vicustoms.com',
-            password: 'password123',
-          });
-        } catch {
-          loginRes = await apiClient.post('/auth/login', {
-            email: currentUser?.email || 'carlos.m@vicustoms.com',
-            password: 'Password123!',
-          });
-        }
-        if (loginRes?.data?.token) {
-          apiClient.setToken(loginRes.data.token);
-        }
-      } catch (err) {
-        console.warn('Backend auto-login notice:', err.message);
-      }
-    };
-
-    initAuth();
-  }, [currentUser?.email]);
 
   const login = async (emailOrId, password = 'password123') => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
@@ -147,8 +122,8 @@ export const AuthProvider = ({ children }) => {
         res = await apiClient.post('/auth/login', { email, password: 'Password123!' });
       }
       if (res && res.data && res.data.token) {
-        apiClient.setToken(res.data.token);
-        const loggedUser = res.data.user;
+        persistToken(res.data.token);
+        const loggedUser = res.data.user || targetUser;
         setCurrentUser(loggedUser);
         setIsAuthenticated(true);
         localStorage.setItem('kers_is_authenticated', 'true');
@@ -161,9 +136,11 @@ export const AuthProvider = ({ children }) => {
 
     // Local fallback for offline/demo resilience
     const fallbackUser = targetUser || allUsers[0] || initialUsers[0];
+    persistToken('local-session-active');
     setCurrentUser(fallbackUser);
     setIsAuthenticated(true);
     localStorage.setItem('kers_is_authenticated', 'true');
+    localStorage.setItem('kers_active_user', JSON.stringify(fallbackUser));
     return fallbackUser;
   };
 
@@ -173,19 +150,21 @@ export const AuthProvider = ({ children }) => {
     } catch {
       // Ignored
     }
-    apiClient.setToken(null);
+    persistToken(null);
     localStorage.removeItem('kers_is_authenticated');
+    localStorage.removeItem('kers_active_user');
+    setCurrentUser(null);
     setIsAuthenticated(false);
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+    if (typeof window !== 'undefined') {
       window.history.replaceState(null, '', '/login');
     }
   };
 
   const switchUser = async (userId) => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
-    const found = allUsers.find(u => u.id === userId);
+    const found = allUsers.find(u => u.id === userId || u.userCode === userId || u.roleKey === userId);
     if (found) {
-      await login(found.email, 'Password123!');
+      await login(found.email, 'password123');
     }
   };
 

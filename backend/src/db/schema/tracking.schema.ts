@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, integer, timestamp } from 'drizzle-orm/pg-core';
-import { shipments } from './shipments.schema';
+import { shipments } from './shipments.schema.js';
 
 export const trackingEvents = pgTable('tracking_events', {
   id: uuid('id').defaultRandom().primaryKey(),

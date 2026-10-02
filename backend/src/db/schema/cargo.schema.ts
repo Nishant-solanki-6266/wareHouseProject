@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, integer, numeric, timestamp } from 'drizzle-orm/pg-core';
-import { warehouseReceipts } from './warehouse-receipts.schema';
+import { warehouseReceipts } from './warehouse-receipts.schema.js';
 
 export const cargo = pgTable('cargo', {
   id: uuid('id').defaultRandom().primaryKey(),
