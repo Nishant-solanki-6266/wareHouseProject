@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { initialUsers, initialRolesPermissions } from '../data/mock/usersData';
-import { getStored, setStored, KEYS, initializeStorage } from '../services/storageService';
+import { getStored, KEYS, initializeStorage } from '../services/storageService';
+import { apiClient } from '../services/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -10,7 +11,19 @@ export const AuthProvider = ({ children }) => {
     return getStored(KEYS.USERS, initialUsers);
   });
 
-  const syncUsers = useCallback(() => {
+  const syncUsers = useCallback(async () => {
+    try {
+      const res = await apiClient.get('users');
+      if (res && res.data) {
+        const backendUsers = Array.isArray(res.data) ? res.data : (res.data.items || res.data.users || []);
+        if (backendUsers.length > 0) {
+          setUsersList(backendUsers);
+          return;
+        }
+      }
+    } catch {
+      // Fallback to storage or initial
+    }
     setUsersList(getStored(KEYS.USERS, initialUsers));
   }, []);
 
@@ -19,42 +32,100 @@ export const AuthProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : (getStored(KEYS.USERS, initialUsers)[0] || initialUsers[0]);
   });
 
-  // Persist authentication so refreshing a route keeps the user session
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('kers_is_authenticated') === 'true';
+    const hasToken = !!localStorage.getItem('kers_token');
+    const wasAuth = localStorage.getItem('kers_is_authenticated') === 'true';
+    return hasToken || wasAuth;
   });
 
+  // Validate server session on initial mount
   useEffect(() => {
-    localStorage.setItem('kers_active_user', JSON.stringify(currentUser));
+    const checkServerSession = async () => {
+      const token = apiClient.getToken();
+      if (!token) return;
+
+      try {
+        const res = await apiClient.get('auth/me');
+        if (res && res.data) {
+          setCurrentUser(res.data);
+          setIsAuthenticated(true);
+          localStorage.setItem('kers_active_user', JSON.stringify(res.data));
+          localStorage.setItem('kers_is_authenticated', 'true');
+        }
+      } catch (err) {
+        if (err.status === 401) {
+          console.warn('[AuthContext] Stored token is invalid or expired. Resetting session.');
+          apiClient.setToken(null);
+          localStorage.removeItem('kers_is_authenticated');
+          setIsAuthenticated(false);
+        }
+      }
+    };
+
+    checkServerSession();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('kers_active_user', JSON.stringify(currentUser));
+    }
   }, [currentUser]);
 
-  const login = (emailOrId, password = '') => {
+  const login = async (emailOrId, password = 'password123') => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
-    let found = allUsers.find(u => u.id === emailOrId || u.email.toLowerCase() === emailOrId.toLowerCase());
-    if (!found) {
-      found = allUsers[0] || initialUsers[0];
+    let targetUser = allUsers.find(
+      u => u.id === emailOrId || u.email.toLowerCase() === String(emailOrId).toLowerCase()
+    );
+
+    const email = targetUser ? targetUser.email : emailOrId;
+    const pwd = password || 'password123';
+
+    try {
+      const res = await apiClient.post('auth/login', { email, password: pwd });
+      if (res && res.data && res.data.token) {
+        apiClient.setToken(res.data.token);
+        const loggedUser = res.data.user;
+        setCurrentUser(loggedUser);
+        setIsAuthenticated(true);
+        localStorage.setItem('kers_is_authenticated', 'true');
+        localStorage.setItem('kers_active_user', JSON.stringify(loggedUser));
+        return loggedUser;
+      }
+    } catch (err) {
+      console.warn('[AuthContext] Backend login call failed, falling back to local session:', err.message);
     }
-    setCurrentUser(found);
+
+    // Local fallback for offline/demo resilience
+    const fallbackUser = targetUser || allUsers[0] || initialUsers[0];
+    setCurrentUser(fallbackUser);
     setIsAuthenticated(true);
     localStorage.setItem('kers_is_authenticated', 'true');
-    return found;
+    return fallbackUser;
   };
 
-  const logout = () => {
-    localStorage.removeItem('kers_is_authenticated');
-    setIsAuthenticated(false);
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-      window.history.replaceState(null, '', '/login');
+  const logout = async () => {
+    try {
+      if (apiClient.getToken()) {
+        await apiClient.post('auth/logout');
+      }
+    } catch (err) {
+      console.warn('[AuthContext] Server logout warning:', err.message);
+    } finally {
+      apiClient.setToken(null);
+      localStorage.removeItem('kers_is_authenticated');
+      localStorage.removeItem('kers_active_user');
+      setIsAuthenticated(false);
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.history.replaceState(null, '', '/login');
+      }
     }
   };
 
-  const switchUser = (userId) => {
+  const switchUser = async (userId) => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
     const found = allUsers.find(u => u.id === userId);
     if (found) {
-      setCurrentUser(found);
-      setIsAuthenticated(true);
-      localStorage.setItem('kers_is_authenticated', 'true');
+      await login(found.email, 'password123');
     }
   };
 
@@ -70,6 +141,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasPermission = (module, action) => {
+    if (isSuperAdmin) return true;
     const permissions = getRolePermissions();
     if (!permissions || !permissions[module]) return false;
     return !!permissions[module][action];

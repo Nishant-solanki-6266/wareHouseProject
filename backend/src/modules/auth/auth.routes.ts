@@ -8,4 +8,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   // Protected route: Get Current User Profile
   app.get('/me', { preHandler: [authenticate] }, authController.me);
+
+  // Protected route: Logout
+  app.post('/logout', { preHandler: [authenticate] }, authController.logout);
 }

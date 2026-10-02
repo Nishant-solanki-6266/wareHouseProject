@@ -23,6 +23,12 @@ export class AgentsService {
     await this.getAgent(idOrCode);
     return this.repo.update(idOrCode, input);
   }
+
+  async deleteAgent(idOrCode: string) {
+    await this.getAgent(idOrCode);
+    return this.repo.delete(idOrCode);
+  }
 }
+
 
 export const agentsService = new AgentsService();

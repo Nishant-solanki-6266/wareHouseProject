@@ -1,178 +1,282 @@
-Aapke charon (4) logins ke exact menu aur screenshots ke hisab se **sabse perfect step-by-step testing workflow** yeh hai:
+# 🚢 KERS / VI CUSTOMS & LOGISTICS — MASTER E2E WORKFLOW MANUAL
+> **Authoritative System Workflow & Testing Guide**  
+> *Last Updated & Code-Synchronized: October 2026*  
+> *Target System: Freight Forwarding, Cargo Consolidation & Port Clearance*
 
 ---
 
-# 🏆 MASTER SHIPPING WORKFLOW (Login by Login)
+## 🏛️ System Architecture Overview: 5-Stage Persona Flow
+
+The application implements a strict **5-Role Enterprise Separation of Concerns**:
 
 ```text
-STEP 1: CARLOS MENDEZ (Warehouse Staff) 
-   👉 Customer check/create karega 
-   👉 Warehouse Receipt (WR) banayega (Packages + Live CFT/CBM Math)
-   👉 4x6 Thermal Label print karega
-          ↓
-STEP 2: SARAH JENKINS (Documentation Staff)
-   👉 Carlos ke banaye WRs ko select karke House B/L (HBL) issue karegi
-   👉 Ocean Manifest check karegi
-          ↓
-STEP 3: MARCUS VANCE (Super Admin / Operations HQ)
-   👉 House B/Ls ko select karke Consolidation (Container Packing) karega
-   👉 Master B/L (MBL) aur Master Shipment generate karega
-   👉 Master B/L par Hold / Release govern karega
-          ↓
-STEP 4: CARIBBEAN EXPRESS (Destination Port Agent)
-   👉 Nassau Port par container receive karega
-   👉 Released Master B/L aur cargo documents check/download karega
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 1: CARLOS MENDEZ (Warehouse Staff / CFS Intake)                            │
+│   • Customer Profiles lookup / creation                                          │
+│   • Cargo receiving & package-level intake (L × W × H, gross lbs)                 │
+│   • Live Math: CFT = (L×W×H)/1728, CBM = CFT × 0.0283168                         │
+│   • 4" × 6" Roll Thermal Label generation (Piece 1 of N, Code 128 & QR)          │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 2: ELENA ROSTOVA (Operations Coordinator / Consolidation Hub)              │
+│   • Review staged cargo inventory ready by destination (e.g., Nassau - NAS)      │
+│   • 4-Step Consolidation Wizard: Multi-select WRs / House B/Ls                   │
+│   • Real-time Container Space Utilization Meter (20' GP, 40' GP, 40' HC)         │
+│   • Ocean Vessel, Voyage #, Container #, and Bolt Seal # binding                 │
+│   • Auto-generates Master Ocean Shipment & Draft Master B/L (BL-VI-2026-XXXX)    │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 3: SARAH JENKINS (Documentation Specialist / Maritime Desk)                │
+│   • House Bill of Lading (HBL) issue with zero data re-entry                      │
+│   • Master Bill of Lading (MBL) review & tariff/billing verification             │
+│   • Security Hold Governance: Place B/L On Hold ◄──► Clear Hold & Release        │
+│   • Customs Ocean Manifests: Portrait / Landscape print & CSV / XML exports      │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 4: DAVID CARTWRIGHT (Destination Agent / Nassau Hub)                       │
+│   • Dedicated Port Agent Portal (scoped strictly to Bahamas arrivals)            │
+│   • Inspection of incoming ocean containers & ETA milestones                     │
+│   • Strict Hold Lock: ON HOLD documents locked with red violation banner         │
+│   • RELEASED B/L inspection, cargo manifest verification & delivery orders       │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 5: MARCUS VANCE (Super Admin / Global Operations HQ)                       │
+│   • Unrestricted system-wide command & monitoring                                │
+│   • Reactive System Audit Trail (Timestamp, IP, User, Module, Action)            │
+│   • Dynamic RBAC Users & Roles Matrix governance                                 │
+│   • System Configuration: Sequence numbering, branding, ports & island hubs      │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🟢 PHASE 1: Carlos Mendez se Login karein (Role: Warehouse Staff)
+## 🟢 STAGE 1: Cargo Receiving ➔ 📦 WAREHOUSE (Carlos Mendez)
 
-> **Carlos ka Kaam:** Cargo receive karna, destination set karna, har package ka size/weight daalna, aur 4x6 label print karna.
+### 1.1 How to Sign In:
+* Click the **Warehouse** quick-select button on the login screen (or click *Sign In →* on Carlos Mendez's persona card).
+* **Credentials:** `carlos.m@vicustoms.com` / `password123`
+* **Role Badge:** `📦 CFS Warehouse Intake`
 
-### 📍 Step 1.1: Login Page par click karein:
-- **`Carlos Mendez`** (Warehouse icon / 1-Tap button) par click karke login karein.
-- Sidebar par dekhein: `ROLE: WAREHOUSE STAFF` likha aayega.
+### 1.2 Landing Page & Scoped Navigation:
+* **Landing Page:** Opens directly into the **CFS Dashboard** with intake queues and quick-action cards.
+* **Navigation Scoping:** Carlos's sidebar is strictly scoped to physical intake operations:
+  * `CFS Dashboard`
+  * `Warehouse Receipts (WR)`
+  * `Cargo Inventory`
+  * `Labels & 4x6 Roll`
+  * `Customer Profiles`
+  * `Cargo Tracking`
 
-### 📍 Step 1.2: Menu: `Customer Profiles`
-1. Left sidebar se **`Customer Profiles`** par click karein.
-2. Yahan master customer profiles dikhenge (jaise `Atlantic Trading Co.`, `Nassau Wholesale Goods Ltd.`, etc.).
-3. Chahein toh **`+ New Customer Profile`** par click karke apna naya test customer bana sakte hain:
-   - **Company Name:** *Atlantic Trading Co.*
-   - **Destination Port:** *NAS - Nassau, Bahamas*
-   - Save karein.
+### 1.3 Primary Call to Action:
+* **Top Header Button:** `+ Create Warehouse Receipt` (or `+ Intake WR` on the list page).
 
-### 📍 Step 1.3: Menu: `Warehouse Receipts (WR)`
-1. Left sidebar se **`Warehouse Receipts (WR)`** par click karein.
-2. Top right par **`+ Create Warehouse Receipt`** ya **`+ Intake WR`** click karein:
-   - **Customer Dropdown:** Customer select karein (e.g. *Atlantic Trading Co.*).
-     *(Notice karein: Customer choose karte hi Shipper, Consignee aur Destination Port `NAS` apne aap fill ho jayega — dobara type nahi karna padega).*
-   - **Package-Level Entry Table:**
-     - **`+ Add Package Row`** click karein multiple items daalne ke liye (`PKG-001`, `PKG-002`...).
-     - Har row mein Length, Width, Height, Pieces aur Weight dalein.
-     - Notice karein: Har package ka **CFT** aur **CBM** live calculate hoga.
-     - Niche dark blue bar mein Total Pieces, Total Weight, Total CFT aur Total CBM apne aap sum ho jayenge.
-3. **`Save & Generate Warehouse Receipt`** par click karein.
+### 1.4 Step-by-Step Intake Execution:
+1. **Physical Cargo Arrival:** Freight arrives at the dock via delivery truck.
+2. Carlos clicks **`+ Create Warehouse Receipt`**:
+   * **Customer Selection:** Select customer from dropdown (e.g. *Atlantic Trading Co.* or *Tropical Food Distributors*).
+   * **Zero Re-entry:** Shipper, Consignee, and Destination Port (e.g. `NAS - Nassau, Bahamas`) auto-populate from the profile.
+   * **Independent Consignee:** If consignee is different from customer, Carlos unlinks and selects the true consignee.
+3. **Package Dimensions & Weight Input:**
+   * Clicks **`+ Add Package Row`** to record individual crates/pallets.
+   * Enters **Length, Width, Height (inches)** and **Weight (lbs)** for each package.
+   * **Live Math Engine:** The interface calculates instantly:
+     $$\text{CFT} = \frac{L \times W \times H}{1728}, \quad \text{CBM} = \text{CFT} \times 0.0283168$$
+     $$\text{Volumetric Weight} = \frac{L \times W \times H}{166}$$
+   * Summary bar updates: Total Pieces, Gross Weight, Total CFT, and Total CBM.
+4. **Warehouse Bay Staging:**
+   * Assigns staging location: e.g. `Bay A-02`, `Rack 3`.
+5. **Save & Generate:**
+   * Clicks **`Save & Generate Warehouse Receipt`**. Receipt status becomes `STAGED`.
 
-### 📍 Step 1.4: Cargo Label Print (4" $\times$ 6" Thermal)
-1. Created Warehouse Receipt ke page par **`Preview 4x6 Label`** button click karein.
-2. Dekhein: Isme Customer, WR #, Destination (`NAS`), Barcode, QR Code aur **Piece 1 of N, Piece 2 of N** ka live label print layout aa jayega.
-
-👉 **Ab Bottom Left se `Logout` par click karein.**
-
----
-
-## 🔵 PHASE 2: Sarah Jenkins se Login karein (Role: Documentation Staff)
-
-> **Sarah ka Kaam:** Carlos ke intaked Warehouse Receipts ko select karke customer ke liye **House Bill of Lading (HBL)** issue karna aur **Customs Ocean Manifest** check karna.
-
-### 📍 Step 2.1: Login Page par click karein:
-- **`Sarah Jenkins`** (Docs icon / 1-Tap button) par click karke login karein.
-- Sidebar par dekhein: `ROLE: DOCUMENTATION STAFF` dikhega.
-
-### 📍 Step 2.2: Menu: `House Bills of Lading (HBL)`
-1. Left sidebar ke **MARITIME DOCUMENTATION** section se **`House Bills of Lading (HBL)`** par click karein.
-2. Top right par **`+ Create House B/L`** ya **`+ Issue House B/L`** click karein:
-   - **Step 1 (Customer):** Wahi customer select karein (*Atlantic Trading Co.*).
-   - **Step 2 (Link WRs):** Carlos ne jo Warehouse Receipt banayi thi, use checkbox se select karein (aap ek customer ki 1 ya multiple WRs ek saath check kar sakte hain).
-   - **Step 3 (Zero Re-Entry):** System Carlos ke saare WRs ka cargo description, total pieces, weight aur CBM automatically combine karke calculate kar dega.
-   - **Step 4 (Issue):** **`Issue House Bill of Lading`** button click karein.
-3. System `HBL-2026-XXXX` generate karega jisme legal printable multimodal format, linked WRs aur destination port certified honge.
-
-### 📍 Step 2.3: Menu: `Ocean Manifests (CSV/XML)`
-1. Left sidebar se **`Ocean Manifests (CSV/XML)`** open karein.
-2. Manifest par click karein:
-   - Dekhein: Line items ke andar **House B/L #** (`HBL-2026-XXXX`) display ho raha hai.
-   - **`Export CSV`** aur **`Export XML`** button click karke customs file download test karein.
-
-👉 **Ab Bottom Left se `Logout` par click karein.**
+### 1.5 Cargo Label Print (4" $\times$ 6" Thermal Roll):
+1. In the created WR detail view, clicks **`Preview 4x6 Label`** or **`Print Thermal Label`**.
+2. **Label Verification:**
+   * Includes Header: *VI Customs & Logistics / CFS Miami Hub*
+   * WR Number (numeric sequence: e.g. `3104`), Customer, Destination Port (`NAS - Nassau`)
+   * Piece Count: **Piece 1 of N, Piece 2 of N...**
+   * Code 128 scannable barcode representation and 2D QR Code.
+3. Direct browser print triggers with CSS `@media print` optimization.
+4. Carlos clicks **Logout** from bottom left.
 
 ---
 
-## 🟣 PHASE 3: Marcus Vance se Login karein (Role: Super Admin / Operations HQ)
+## 🚢 STAGE 2: Cargo Consolidation ➔ 🌊 OPERATIONS (Elena Rostova)
 
-> **Marcus ka Kaam:** Sarah ke banaye House B/Ls ko container mein pack (Consolidate) karna, **Master Bill of Lading (MBL)** banana aur **Hold/Release** manage karna.
+### 2.1 How to Sign In:
+* Click the **Operations** quick-select button on the login screen (or click *Sign In →* on Elena Rostova's card).
+* **Credentials:** `elena.r@vicustoms.com` / `password123`
+* **Role Badge:** `🚢 Operations Coordinator`
 
-### 📍 Step 3.1: Login Page par click karein:
-- **`Marcus Vance`** (Operations icon / 1-Tap button) par click karke login karein.
-- Sidebar par dekhein: `ROLE: SUPER ADMIN` (Pura full console) open hoga.
+### 2.2 Landing Page & Scoped Navigation:
+* **Landing Page:** **Operations Dashboard** showing active voyages, container utilization, and staged receipts.
+* **Navigation Scoping:** Elena's sidebar is focused on vessel consolidation and fleet management:
+  * `Operations Dashboard`
+  * `Consolidations Wizard`
+  * `Master Shipments`
+  * `Containers Fleet`
+  * `Vessels & Voyages`
+  * `Cargo Staged`
+  * `Bills of Lading (View)`
+  * `Shipment Tracking`
 
-### 📍 Step 3.2: Menu: `Consolidations`
-1. Left sidebar se **`Consolidations`** $\rightarrow$ **`+ Build New Consolidation`** click karein:
-   - **Step 1 (Destination):** Destination choose karein (`NAS - Nassau, Bahamas`).
-   - Us destination ke un-consolidated **House Bills of Lading (HBLs)** checkboxes se select karein.
-   - **Step 2 (Cargo Review):** Live **Container Capacity Fill Bar** dekhein (Container kitna % fill hua).
-   - **Step 3 (Vessel & Container):** Ocean Vessel (`MV Island Voyager`), Voyage (`V.2026-19E`), Container # (`CMAU-109482-7`) aur Bolt Seal # confirm karein.
-   - **Step 4 (Finalize):** **`Create Consolidation & Generate Master B/L`** par click karein.
-2. **Result:** System automatically:
-   - Saare selected HBLs aur WRs ko `Consolidated` mark kar dega.
-   - Master Ocean Shipment generate karega (6 real-time tracking checkpoints ke saath).
-   - **Master Ocean B/L (`BL-KERS-2026-XXXX`)** auto-generate kar dega.
+### 2.3 Primary Call to Action:
+* **Top Header Button:** `+ Build Consolidation` (Consolidations Wizard).
 
-### 📍 Step 3.3: Menu: `Bills of Lading (Master B/L)` & Hold Test
-1. Left sidebar se **`Bills of Lading (Master B/L)`** open karein.
-2. Naya generate hua Master B/L (`BL-KERS-2026-XXXX`) open karein:
-   - Page ke niche dekhein: **"Consolidated House Bills of Lading in this Master B/L"** table dikhegi jisme Sarah ke banaye saare HBLs clickable links ke sath hain.
-3. **Hold / Release Feature Test:**
-   - Top right se **`Place B/L On Hold`** click karein $\rightarrow$ Document par red **ON HOLD** watermark lag jayega.
-   - **`Clear Hold & Release B/L`** click karein $\rightarrow$ Status **RELEASED** ho jayega aur document export unlock ho jayega.
-
-👉 **Ab Bottom Left se `Logout` par click karein.**
-
----
-
-## 🔴 PHASE 4: Caribbean Express se Login karein (Role: Port Agent - Nassau)
-
-> **David Cartwright ka Kaam:** Destination port (Nassau) par aane wale containers ka status track karna aur strictly B/L hold/release rules follow karke cargo delivery release karna.
-
-### 📍 Step 4.1: Login Page par click karein:
-- **`David Cartwright`** (Agent icon / 1-Tap button) par click karke login karein.
-- Dekhein: Inhe standard staff sidebar ki jagah **Secure Agent Portal** dikhega (`Nassau Hub`).
-
-### 📍 Step 4.2: Menu: `My Assigned Shipments`
-1. Nassau port par aane wale assigned ocean shipments ki list dekhein (Vessel, Voyage, Container #, ETA date).
-
-### 📍 Step 4.3: Menu: `Documents & B/Ls` (Strict Hold Security)
-1. **On Hold Document Check:** Jo Master B/L HQ se On Hold hai (`BL-KERS-2026-0092`), use agent open karega toh red lock warning aayegi ki *"Document is locked by HQ — Cannot release cargo"*.
-2. **Released Document Check:** Jo Master B/L Released hai, agent use download aur verify karke delivery permit generate kar sakta hai.
+### 2.4 Step-by-Step Consolidation Execution (4-Step Wizard):
+1. Elena navigates to **`Consolidations Wizard`**:
+2. **Step 1 — Destination Port & Batch Selection:**
+   * Selects Destination Port: `NAS - Nassau, Bahamas`.
+   * The system filters and displays all un-consolidated Warehouse Receipts / HBLs staged for Nassau.
+   * Elena selects multiple receipts using checkboxes (e.g. Carlos's newly intaked WRs).
+3. **Step 2 — Container Utilization & Capacity Meter:**
+   * Elena selects container type: `40' High Cube (40' HC)`.
+   * **Live Capacity Bar:** Shows cubic space and payload utilization (e.g. `78% Volume / 62% Weight`).
+   * Color changes dynamically (Green < 85%, Amber 85-98%, Red Over-capacity).
+4. **Step 3 — Vessel, Voyage & Bolt Seal Assignment:**
+   * **Ocean Vessel:** `MV Island Voyager`
+   * **Voyage #:** `V.2026-19E`
+   * **Ocean Container #:** `CMAU-109482-7`
+   * **Bolt Seal #:** `SEAL-882194`
+5. **Step 4 — Finalize & Generate Master Records:**
+   * Elena clicks **`Create Consolidation & Generate Master Shipment`**.
+   * **System State Transitions:**
+     * Selected WRs and Cargo items transition to `CONSOLIDATED`.
+     * New Master Ocean Shipment created (`SHP-VI-2026-0881`) with 6 milestone checkpoints.
+     * Draft Master Bill of Lading created (`BL-VI-2026-0095`).
+6. Elena clicks **Logout**.
 
 ---
 
-## 💡 Quick Summary Checklist for Client Demo
+## 📄 STAGE 3: Maritime Documentation & Security ➔ 📑 DOCUMENTATION (Sarah Jenkins)
 
-| Step | Login Persona | Menu Click | Client Ko Kya Bolna Hai? |
-| :--- | :--- | :--- | :--- |
-| **1** | **Carlos Mendez** *(Warehouse)* | `Warehouse Receipts` | *"Warehouse staff ne customer select kiya, live L×W×H CFT/CBM calculate karke WR banaya aur 4x6 label print kiya."* |
-| **2** | **Sarah Jenkins** *(Docs)* | `House Bills of Lading` | *"Documentation staff ne customer ke multiple WRs ko 1-click mein combine karke House B/L issue kiya bina koi data re-type kiye."* |
-| **3** | **Marcus Vance** *(Operations)* | `Consolidation Wizard` | *"Operations manager ne destination ke HBLs ko container mein consolidate kiya jisse Master B/L aur Customs Manifest auto-generate ho gaye."* |
-| **4** | **David Cartwright** *(Agent)* | `Agent Portal` | *"Destination port agent ne Nassau hub par incoming container aur released Master B/L receive kiya."* |
+### 3.1 How to Sign In:
+* Click the **Documentation** quick-select button on the login screen (or click *Sign In →* on Sarah Jenkins's card).
+* **Credentials:** `sarah.j@vicustoms.com` / `password123`
+* **Role Badge:** `📄 Documentation Specialist`
 
+### 3.2 Landing Page & Scoped Navigation:
+* **Landing Page:** **Documentation Desk** displaying pending B/Ls, hold warnings, and manifest exports.
+* **Navigation Scoping:**
+  * `Documentation Desk`
+  * `House Bills of Lading (HBL)`
+  * `Master Bills (MBL) & Holds`
+  * `Ocean Manifests (CSV/XML)`
+  * `Warehouse Receipts`
+  * `Consolidations View`
+  * `Customer Profiles`
+  * `Documents & Labels`
+  * `Tracking`
+  * `Shipment History`
 
+### 3.3 Primary Call to Action:
+* **Top Header Buttons:** `Review B/L` and `Export Manifest`.
 
-Viewed usersData.js:1-140
-Viewed LoginPage.jsx:70-225
-Viewed LoginPage.jsx:315-350
-Created LoginPage.jsx
-Ran command: `npm run build`
-
-Login page par **"All 4 Demo Staff Personas"** update kar diya gaya hai aur charon personas ke role badges, titles aur permissions exact 100% match kar diye gaye hain bina kisi doosre component ko break kiye.
+### 3.4 Step-by-Step Documentation Execution:
+1. **House Bill of Lading (HBL) Issuance:**
+   * Navigates to **`House Bills of Lading (HBL)`** $\rightarrow$ **`+ Issue House B/L`**.
+   * Links Carlos's Warehouse Receipts. Customer name, cargo description, pieces, weight, and volume are inherited with zero re-entry.
+   * Verifies ocean freight billing, documentation fees, and declared values.
+   * Clicks **`Issue House Bill of Lading`** (`HBL-VI-2026-0142`).
+2. **Master Bill of Lading (MBL) Review:**
+   * Opens **`Master Bills of Lading`** $\rightarrow$ selects Elena's generated Master B/L (`BL-VI-2026-0095`).
+   * Verifies Shippers, Carrier, Port of Loading (`Miami CFS Hub`), Port of Discharge (`Nassau, Bahamas`), Vessel, and Seal #.
+3. **Security Hold & Release Governance:**
+   * **Place Hold:** Sarah clicks **`Place B/L On Hold`** $\rightarrow$ selects reason: *"Pending Freight Payment & Export Tax Clearance"* $\rightarrow$ enters Hold Note.
+   * Status changes to **`ON HOLD`** with a red security banner across all systems.
+   * **Clear Hold:** Once wire transfer is verified, Sarah clicks **`Clear Hold & Release B/L`** $\rightarrow$ enters security authorization PIN $\rightarrow$ status changes to **`RELEASED`**.
+4. **Customs Ocean Manifest Export:**
+   * Navigates to **`Ocean Manifests (CSV/XML)`**.
+   * Opens Nassau manifest: Toggles between **Portrait** and **Landscape** view.
+   * Clicks **`Export CSV`** (for internal carrier filing) and **`Export Customs XML`** (for Bahamas Customs EDI).
+5. Sarah clicks **Logout**.
 
 ---
 
-### 🔑 Correct 4 Logins & Accurate Workflow Mapping:
+## 🛡️ STAGE 4: Port Reception & Delivery Clearance ➔ 🏝️ DESTINATION AGENT (David Cartwright)
 
-| # | Staff Name | Exact Role in System | Login Screen Card Badge | Inside Sidebar Menus |
-| :--- | :--- | :--- | :--- | :--- |
-| **1** | **Carlos Mendez** | `Warehouse Staff` | **CFS Terminal Intake** | `Customer Profiles`, `Warehouse Receipts (WR)`, `Cargo Inventory`, `Containers`, `Tracking` |
-| **2** | **Sarah Jenkins** | `Documentation Staff` | **Maritime Documentation** | `Customer Profiles`, `House Bills of Lading (HBL)`, `Bills of Lading (Master B/L)`, `Ocean Manifests (CSV/XML)` |
-| **3** | **Marcus Vance** | `Super Admin` | **Full HQ & Operations Access** | Full Unrestricted Console (`Consolidations Wizard`, `Master Shipments`, `B/L Hold/Release`, `Users & Roles Matrix`) |
-| **4** | **David Cartwright** | `Destination Port Agent` | **Secure Port Agent Portal** | Dedicated Nassau Agent Portal (`My Assigned Shipments`, `Documents & Locked B/Ls`, `Cargo Tracking`) |
+### 4.1 How to Sign In:
+* Click the **Destination Agent** quick-select button on the login screen (or click *Sign In →* on David Cartwright's card).
+* **Credentials:** `operations@caribbeanexpressbahamas.com` / `password123`
+* **Role Badge:** `🛡️ Destination Agent (Nassau Hub)`
+
+### 4.2 Landing Page & Scoped Navigation:
+* **Landing Page:** Dedicated **Agent Portal (Nassau Hub)** showing assigned incoming cargo.
+* **Strict Regional Scoping:** David cannot see Miami warehouse internal files; he only sees Bahamas-bound shipments.
+* **Navigation Items:**
+  * `Agent Dashboard`
+  * `My Assigned Shipments`
+  * `My Consolidations`
+  * `My Ocean Manifests`
+  * `Documents & B/Ls`
+  * `Cargo Receiving`
+  * `Port Tracking`
+
+### 4.3 Port Reception Execution:
+1. **Container Arrival Inspection:**
+   * David opens **`My Assigned Shipments`** $\rightarrow$ finds `MV Island Voyager / Voyage V.2026-19E`.
+   * Verifies container number `CMAU-109482-7` and bolt seal `SEAL-882194` upon vessel docking at Nassau port.
+2. **Strict Hold Lock Enforcement Test:**
+   * If a B/L is **`ON HOLD`**, David sees a prominent red warning banner:
+     *"HOLD ACTIVE: Document locked by HQ Documentation. Do NOT release cargo."*
+   * Release and download buttons are completely disabled.
+3. **Released Cargo Clearance:**
+   * When B/L status is **`RELEASED`**, the lock disappears.
+   * David downloads the certified Master B/L, issues the Port Delivery Order, and releases cargo to the consignee.
+4. David clicks **Logout**.
 
 ---
 
-### 🚀 Ab Testing Flow bilkul seedha aur clear hai:
+## ⚡ STAGE 5: Executive Oversight & Governance ➔ 👑 SUPER ADMIN (Marcus Vance)
 
-1. **Step 1:** **`Carlos Mendez`** (Warehouse) se login karein $\rightarrow$ `Warehouse Receipts` mein customer select karein, packages ki length/width/height daal kar live **CFT/CBM calculate** karein aur **4x6 label print** karein $\rightarrow$ Logout.
-2. **Step 2:** **`Sarah Jenkins`** (Docs) se login karein $\rightarrow$ `House Bills of Lading (HBL)` mein Carlos ke banaye WRs select karke 1-click mein **House B/L issue** karein $\rightarrow$ Logout.
-3. **Step 3:** **`Marcus Vance`** (Super Admin) se login karein $\rightarrow$ `Consolidations Wizard` mein House B/Ls ko container mein consolidate karein $\rightarrow$ Auto-generated **Master B/L** aur **Manifest** check karein $\rightarrow$ Master B/L par **Hold / Release** test karein $\rightarrow$ Logout.
-4. **Step 4:** **`David Cartwright`** (Agent) se login karein $\rightarrow$ Nassau agent portal par **Incoming Container** aur **Released Master B/L** verify karein.
+### 5.1 How to Sign In:
+* Click the **Super Admin** quick-select button on the login screen (or click *Sign In →* on Marcus Vance's card).
+* **Credentials:** `marcus.vance@vicustoms.com` / `password123`
+* **Role Badge:** `⚡ Super Admin (Global HQ)`
+
+### 5.2 Command Center Features:
+* **Unrestricted Navigation:** Full access to all 5 roles' tools, plus administrative controls:
+  * `Admin Dashboard`
+  * `Users & Roles Matrix`
+  * `System Audit Trail`
+  * `Shipment History`
+  * `System Settings`
+  * *(Plus full Operations & Maritime modules)*
+
+### 5.3 Administrative Capabilities:
+1. **Users & RBAC Matrix (`/users`):**
+   * View all active staff members and agents.
+   * Inspect the 5-column granular permissions matrix (`Super Admin`, `Operations`, `Warehouse`, `Documentation`, `Agent`).
+   * Add, edit, or decommission staff accounts.
+2. **System Audit Trail (`/audit`):**
+   * Real-time immutable record of every intake, WR creation, consolidation, hold trigger, hold clearance, and EDI export.
+   * Includes exact timestamp, IP address, user persona, and before/after state diff.
+3. **System Settings (`/settings`):**
+   * Configure numbering sequences (e.g. WR starting number `3100`).
+   * Update company branding, legal disclaimers, and customs EDI export parameters.
+
+---
+
+## 📐 Formulas & Engineering Standards Reference
+
+### 1. Dimension & Volume Formulas:
+$$\text{CFT (Inches)} = \frac{\text{Length} \times \text{Width} \times \text{Height} \times \text{Pieces}}{1728}$$
+$$\text{CBM (Inches)} = \text{CFT} \times 0.0283168$$
+$$\text{Volumetric Weight (lbs)} = \frac{\text{Length} \times \text{Width} \times \text{Height}}{166}$$
+
+### 2. Label Standard:
+* **Dimensions:** 4.0 inches $\times$ 6.0 inches (Roll Thermal).
+* **Barcode Format:** Code 128 (scannable standard alphanumeric).
+* **QR Format:** 2D QR Code with direct tracking link.
+
+### 3. Client Requirements Notes (Kedreana - 21 Sept 2026):
+* **WR Numbering:** Numeric-only sequence starting at `3100` (e.g. `3101`, `3102`).
+* **Volume Display Priority:** Display CFT as primary with CBM secondary: `45.0 CFT (1.27 CBM)`.
+* **Independent Consignee:** Allow consignee to differ from customer.
+* **Agent Flexibility:** Destination Agent role also supports export operations where applicable.
+
+---
+*End of Master Workflow Manual. Verified and Code-Synced.*

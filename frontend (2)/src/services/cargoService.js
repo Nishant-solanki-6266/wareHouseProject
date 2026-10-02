@@ -1,19 +1,30 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
 
 export const cargoService = {
   async getCargo(filters = {}) {
+    try {
+      const res = await apiClient.get('cargo', filters);
+      if (res && Array.isArray(res.data)) {
+        setStored(KEYS.CARGO, res.data);
+        return res.data;
+      }
+    } catch (err) {
+      console.warn('API error fetching cargo, falling back to local cache:', err);
+    }
+
     const list = getStored(KEYS.CARGO);
     let filtered = [...list];
 
     if (filters.search) {
       const q = filters.search.toLowerCase();
       filtered = filtered.filter(item =>
-        item.id.toLowerCase().includes(q) ||
-        item.receiptNumber.toLowerCase().includes(q) ||
-        item.customer.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q) ||
-        item.destinationPort.toLowerCase().includes(q)
+        item.id?.toLowerCase().includes(q) ||
+        item.receiptNumber?.toLowerCase().includes(q) ||
+        item.customer?.toLowerCase().includes(q) ||
+        item.description?.toLowerCase().includes(q) ||
+        item.destinationPort?.toLowerCase().includes(q)
       );
     }
     if (filters.status && filters.status !== 'All') {
@@ -23,9 +34,17 @@ export const cargoService = {
   },
 
   async getCargoById(id) {
+    try {
+      const res = await apiClient.get(`cargo/${id}`);
+      if (res && res.data) return res.data;
+    } catch (err) {
+      console.warn('API error fetching cargo by id:', err);
+    }
+
     const list = getStored(KEYS.CARGO);
     return list.find(item => item.id === id) || null;
   },
+
 
   async createCargo(data, currentUser = "Warehouse Staff") {
     const list = getStored(KEYS.CARGO);

@@ -1,28 +1,47 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
 
 export const manifestService = {
   async getManifests(filters = {}) {
+    try {
+      const res = await apiClient.get('manifests', filters);
+      if (res && Array.isArray(res.data)) {
+        setStored(KEYS.MANIFESTS, res.data);
+        return res.data;
+      }
+    } catch (err) {
+      console.warn('API error fetching manifests, fallback to local:', err);
+    }
+
     const list = getStored(KEYS.MANIFESTS);
     let filtered = [...list];
 
     if (filters.search) {
       const q = filters.search.toLowerCase();
       filtered = filtered.filter(item =>
-        item.manifestNumber.toLowerCase().includes(q) ||
-        item.title.toLowerCase().includes(q) ||
-        item.vesselName.toLowerCase().includes(q) ||
-        item.voyageNumber.toLowerCase().includes(q) ||
-        item.portOfDischarge.toLowerCase().includes(q)
+        item.manifestNumber?.toLowerCase().includes(q) ||
+        item.title?.toLowerCase().includes(q) ||
+        item.vesselName?.toLowerCase().includes(q) ||
+        item.voyageNumber?.toLowerCase().includes(q) ||
+        item.portOfDischarge?.toLowerCase().includes(q)
       );
     }
     return filtered;
   },
 
   async getManifestById(id) {
+    try {
+      const res = await apiClient.get(`manifests/${id}`);
+      if (res && res.data) return res.data;
+    } catch (err) {
+      console.warn('API error fetching manifest by id:', err);
+    }
+
     const list = getStored(KEYS.MANIFESTS);
     return list.find(item => item.id === id || item.manifestNumber === id) || null;
   },
+
 
   async generateManifest(manifestData, currentUser = "Documentation Staff") {
     const list = getStored(KEYS.MANIFESTS);

@@ -8,7 +8,8 @@ import { consolidationService } from '../services/consolidationService';
 import { shipmentService } from '../services/shipmentService';
 import { billOfLadingService } from '../services/billOfLadingService';
 import { manifestService } from '../services/manifestService';
-import { portService, containerService, vesselService, agentService, userService, documentService } from '../services';
+import { portService, containerService, vesselService, agentService, userService, documentService, settingsService } from '../services';
+
 import { auditService } from '../services/auditService';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
@@ -38,7 +39,7 @@ export const AppDataProvider = ({ children }) => {
   const [settings, setSettings] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Refresh all state from storage
+  // Refresh all state from storage and sync with backend
   const refreshAll = useCallback(() => {
     initializeStorage();
     setCustomers(getStored(KEYS.CUSTOMERS));
@@ -60,7 +61,44 @@ export const AppDataProvider = ({ children }) => {
     setSettings(getStored(KEYS.SETTINGS, {}));
     setIsLoading(false);
     if (syncUsers) syncUsers();
+
+    if (localStorage.getItem('kers_token')) {
+      Promise.allSettled([
+        customerService.getCustomers(),
+        warehouseService.getReceipts(),
+        cargoService.getCargo(),
+        houseBillService.getHouseBills(),
+        consolidationService.getConsolidations(),
+        shipmentService.getShipments(),
+        billOfLadingService.getBillsOfLading(),
+        manifestService.getManifests(),
+        containerService.getContainers(),
+        vesselService.getVessels(),
+        vesselService.getVoyages(),
+        agentService.getAgents(),
+        portService.getPorts(),
+        auditService.getLogs(),
+        settingsService.getSettings(),
+      ]).then(() => {
+        setCustomers(getStored(KEYS.CUSTOMERS));
+        setWarehouseReceipts(getStored(KEYS.WAREHOUSE_RECEIPTS));
+        setCargoItems(getStored(KEYS.CARGO));
+        setHouseBills(getStored(KEYS.HOUSE_BILLS));
+        setConsolidations(getStored(KEYS.CONSOLIDATIONS));
+        setShipments(getStored(KEYS.SHIPMENTS));
+        setBillsOfLading(getStored(KEYS.BILLS_OF_LADING));
+        setManifests(getStored(KEYS.MANIFESTS));
+        setContainers(getStored(KEYS.CONTAINERS));
+        setVessels(getStored(KEYS.VESSELS));
+        setVoyages(getStored(KEYS.VOYAGES));
+        setAgents(getStored(KEYS.AGENTS));
+        setPorts(getStored(KEYS.PORTS));
+        setAuditLogs(getStored(KEYS.AUDIT_LOGS));
+        setSettings(getStored(KEYS.SETTINGS, {}));
+      }).catch(() => {});
+    }
   }, [syncUsers]);
+
 
   useEffect(() => {
     refreshAll();
@@ -467,11 +505,13 @@ export const AppDataProvider = ({ children }) => {
     showToast(`All transactional records cleared! System is now a clean blank slate for testing.`, 'success', 'Data Cleared');
   };
 
-  const updateSettings = (newSettings) => {
+  const updateSettings = async (newSettings) => {
     setStored(KEYS.SETTINGS, newSettings);
     setSettings(newSettings);
+    await settingsService.updateAllSettings(newSettings);
     showToast(`System settings updated successfully.`, 'success', 'Settings Saved');
   };
+
 
   // Reset demo data to factory defaults
   const resetDemoData = () => {

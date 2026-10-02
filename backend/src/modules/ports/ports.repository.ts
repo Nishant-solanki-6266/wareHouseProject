@@ -39,6 +39,15 @@ export class PortsRepository {
 
     return updated || null;
   }
+
+  async delete(idOrCode: string) {
+    const [deleted] = await db
+      .delete(ports)
+      .where(or(eq(ports.id, idOrCode), eq(ports.portCode, idOrCode.toUpperCase())))
+      .returning();
+
+    return deleted || null;
+  }
 }
 
 export const portsRepository = new PortsRepository();

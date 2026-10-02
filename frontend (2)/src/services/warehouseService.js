@@ -1,8 +1,19 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
 
 export const warehouseService = {
   async getReceipts(filters = {}) {
+    try {
+      const res = await apiClient.get('warehouse-receipts', filters);
+      if (res && Array.isArray(res.data)) {
+        setStored(KEYS.WAREHOUSE_RECEIPTS, res.data);
+        return res.data;
+      }
+    } catch (err) {
+      console.warn('API error fetching warehouse receipts, falling back to local cache:', err);
+    }
+
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
     let filtered = [...list];
 
@@ -34,14 +45,49 @@ export const warehouseService = {
   },
 
   async getReceiptById(id) {
+    try {
+      const res = await apiClient.get(`warehouse-receipts/${id}`);
+      if (res && res.data) return res.data;
+    } catch (err) {
+      console.warn('API error fetching warehouse receipt by id:', err);
+    }
+
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
     return list.find(item => item.id === id || item.receiptNumber === id) || null;
   },
 
   async createReceipt(receiptData, currentUser = "Warehouse Staff") {
+    try {
+      const payload = {
+        date: receiptData.date,
+        customerId: receiptData.customerId || undefined,
+        customerName: receiptData.customerName || receiptData.customer || "General Cargo",
+        shipper: receiptData.shipper || receiptData.customerName || "General Cargo",
+        consignee: receiptData.consignee || "Consignee",
+        agentId: receiptData.agentId || undefined,
+        agentName: receiptData.agentName || undefined,
+        destinationPort: receiptData.destinationPort || "NAS - Nassau, Bahamas",
+        destinationCode: receiptData.destinationCode || "NAS",
+        cargoDescription: receiptData.cargoDescription || "General Cargo",
+        packages: receiptData.packages || [],
+        warehouseLocation: receiptData.warehouseLocation || "Bay A-01",
+        status: receiptData.status || "Ready for Consolidation",
+        notes: receiptData.notes || "",
+      };
+      const res = await apiClient.post('warehouse-receipts', payload);
+      if (res && res.data) {
+        const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
+        setStored(KEYS.WAREHOUSE_RECEIPTS, [res.data, ...list]);
+        return res.data;
+      }
+    } catch (err) {
+      console.warn('API error creating warehouse receipt, fallback to local:', err);
+    }
+
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
     const nextSeq = 1040 + list.length + 1;
     const id = receiptData.receiptNumber || `WR-2026-${nextSeq}`;
+
     
     // Process packages array if provided, or build single package default
     let packages = receiptData.packages || [];
@@ -155,6 +201,12 @@ export const warehouseService = {
   },
 
   async updateReceipt(id, updates, currentUser = "Warehouse Staff") {
+    try {
+      await apiClient.patch(`warehouse-receipts/${id}`, updates);
+    } catch (err) {
+      console.warn('API error updating receipt, falling back to local store:', err);
+    }
+
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
     const index = list.findIndex(item => item.id === id || item.receiptNumber === id);
     if (index !== -1) {
@@ -230,12 +282,19 @@ export const warehouseService = {
   },
 
   async deleteReceipt(id, currentUser = "Warehouse Staff") {
+    try {
+      await apiClient.delete(`warehouse-receipts/${id}`);
+    } catch (err) {
+      console.warn('API error deleting receipt, falling back to local store:', err);
+    }
+
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
     const existing = list.find(item => item.id === id || item.receiptNumber === id);
     if (!existing) return false;
 
     const filtered = list.filter(item => item.id !== id && item.receiptNumber !== id);
     setStored(KEYS.WAREHOUSE_RECEIPTS, filtered);
+
 
     // Also remove from cargo if exists
     const cargoList = getStored(KEYS.CARGO);

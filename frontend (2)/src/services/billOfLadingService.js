@@ -1,15 +1,26 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
 
 export const billOfLadingService = {
   async getBillsOfLading(filters = {}) {
+    try {
+      const res = await apiClient.get('bills-of-lading', filters);
+      if (res && Array.isArray(res.data)) {
+        setStored(KEYS.BILLS_OF_LADING, res.data);
+        return res.data;
+      }
+    } catch (err) {
+      console.warn('API error fetching bills of lading, fallback to local:', err);
+    }
+
     const list = getStored(KEYS.BILLS_OF_LADING);
     let filtered = [...list];
 
     if (filters.search) {
       const q = filters.search.toLowerCase();
       filtered = filtered.filter(item =>
-        item.blNumber.toLowerCase().includes(q) ||
+        item.blNumber?.toLowerCase().includes(q) ||
         item.consignee?.name?.toLowerCase().includes(q) ||
         item.shipper?.name?.toLowerCase().includes(q) ||
         item.oceanVessel?.toLowerCase().includes(q) ||
@@ -28,11 +39,24 @@ export const billOfLadingService = {
   },
 
   async getBillOfLadingById(id) {
+    try {
+      const res = await apiClient.get(`bills-of-lading/${id}`);
+      if (res && res.data) return res.data;
+    } catch (err) {
+      console.warn('API error fetching bill of lading by id:', err);
+    }
+
     const list = getStored(KEYS.BILLS_OF_LADING);
     return list.find(item => item.id === id || item.blNumber === id) || null;
   },
 
   async placeHold(blId, reason, notes, currentUser = "Documentation Staff") {
+    try {
+      await apiClient.post(`bills-of-lading/${blId}/hold`, { reason, holdNotes: notes });
+    } catch (err) {
+      console.warn('API error placing bill of lading on hold:', err);
+    }
+
     const list = getStored(KEYS.BILLS_OF_LADING);
     const index = list.findIndex(item => item.id === blId || item.blNumber === blId);
     if (index === -1) return null;
@@ -79,8 +103,15 @@ export const billOfLadingService = {
   },
 
   async clearHold(blId, currentUser = "Super Admin", clearNotes = "") {
+    try {
+      await apiClient.post(`bills-of-lading/${blId}/release`, { clearNotes });
+    } catch (err) {
+      console.warn('API error clearing bill of lading hold:', err);
+    }
+
     const list = getStored(KEYS.BILLS_OF_LADING);
     const index = list.findIndex(item => item.id === blId || item.blNumber === blId);
+
     if (index === -1) return null;
 
     const currentBL = list[index];

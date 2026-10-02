@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ConsolidationService, consolidationService } from './consolidation.service.js';
-import { consolidationQuerySchema } from './consolidation.schema.js';
+import { consolidationQuerySchema, createConsolidationSchema } from './consolidation.schema.js';
 import { successResponse, paginatedResponse } from '../../common/utils/response.js';
 import { getPaginationParams, buildPaginationMeta } from '../../common/utils/pagination.js';
 
@@ -28,6 +28,13 @@ export class ConsolidationController {
     const item = await this.service.getConsolidation(id);
     reply.send(successResponse(item));
   };
+
+  create = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const body = createConsolidationSchema.parse(request.body);
+    const created = await this.service.createConsolidation(body, request.user);
+    reply.status(201).send(successResponse(created, 'Consolidation created and cascade executed successfully'));
+  };
 }
 
 export const consolidationController = new ConsolidationController();
+

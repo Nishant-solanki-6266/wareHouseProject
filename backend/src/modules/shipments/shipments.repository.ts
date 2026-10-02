@@ -48,14 +48,20 @@ export class ShipmentsRepository {
   }
 
   async findByIdOrNumber(idOrNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const condition = isUuid
+      ? or(eq(shipments.id, idOrNumber), eq(shipments.shipmentNumber, idOrNumber))
+      : eq(shipments.shipmentNumber, idOrNumber);
+
     const result = await db
       .select()
       .from(shipments)
-      .where(or(eq(shipments.id, idOrNumber), eq(shipments.shipmentNumber, idOrNumber)))
+      .where(condition)
       .limit(1);
 
     return result[0] || null;
   }
+
 }
 
 export const shipmentsRepository = new ShipmentsRepository();

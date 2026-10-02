@@ -44,16 +44,26 @@ export class BillsOfLadingRepository {
   }
 
   async findByIdOrNumber(idOrNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const condition = isUuid
+      ? or(eq(billsOfLading.id, idOrNumber), eq(billsOfLading.blNumber, idOrNumber))
+      : eq(billsOfLading.blNumber, idOrNumber);
+
     const result = await db
       .select()
       .from(billsOfLading)
-      .where(or(eq(billsOfLading.id, idOrNumber), eq(billsOfLading.blNumber, idOrNumber)))
+      .where(condition)
       .limit(1);
 
     return result[0] || null;
   }
 
   async updateHoldStatus(id: string, status: string, holdDetails: HoldDetails) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(billsOfLading.id, id), eq(billsOfLading.blNumber, id))
+      : eq(billsOfLading.blNumber, id);
+
     const [updated] = await db
       .update(billsOfLading)
       .set({
@@ -61,11 +71,12 @@ export class BillsOfLadingRepository {
         holdDetails,
         updatedAt: new Date(),
       })
-      .where(or(eq(billsOfLading.id, id), eq(billsOfLading.blNumber, id)))
+      .where(condition)
       .returning();
 
     return updated || null;
   }
 }
+
 
 export const billsOfLadingRepository = new BillsOfLadingRepository();

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatCard } from '../../components/common/StatCard';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -30,12 +30,23 @@ import {
 } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
+import { adminService } from '../../services';
 
 export const OperationsDashboard = ({ onNavigate }) => {
   const { customers, warehouseReceipts, houseBills, consolidations, shipments, billsOfLading, manifests, containers, cargoItems } = useAppData();
   const { currentUser } = useAuth();
 
   const roleKey = currentUser?.roleKey || 'super_admin';
+  const [dbMetrics, setDbMetrics] = useState(null);
+
+  useEffect(() => {
+    if (roleKey === 'super_admin') {
+      adminService.getDashboardMetrics().then(data => {
+        if (data) setDbMetrics(data);
+      });
+    }
+  }, [roleKey]);
+
 
   // Metrics for Action Tasks
   const readyReceipts = warehouseReceipts.filter(w => w.status === 'Ready for Consolidation');
@@ -328,7 +339,7 @@ export const OperationsDashboard = ({ onNavigate }) => {
             CFS Warehouse
           </div>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0A192F', margin: '0.2rem 0' }}>
-            {readyReceipts.length} WRs Ready
+            {dbMetrics?.totalWarehouseReceipts ?? readyReceipts.length} WRs Ready
           </div>
           <div style={{ fontSize: '0.72rem', color: '#64748B' }}>Cargo Intake</div>
         </div>
@@ -342,7 +353,7 @@ export const OperationsDashboard = ({ onNavigate }) => {
             Operations
           </div>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0A192F', margin: '0.2rem 0' }}>
-            {stagedCargo.length} Items To Pack
+            {dbMetrics?.totalConsolidations ?? stagedCargo.length} Consolidations Active
           </div>
           <div style={{ fontSize: '0.72rem', color: '#64748B' }}>Consolidations</div>
         </div>
@@ -350,13 +361,13 @@ export const OperationsDashboard = ({ onNavigate }) => {
         <div
           onClick={() => onNavigate('bills-of-lading')}
           className="card card-hover"
-          style={{ padding: '1rem', cursor: 'pointer', borderLeft: `4px solid ${holdBLs.length > 0 ? '#EF4444' : '#10B981'}` }}
+          style={{ padding: '1rem', cursor: 'pointer', borderLeft: `4px solid ${(dbMetrics?.activeHoldsCount ?? holdBLs.length) > 0 ? '#EF4444' : '#10B981'}` }}
         >
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: holdBLs.length > 0 ? '#EF4444' : '#10B981', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: (dbMetrics?.activeHoldsCount ?? holdBLs.length) > 0 ? '#EF4444' : '#10B981', textTransform: 'uppercase' }}>
             Documentation
           </div>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0A192F', margin: '0.2rem 0' }}>
-            {holdBLs.length} B/Ls On Hold
+            {dbMetrics?.activeHoldsCount ?? holdBLs.length} B/Ls On Hold
           </div>
           <div style={{ fontSize: '0.72rem', color: '#64748B' }}>Holds &amp; Releases</div>
         </div>
@@ -370,12 +381,15 @@ export const OperationsDashboard = ({ onNavigate }) => {
             Maritime Fleet
           </div>
           <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0A192F', margin: '0.2rem 0' }}>
-            {activeShipments.length} In Transit
+            {dbMetrics?.totalShipments ?? activeShipments.length} In Transit
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#64748B' }}>Active Ocean Shipments</div>
+          <div style={{ fontSize: '0.72rem', color: '#64748B' }}>
+            {dbMetrics?.totalContainers ? `${dbMetrics.totalContainers} Fleet Containers` : 'Active Ocean Shipments'}
+          </div>
         </div>
       </div>
     );
+
   };
 
   // Header CTAs based on role

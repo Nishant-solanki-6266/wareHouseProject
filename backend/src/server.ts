@@ -1,5 +1,6 @@
 import { buildApp } from './app.js';
 import { env } from './config/env.js';
+import { testDbConnection } from './db/index.js';
 
 async function startServer(): Promise<void> {
   const app = await buildApp();
@@ -13,6 +14,13 @@ async function startServer(): Promise<void> {
     app.log.info(`VI Customs Brokers & Logistics API server listening at: ${address}`);
     app.log.info(`Health check: ${address}/health`);
     app.log.info(`API v1 root: ${address}/api/v1/health`);
+
+    const isDbConnected = await testDbConnection();
+    if (isDbConnected) {
+      app.log.info('Database connected successfully (PostgreSQL: wereHouseDb)');
+    } else {
+      app.log.warn('Database connection failed! Please check your PostgreSQL service.');
+    }
   } catch (err) {
     app.log.error(err);
     process.exit(1);

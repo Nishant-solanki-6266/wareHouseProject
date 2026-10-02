@@ -12,6 +12,18 @@ export const initialUsers = [
     phone: "+1 (305) 555-0100"
   },
   {
+    id: "USR-005",
+    name: "Elena Rostova",
+    email: "elena.r@vicustoms.com",
+    role: "Operations Coordinator",
+    roleKey: "operations",
+    department: "Vessel Operations & Consolidations",
+    status: "Active",
+    avatar: "ER",
+    lastLogin: "2026-08-29 08:05 AM",
+    phone: "+1 (305) 555-0199"
+  },
+  {
     id: "USR-002",
     name: "Sarah Jenkins",
     email: "sarah.j@vicustoms.com",
@@ -27,8 +39,8 @@ export const initialUsers = [
     id: "USR-003",
     name: "Carlos Mendez",
     email: "carlos.m@vicustoms.com",
-    role: "Warehouse / Operations",
-    roleKey: "operations",
+    role: "Warehouse Staff",
+    roleKey: "warehouse",
     department: "Miami CFS Warehouse",
     status: "Active",
     avatar: "CM",
@@ -39,7 +51,7 @@ export const initialUsers = [
     id: "USR-004",
     name: "David Cartwright",
     email: "operations@caribbeanexpressbahamas.com",
-    role: "Agent",
+    role: "Destination Agent",
     roleKey: "agent",
     department: "Caribbean Express Freight Ltd. (Bahamas)",
     agentId: "AGT-001",
@@ -47,18 +59,6 @@ export const initialUsers = [
     avatar: "DC",
     lastLogin: "2026-08-29 10:15 AM",
     phone: "+1 (242) 555-9000"
-  },
-  {
-    id: "USR-005",
-    name: "Elena Rostova",
-    email: "elena.r@vicustoms.com",
-    role: "Warehouse / Operations",
-    roleKey: "operations",
-    department: "Vessel Operations & Consolidations",
-    status: "Active",
-    avatar: "ER",
-    lastLogin: "2026-08-29 08:05 AM",
-    phone: "+1 (305) 555-0199"
   }
 ];
 
@@ -82,20 +82,39 @@ export const initialRolesPermissions = [
   },
   {
     roleKey: "operations",
-    roleName: "Warehouse / Operations",
-    description: "Receives cargo, measures packages, prints labels, creates WRs, and prepares House B/Ls.",
-    userCount: 10,
+    roleName: "Operations Coordinator",
+    description: "Builds consolidations, assigns containers, manages voyages/vessels, and tracks cargo movement.",
+    userCount: 2,
     permissions: {
-      warehouseReceipts: { view: true, create: true, edit: true, delete: false },
-      cargo: { view: true, create: true, edit: true, delete: false },
+      warehouseReceipts: { view: true, create: false, edit: false, delete: false },
+      cargo: { view: true, create: false, edit: true, delete: false },
       consolidations: { view: true, create: true, edit: true, delete: false },
       shipments: { view: true, create: true, edit: true, delete: false },
-      billsOfLading: { view: true, create: true, edit: true, placeHold: true, clearHold: false, release: false, cancel: false },
-      manifests: { view: true, generate: true, export: true },
+      billsOfLading: { view: true, create: false, edit: false, placeHold: false, clearHold: false, release: false, cancel: false },
+      manifests: { view: true, generate: false, export: true },
       agentPortal: { view: false, manage: false },
       auditTrail: { view: true, export: false },
       systemSettings: { view: false, edit: false },
-      customers: { view: true, create: true, edit: false, delete: false }
+      customers: { view: true, create: false, edit: false, delete: false }
+    }
+  },
+  {
+    roleKey: "warehouse",
+    roleName: "Warehouse Staff",
+    description: "Receives cargo, measures package dimensions & weight, creates Warehouse Receipts, and prints 4x6 labels.",
+    userCount: 4,
+    permissions: {
+      warehouseReceipts: { view: true, create: true, edit: true, delete: false },
+      cargo: { view: true, create: true, edit: true, delete: false },
+      consolidations: { view: false, create: false, edit: false, delete: false },
+      shipments: { view: false, create: false, edit: false, delete: false },
+      billsOfLading: { view: false, create: false, edit: false, placeHold: false, clearHold: false, release: false, cancel: false },
+      manifests: { view: false, generate: false, export: false },
+      agentPortal: { view: false, manage: false },
+      auditTrail: { view: false, export: false },
+      systemSettings: { view: false, edit: false },
+      customers: { view: true, create: true, edit: false, delete: false },
+      documents: { view: true, create: true, edit: false, delete: false }
     }
   },
   {

@@ -14,6 +14,21 @@ export class ContainersService {
     if (!item) throw new NotFoundError('Container');
     return item;
   }
+
+  async createContainer(input: Record<string, unknown>) {
+    return this.repo.create(input);
+  }
+
+  async updateContainer(idOrNumber: string, input: Record<string, unknown>) {
+    await this.getContainer(idOrNumber);
+    return this.repo.update(idOrNumber, input);
+  }
+
+  async deleteContainer(idOrNumber: string) {
+    await this.getContainer(idOrNumber);
+    return this.repo.delete(idOrNumber);
+  }
 }
+
 
 export const containersService = new ContainersService();
