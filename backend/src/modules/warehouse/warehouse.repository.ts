@@ -50,15 +50,15 @@ export class WarehouseRepository {
   }
 
   async findByIdOrReceiptNumber(idOrReceiptNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrReceiptNumber);
+    const condition = isUuid
+      ? or(eq(warehouseReceipts.id, idOrReceiptNumber), eq(warehouseReceipts.receiptNumber, idOrReceiptNumber))
+      : eq(warehouseReceipts.receiptNumber, idOrReceiptNumber);
+
     const result = await db
       .select()
       .from(warehouseReceipts)
-      .where(
-        or(
-          eq(warehouseReceipts.id, idOrReceiptNumber),
-          eq(warehouseReceipts.receiptNumber, idOrReceiptNumber)
-        )
-      )
+      .where(condition)
       .limit(1);
 
     return result[0] || null;
@@ -100,23 +100,34 @@ export class WarehouseRepository {
     if (data.totalCbm !== undefined && data.totalCbm !== null) updateValues.totalCbm = String(data.totalCbm);
     else if ((data as any).cbm !== undefined && (data as any).cbm !== null) updateValues.totalCbm = String((data as any).cbm);
 
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(warehouseReceipts.id, id), eq(warehouseReceipts.receiptNumber, id))
+      : eq(warehouseReceipts.receiptNumber, id);
+
     const [updated] = await db
       .update(warehouseReceipts)
       .set(updateValues)
-      .where(or(eq(warehouseReceipts.id, id), eq(warehouseReceipts.receiptNumber, id)))
+      .where(condition)
       .returning();
 
     return updated || null;
   }
 
   async delete(id: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(warehouseReceipts.id, id), eq(warehouseReceipts.receiptNumber, id))
+      : eq(warehouseReceipts.receiptNumber, id);
+
     const [deleted] = await db
       .delete(warehouseReceipts)
-      .where(or(eq(warehouseReceipts.id, id), eq(warehouseReceipts.receiptNumber, id)))
+      .where(condition)
       .returning();
 
     return !!deleted;
   }
 }
+
 
 export const warehouseRepository = new WarehouseRepository();

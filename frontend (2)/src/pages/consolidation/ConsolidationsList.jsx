@@ -212,7 +212,7 @@ export const ConsolidationsList = ({ onNavigate }) => {
         emptyTitle="No Consolidations Found"
         emptyWhy="No ocean container consolidations match your search or filter."
         emptyNextStep="Select staged cargo from the warehouse to build a new container consolidation."
-        emptyActionLabel="+ Build Consolidation"
+        emptyActionLabel="Build Consolidation"
         onEmptyAction={() => onNavigate('consolidations', 'create')}
         onRowClick={(item) => {
           if (item.assignedShipmentId) {

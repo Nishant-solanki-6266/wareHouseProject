@@ -31,8 +31,8 @@ export class ConsolidationController {
 
   create = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const body = createConsolidationSchema.parse(request.body);
-    const item = await this.service.createConsolidation(body);
-    reply.status(201).send(createdResponse(item));
+    const created = await this.service.createConsolidation(body, request.user as any);
+    reply.status(201).send(createdResponse(created, 'Consolidation created and cascade executed successfully'));
   };
 
   update = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {

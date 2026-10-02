@@ -1,6 +1,6 @@
 import { buildApp } from './app.js';
 import { env } from './config/env.js';
-import { testDbConnection } from './db/client.js';
+import { testDbConnection } from './db/index.js';
 
 async function startServer(): Promise<void> {
   const app = await buildApp();
@@ -17,9 +17,9 @@ async function startServer(): Promise<void> {
 
     const dbStatus = await testDbConnection();
     if (dbStatus.connected) {
-      app.log.info(`✅ PostgreSQL Database: CONNECTED to '${dbStatus.databaseName}' successfully`);
+      app.log.info(`Database connected successfully (PostgreSQL: ${dbStatus.databaseName || 'wereHouseDb'})`);
     } else {
-      app.log.error(`❌ PostgreSQL Database: Connection FAILED (${dbStatus.error})`);
+      app.log.warn(`Database connection warning: ${dbStatus.error || 'Please check PostgreSQL'}`);
     }
   } catch (err) {
     app.log.error(err);

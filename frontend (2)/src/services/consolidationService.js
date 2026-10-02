@@ -1,27 +1,21 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
 import { apiFetch } from './apiConfig';
 
 export const consolidationService = {
   async getConsolidations(filters = {}) {
     try {
-      const queryParams = new URLSearchParams();
-      if (filters.search) queryParams.set('search', filters.search);
-      if (filters.status && filters.status !== 'All') queryParams.set('status', filters.status);
-      if (filters.destination && filters.destination !== 'All') queryParams.set('destinationCode', filters.destination);
-      if (filters.destinationCode && filters.destinationCode !== 'All') queryParams.set('destinationCode', filters.destinationCode);
-
-      const qs = queryParams.toString();
-      const endpoint = qs ? `/consolidations?${qs}&limit=100` : '/consolidations?limit=100';
-      const res = await apiFetch(endpoint);
-
+      const res = await apiClient.get('consolidations', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        setStored(KEYS.CONSOLIDATIONS, liveList);
-        return liveList;
+        if (liveList.length > 0) {
+          setStored(KEYS.CONSOLIDATIONS, liveList);
+          return liveList;
+        }
       }
     } catch (err) {
-      console.warn('Backend API /consolidations fetch failed, using local store:', err.message);
+      console.warn('Backend API /consolidations fetch failed, using local store:', err?.message || err);
     }
 
     const list = getStored(KEYS.CONSOLIDATIONS, []);
@@ -51,12 +45,10 @@ export const consolidationService = {
   async getConsolidationById(id) {
     if (!id) return null;
     try {
-      const res = await apiFetch(`/consolidations/${encodeURIComponent(id)}`);
-      if (res && res.data) {
-        return res.data;
-      }
+      const res = await apiClient.get(`consolidations/${encodeURIComponent(id)}`);
+      if (res && res.data) return res.data;
     } catch (err) {
-      console.warn(`Backend API fetch for consolidation ${id} failed:`, err.message);
+      console.warn(`API error fetching consolidation by id ${id}:`, err?.message || err);
     }
 
     const list = getStored(KEYS.CONSOLIDATIONS, []);
@@ -64,9 +56,45 @@ export const consolidationService = {
   },
 
   async createConsolidation(consolidationData, currentUser = "Operations Staff") {
+    try {
+      const payload = {
+        title: consolidationData.title || `Consolidation - ${consolidationData.destinationPort || 'NAS'}`,
+        destinationPort: consolidationData.destinationPort || 'Port of Nassau (BSNAS)',
+        destinationCode: consolidationData.destinationCode || 'NAS',
+        status: consolidationData.status || 'Loaded',
+        containerNumber: consolidationData.containerNumber || 'MSKU-948291-4',
+        containerType: consolidationData.containerType || "40' High Cube",
+        containerCapacityCbm: Number(consolidationData.containerCapacityCbm) || 67.7,
+        sealNumber: consolidationData.sealNumber || 'SEAL-01',
+        vesselName: consolidationData.vesselName || 'MV Caribbean Carrier',
+        voyageNumber: consolidationData.voyageNumber || 'V.2026-20W',
+        carrier: consolidationData.carrier || 'Tropical Shipping Line',
+        loadingPort: consolidationData.loadingPort || 'Port of Miami (USMIA)',
+        dischargePort: consolidationData.dischargePort || consolidationData.destinationPort || 'Port of Nassau (BSNAS)',
+        houseBillIds: consolidationData.houseBillIds || [],
+        receiptIds: consolidationData.receiptIds || [],
+        totalPackages: Number(consolidationData.totalPackages) || 0,
+        totalPieces: Number(consolidationData.totalPieces) || 0,
+        totalWeightLbs: Number(consolidationData.totalWeightLbs) || 0,
+        totalWeightKg: Number(consolidationData.totalWeightKg) || 0,
+        totalCft: Number(consolidationData.totalCft) || 0,
+        totalCbm: Number(consolidationData.totalCbm) || 0,
+        containerFillPercentage: Number(consolidationData.containerFillPercentage) || 0,
+        agentId: consolidationData.agentId || undefined,
+        agentName: consolidationData.agentName || 'Caribbean Express Freight Ltd.',
+        etd: consolidationData.etd || new Date().toISOString().split('T')[0],
+        eta: consolidationData.eta || '2026-09-06',
+        notes: consolidationData.notes || '',
+      };
+      await apiClient.post('consolidations', payload);
+    } catch (err) {
+      console.warn('API error creating consolidation cascade:', err);
+    }
+
     const list = getStored(KEYS.CONSOLIDATIONS);
     const nextSeq = 820 + list.length + 1;
     const id = consolidationData.consolidationNumber || `CNS-2026-${nextSeq}`;
+
     const shipmentId = `SHP-2026-${291 + list.length + 1}`;
     const blId = `BL-VI-2026-${String(95 + list.length + 1).padStart(4, '0')}`;
     const manifestId = `MNF-2026-${443 + list.length}`;

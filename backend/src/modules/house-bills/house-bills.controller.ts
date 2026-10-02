@@ -35,6 +35,36 @@ export class HouseBillsController {
     const created = await this.service.createHouseBill(body);
     reply.status(201).send(successResponse(created, 'House Bill of Lading created successfully'));
   };
+
+  update = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    const updated = await this.service.updateHouseBill(id, request.body);
+    reply.send(successResponse(updated, 'House Bill of Lading updated successfully'));
+  };
+
+  delete = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    await this.service.deleteHouseBill(id);
+    reply.send(successResponse(null, 'House Bill of Lading deleted successfully'));
+  };
+
+  placeHold = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    const body = request.body as any;
+    const currentUser = (request.user as any)?.name || 'Documentation Staff';
+    const updated = await this.service.placeHold(id, {
+      ...body,
+      placedBy: currentUser,
+    });
+    reply.send(successResponse(updated, 'House Bill of Lading placed ON HOLD'));
+  };
+
+  releaseHold = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    const updated = await this.service.releaseHold(id);
+    reply.send(successResponse(updated, 'House Bill of Lading hold RELEASED'));
+  };
 }
 
 export const houseBillsController = new HouseBillsController();
+

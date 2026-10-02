@@ -155,7 +155,7 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
         </div>
 
         {/* Customer & Shipper Box */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid #0A192F', marginBottom: '0.85rem' }}>
+        <div className="grid grid-cols-2 doc-grid-2" style={{ border: '1px solid #0A192F', marginBottom: '0.85rem' }}>
           <div style={{ padding: '0.65rem', borderRight: '1px solid #0A192F' }}>
             <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B' }}>SHIPPER / SUPPLIER ORIGIN</div>
             <div style={{ fontSize: '0.85rem', fontWeight: 700, marginTop: '2px' }}>{shipperDisplayName}</div>
@@ -169,11 +169,11 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
         </div>
 
         {/* Individual Package-Level Items Table */}
-        <div style={{ border: '1px solid #0A192F', marginBottom: '0.85rem' }}>
+        <div style={{ border: '1px solid #0A192F', marginBottom: '0.85rem', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <div style={{ background: '#0A192F', color: '#FFFFFF', padding: '0.4rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             Package-Level Inventory Breakdown ({pkgs.length} Line Items • {totalPieces} Pieces Total)
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+          <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
             <thead>
               <tr style={{ background: '#F1F5F9', color: '#0A192F', textAlign: 'left', fontSize: '0.65rem', textTransform: 'uppercase', borderBottom: '1px solid #CBD5E1' }}>
                 <th style={{ padding: '0.45rem 0.5rem', width: '12%' }}>Pkg ID</th>
@@ -225,7 +225,7 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
         </div>
 
         {/* Cargo Remarks & Barcode Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', border: '1px solid #0A192F', padding: '0.75rem', gap: '1rem', background: '#F8FAFC', marginBottom: '0.85rem' }}>
+        <div className="grid grid-cols-2 doc-grid-2" style={{ border: '1px solid #0A192F', padding: '0.75rem', gap: '1rem', background: '#F8FAFC', marginBottom: '0.85rem' }}>
           <div>
             <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B' }}>CARGO INTAKE STATUS &amp; REMARKS</div>
             <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0A192F' }}>{receipt.status || 'Ready for Consolidation'}</div>
@@ -233,14 +233,14 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
               <strong>Notes:</strong> {receipt.notes || 'Goods inspected, measured and staged for consolidation.'}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
             <BarcodeVisual value={receipt.barcode || receipt.receiptNumber} height={40} showText={true} />
             <QrVisual value={receipt.qrCode || receipt.receiptNumber} size={56} />
           </div>
         </div>
 
         {/* Receiving Certification Signature */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid #0A192F', padding: '0.75rem', gap: '1.5rem', background: '#FFFFFF', fontSize: '0.7rem' }}>
+        <div className="grid grid-cols-2 doc-grid-2" style={{ border: '1px solid #0A192F', padding: '0.75rem', gap: '1.5rem', background: '#FFFFFF', fontSize: '0.7rem' }}>
           <div>
             <div style={{ borderBottom: '1px solid #0A192F', paddingBottom: '0.4rem', marginBottom: '0.25rem', fontWeight: 700, color: '#0A192F' }}>
               Carlos Mendez (CFS Receiving Clerk)

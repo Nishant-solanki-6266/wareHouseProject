@@ -41,7 +41,13 @@ export class UsersService {
   }
 
   async deleteUser(id: string) {
-    await this.getUserById(id);
+    const user = await this.getUserById(id);
+    if (user.roleKey === 'super_admin') {
+      const allSuperAdmins = await this.repo.findMany({ role: 'super_admin', status: 'Active', limit: 10, offset: 0 });
+      if (allSuperAdmins.total <= 1) {
+        throw new AppError('Cannot delete or deactivate the last active Super Admin account', 400, true);
+      }
+    }
     return this.repo.delete(id);
   }
 }

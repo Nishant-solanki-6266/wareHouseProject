@@ -33,43 +33,55 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose }) => {
 
   // Build role-filtered navigation menu
   const getNavSections = () => {
-    // 1. WAREHOUSE / OPERATIONS FILTERED MENU
-    if (roleKey === 'operations') {
+    // 1. WAREHOUSE INTAKE SPECIALIST (Carlos Mendez)
+    if (roleKey === 'warehouse') {
       return [
         {
-          title: 'WAREHOUSE & OPERATIONS',
+          title: 'CFS WAREHOUSE INTAKE',
           items: [
-            { id: 'dashboard', label: 'Operations Dashboard', icon: LayoutDashboard },
-            { id: 'customers', label: 'Customers', icon: Users },
-            { id: 'warehouse-receipts', label: 'Warehouse Receipts', icon: Package },
+            { id: 'dashboard', label: 'CFS Dashboard', icon: LayoutDashboard },
+            { id: 'warehouse-receipts', label: 'Warehouse Receipts (WR)', icon: Package },
             { id: 'cargo', label: 'Cargo Inventory', icon: Box },
-            { id: 'bills-of-lading', label: 'House B/Ls', icon: FileText },
-            { id: 'documents', label: 'Labels & Docs', icon: Tag },
-            { id: 'consolidations', label: 'Consolidations', icon: Layers },
-            { id: 'shipments', label: 'Shipments', icon: Ship },
-            { id: 'containers', label: 'Containers', icon: Box },
-            { id: 'vessels', label: 'Vessels & Voyages', icon: Anchor },
-            { id: 'tracking', label: 'Tracking', icon: Search }
+            { id: 'documents', label: 'Labels & 4x6 Roll', icon: Tag },
+            { id: 'customers', label: 'Customer Profiles', icon: Users },
+            { id: 'tracking', label: 'Cargo Tracking', icon: Search }
           ]
         }
       ];
     }
 
-    // 2. DOCUMENTATION SPECIALIST FILTERED MENU
+    // 2. OPERATIONS COORDINATOR (Elena Rostova)
+    if (roleKey === 'operations') {
+      return [
+        {
+          title: 'VESSEL & CONSOLIDATIONS',
+          items: [
+            { id: 'dashboard', label: 'Operations Dashboard', icon: LayoutDashboard },
+            { id: 'consolidations', label: 'Consolidations Wizard', icon: Layers },
+            { id: 'shipments', label: 'Master Shipments', icon: Ship },
+            { id: 'containers', label: 'Containers Fleet', icon: Box },
+            { id: 'vessels', label: 'Vessels & Voyages', icon: Anchor },
+            { id: 'cargo', label: 'Cargo Staged', icon: Box },
+            { id: 'bills-of-lading', label: 'Bills of Lading (View)', icon: FileText },
+            { id: 'tracking', label: 'Shipment Tracking', icon: Search }
+          ]
+        }
+      ];
+    }
+
+    // 3. DOCUMENTATION SPECIALIST (Sarah Jenkins)
     if (roleKey === 'documentation') {
       return [
         {
-          title: 'DOCUMENTATION & OPERATIONS',
+          title: 'MARITIME DOCUMENTATION',
           items: [
             { id: 'dashboard', label: 'Documentation Desk', icon: LayoutDashboard },
-            { id: 'customers', label: 'Customers', icon: Users },
+            { id: 'house-bills', label: 'House Bills of Lading (HBL)', icon: FileText },
+            { id: 'bills-of-lading', label: 'Master Bills (MBL) & Holds', icon: FileText },
+            { id: 'manifests', label: 'Ocean Manifests (CSV/XML)', icon: FileSpreadsheet },
             { id: 'warehouse-receipts', label: 'Warehouse Receipts', icon: Package },
-            { id: 'cargo', label: 'Cargo Inventory', icon: Box },
-            { id: 'bills-of-lading', label: 'Bills of Lading (MBL & HBL)', icon: FileText },
-            { id: 'consolidations', label: 'Consolidations', icon: Layers },
-            { id: 'containers', label: 'Containers', icon: Box },
-            { id: 'vessels', label: 'Vessels & Voyages', icon: Anchor },
-            { id: 'manifests', label: 'Manifests', icon: FileSpreadsheet },
+            { id: 'consolidations', label: 'Consolidations View', icon: Layers },
+            { id: 'customers', label: 'Customer Profiles', icon: Users },
             { id: 'documents', label: 'Documents & Labels', icon: FileStack },
             { id: 'tracking', label: 'Tracking', icon: Search },
             { id: 'history', label: 'Shipment History', icon: History }
@@ -78,48 +90,50 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose }) => {
       ];
     }
 
-    // 3. AGENT FILTERED MENU
+    // 4. AGENT PORTAL (David Cartwright - Nassau Hub)
     if (roleKey === 'agent') {
       return [
         {
-          title: 'AGENT PORTAL',
+          title: 'AGENT PORTAL (NASSAU HUB)',
           items: [
             { id: 'agent-dashboard', label: 'Agent Dashboard', icon: LayoutDashboard },
-            { id: 'shipments', label: 'My Shipments', icon: Ship },
+            { id: 'shipments', label: 'My Assigned Shipments', icon: Ship },
             { id: 'consolidations', label: 'My Consolidations', icon: Layers },
-            { id: 'manifests', label: 'My Manifests', icon: FileSpreadsheet },
-            { id: 'bills-of-lading', label: 'My B/Ls', icon: FileText },
+            { id: 'manifests', label: 'My Ocean Manifests', icon: FileSpreadsheet },
+            { id: 'bills-of-lading', label: 'Documents & B/Ls', icon: FileText },
             { id: 'cargo', label: 'Cargo Receiving', icon: Box },
-            { id: 'tracking', label: 'Tracking', icon: Search }
+            { id: 'tracking', label: 'Port Tracking', icon: Search }
           ]
         }
       ];
     }
 
-    // 4. SUPER ADMIN (CLEAN ADMIN & SYSTEM MANAGEMENT + OPERATIONS OVERVIEW)
+    // 5. SUPER ADMIN (Marcus Vance - Full HQ & Global Operations)
     return [
       {
         title: 'EXECUTIVE & SYSTEM',
         items: [
           { id: 'dashboard', label: 'Admin Dashboard', icon: LayoutDashboard },
-          { id: 'users', label: 'Users & Roles', icon: ShieldCheck },
-          { id: 'audit', label: 'Audit Trail', icon: Activity },
+          { id: 'users', label: 'Users & Roles Matrix', icon: ShieldCheck },
+          { id: 'audit', label: 'System Audit Trail', icon: Activity },
           { id: 'history', label: 'Shipment History', icon: History },
           { id: 'settings', label: 'Settings', icon: Settings }
         ]
       },
       {
-        title: 'OPERATIONS OVERVIEW',
+        title: 'OPERATIONS & MARITIME',
         items: [
-          { id: 'customers', label: 'Customers', icon: Users },
+          { id: 'customers', label: 'Customer Profiles', icon: Users },
           { id: 'warehouse-receipts', label: 'Warehouse Receipts', icon: Package },
           { id: 'cargo', label: 'Cargo Inventory', icon: Box },
-          { id: 'consolidations', label: 'Consolidations', icon: Layers },
-          { id: 'shipments', label: 'Shipments', icon: Ship },
-          { id: 'bills-of-lading', label: 'Bills of Lading', icon: FileText },
-          { id: 'manifests', label: 'Manifests', icon: FileSpreadsheet },
+          { id: 'house-bills', label: 'House Bills (HBL)', icon: FileText },
+          { id: 'consolidations', label: 'Consolidation Wizard', icon: Layers },
+          { id: 'shipments', label: 'Master Shipments', icon: Ship },
+          { id: 'bills-of-lading', label: 'Master B/Ls & Holds', icon: FileText },
+          { id: 'manifests', label: 'Ocean Manifests', icon: FileSpreadsheet },
           { id: 'containers', label: 'Containers', icon: Box },
-          { id: 'vessels', label: 'Vessels & Voyages', icon: Anchor }
+          { id: 'vessels', label: 'Vessels & Voyages', icon: Anchor },
+          { id: 'tracking', label: 'Global Tracking', icon: Search }
         ]
       }
     ];

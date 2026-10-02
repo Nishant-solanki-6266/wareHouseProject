@@ -330,7 +330,7 @@ export const BillsOfLadingList = ({ onNavigate }) => {
         emptyTitle="No Master Bills of Lading Found"
         emptyWhy="No Master B/L records match your search or filter criteria."
         emptyNextStep="Issue a new Master B/L or build a consolidation to generate one automatically."
-        emptyActionLabel="+ Issue Master B/L"
+        emptyActionLabel="Issue Master B/L"
         onEmptyAction={() => setShowAddModal(true)}
         onRowClick={(item) => onNavigate('bills-of-lading', item.id)}
       />

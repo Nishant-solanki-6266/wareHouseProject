@@ -1,28 +1,26 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
 import { apiFetch } from './apiConfig';
 
 export const warehouseService = {
   async getReceipts(filters = {}) {
     try {
-      const queryParams = new URLSearchParams();
-      if (filters.search) queryParams.set('search', filters.search);
-      if (filters.status && filters.status !== 'All') queryParams.set('status', filters.status);
-      if (filters.agentId && filters.agentId !== 'All') queryParams.set('agentId', filters.agentId);
-      if (filters.destination && filters.destination !== 'All') queryParams.set('destinationCode', filters.destination);
-      if (filters.customerId && filters.customerId !== 'All') queryParams.set('customerId', filters.customerId);
-
-      const qs = queryParams.toString();
-      const endpoint = qs ? `/warehouse-receipts?${qs}&limit=100` : '/warehouse-receipts?limit=100';
-      const res = await apiFetch(endpoint);
-
-      if (res && res.data) {
-        const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        setStored(KEYS.WAREHOUSE_RECEIPTS, liveList);
-        return liveList;
+      const res = await apiClient.get('warehouse-receipts', { params: { ...filters, limit: 100 } });
+      const apiData = res?.data ? (Array.isArray(res.data) ? res.data : (res.data.items || [])) : (Array.isArray(res) ? res : []);
+      if (apiData.length > 0) {
+        const localList = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
+        const mergedMap = new Map();
+        [...localList, ...apiData].forEach(item => {
+          const key = item.id || item.receiptNumber;
+          if (key) mergedMap.set(key, { ...mergedMap.get(key), ...item });
+        });
+        const merged = Array.from(mergedMap.values());
+        setStored(KEYS.WAREHOUSE_RECEIPTS, merged);
+        return merged;
       }
     } catch (err) {
-      console.warn('Backend API /warehouse-receipts fetch failed, using cached store:', err.message);
+      console.warn('Backend warehouse-receipts fetch note, using cached store:', err?.message || err);
     }
 
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
@@ -58,12 +56,11 @@ export const warehouseService = {
   async getReceiptById(id) {
     if (!id) return null;
     try {
-      const res = await apiFetch(`/warehouse-receipts/${encodeURIComponent(id)}`);
-      if (res && res.data) {
-        return res.data;
-      }
+      const res = await apiClient.get(`warehouse-receipts/${encodeURIComponent(id)}`);
+      const apiData = res?.data || res;
+      if (apiData && (apiData.id || apiData.receiptNumber)) return apiData;
     } catch (err) {
-      console.warn(`Backend API fetch for receipt ${id} failed:`, err.message);
+      console.warn(`Backend API fetch for receipt ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
@@ -71,8 +68,6 @@ export const warehouseService = {
   },
 
   async createReceipt(receiptData, currentUser = "Warehouse Staff") {
-    let createdReceipt = null;
-
     // Process packages array if provided, or build single package default
     let packages = receiptData.packages || [];
     if (packages.length === 0) {
@@ -144,16 +139,14 @@ export const warehouseService = {
       warehouseLocation: receiptData.warehouseLocation || 'Bay A-1 (CFS Staging)'
     };
 
+    let createdReceipt = null;
     try {
-      const res = await apiFetch('/warehouse-receipts', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
+      const res = await apiClient.post('warehouse-receipts', payload);
       if (res && res.data) {
         createdReceipt = res.data;
       }
     } catch (err) {
-      console.warn('Backend createReceipt failed, falling back to local:', err.message);
+      console.warn('Backend createReceipt failed, falling back to local:', err?.message || err);
     }
 
     if (!createdReceipt) {
@@ -213,15 +206,12 @@ export const warehouseService = {
   async updateReceipt(id, updates, currentUser = "Warehouse Staff") {
     let updatedReceipt = null;
     try {
-      const res = await apiFetch(`/warehouse-receipts/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        body: JSON.stringify(updates)
-      });
+      const res = await apiClient.put(`warehouse-receipts/${encodeURIComponent(id)}`, updates);
       if (res && res.data) {
         updatedReceipt = res.data;
       }
     } catch (err) {
-      console.warn(`Backend updateReceipt ${id} failed:`, err.message);
+      console.warn(`Backend updateReceipt ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
@@ -300,11 +290,9 @@ export const warehouseService = {
 
   async deleteReceipt(id, currentUser = "Warehouse Staff") {
     try {
-      await apiFetch(`/warehouse-receipts/${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      });
+      await apiClient.delete(`warehouse-receipts/${encodeURIComponent(id)}`);
     } catch (err) {
-      console.warn(`Backend deleteReceipt ${id} failed:`, err.message);
+      console.warn(`Backend deleteReceipt ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS, []);

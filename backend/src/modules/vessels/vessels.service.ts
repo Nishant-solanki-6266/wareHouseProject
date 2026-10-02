@@ -14,6 +14,21 @@ export class VesselsService {
     if (!item) throw new NotFoundError('Vessel');
     return item;
   }
+
+  async createVessel(input: Record<string, unknown>) {
+    return this.repo.create(input);
+  }
+
+  async updateVessel(id: string, input: Record<string, unknown>) {
+    await this.getVessel(id);
+    return this.repo.update(id, input);
+  }
+
+  async deleteVessel(id: string) {
+    await this.getVessel(id);
+    return this.repo.delete(id);
+  }
 }
+
 
 export const vesselsService = new VesselsService();

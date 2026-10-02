@@ -4,19 +4,36 @@ import { customerService } from './customerService';
 import { houseBillService } from './houseBillService';
 import { portService } from './portService';
 import { apiFetch } from './apiConfig';
+import { settingsService } from './settingsService';
+import { adminService } from './adminService';
+import { apiClient } from './apiClient';
 
-export { customerService, houseBillService, portService };
+export { customerService, houseBillService, portService, settingsService, adminService, apiClient, apiFetch };
+
+
 
 export const containerService = {
   async getContainers(filters = {}) {
+    try {
+      const res = await apiClient.get('containers', { params: filters });
+      if (res && res.data) {
+        const items = Array.isArray(res.data) ? res.data : (res.data.items || res.data.containers || []);
+        if (items.length > 0) {
+          setStored(KEYS.CONTAINERS, items);
+          return items;
+        }
+      }
+    } catch (e) {
+      console.warn('[containerService] API getContainers failed, using fallback:', e.message);
+    }
     const list = getStored(KEYS.CONTAINERS);
     let filtered = [...list];
     if (filters.search) {
       const q = filters.search.toLowerCase();
       filtered = filtered.filter(item =>
-        item.containerNumber.toLowerCase().includes(q) ||
-        item.type.toLowerCase().includes(q) ||
-        item.carrier.toLowerCase().includes(q) ||
+        item.containerNumber?.toLowerCase().includes(q) ||
+        item.type?.toLowerCase().includes(q) ||
+        item.carrier?.toLowerCase().includes(q) ||
         item.currentShipmentNumber?.toLowerCase().includes(q)
       );
     }
@@ -27,14 +44,51 @@ export const containerService = {
   },
 
   async getContainerById(id) {
+    try {
+      const res = await apiClient.get(`containers/${id}`);
+      if (res && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      console.warn('[containerService] API getContainerById failed, using fallback:', e.message);
+    }
     const list = getStored(KEYS.CONTAINERS);
     return list.find(item => item.id === id || item.containerNumber === id) || null;
   },
 
   async createContainer(data, currentUser = "Operations Staff") {
+    let created = null;
+    try {
+      const payload = {
+        containerNumber: data.containerNumber,
+        type: data.type || "40' High Cube Dry",
+        carrier: data.carrier || "MSC Mediterranean",
+        sealNumber: data.sealNumber || "AVAILABLE",
+        tareWeightKg: Number(data.tareWeightKg) || 3900,
+        maxPayloadKg: Number(data.maxPayloadKg) || 28000,
+        maxVolumeCbm: Number(data.maxVolumeCbm) || 76.2,
+        loadedWeightKg: Number(data.loadedWeightKg) || 0,
+        loadedVolumeCbm: Number(data.loadedVolumeCbm) || 0,
+        fillPercentage: Number(data.fillPercentage) || 0,
+        currentShipmentId: data.currentShipmentId || null,
+        currentShipmentNumber: data.currentShipmentNumber || null,
+        status: data.status || "Available at CFS Yard",
+        location: data.location || "Miami CFS Yard",
+        originPort: data.originPort || "USMIA",
+        dischargePort: data.dischargePort || "BSNAS",
+        temperatureControlled: Boolean(data.temperatureControlled)
+      };
+      const res = await apiClient.post('containers', payload);
+      if (res && res.data) {
+        created = res.data;
+      }
+    } catch (e) {
+      console.warn('[containerService] API createContainer failed, using local fallback:', e.message);
+    }
+
     const list = getStored(KEYS.CONTAINERS);
-    const id = data.id || `CNT-${data.containerNumber || 'NEW-' + Math.floor(1000 + Math.random() * 9000)}`;
-    const newContainer = {
+    const id = created?.id || data.id || `CNT-${data.containerNumber || 'NEW-' + Math.floor(1000 + Math.random() * 9000)}`;
+    const newContainer = created || {
       ...data,
       id,
       containerNumber: data.containerNumber || `MEDU${Math.floor(1000000 + Math.random() * 9000000)}`,
@@ -51,7 +105,7 @@ export const containerService = {
       status: data.status || "Available at CFS Yard"
     };
 
-    const updated = [newContainer, ...list];
+    const updated = [newContainer, ...list.filter(c => c.id !== newContainer.id && c.containerNumber !== newContainer.containerNumber)];
     setStored(KEYS.CONTAINERS, updated);
 
     await auditService.logAction(
@@ -66,10 +120,20 @@ export const containerService = {
   },
 
   async updateContainer(id, updates, currentUser = "Operations Staff") {
+    let updatedItem = null;
+    try {
+      const res = await apiClient.patch(`containers/${id}`, updates);
+      if (res && res.data) {
+        updatedItem = res.data;
+      }
+    } catch (e) {
+      console.warn('[containerService] API updateContainer failed, using local fallback:', e.message);
+    }
+
     const list = getStored(KEYS.CONTAINERS);
     const index = list.findIndex(item => item.id === id || item.containerNumber === id);
     if (index !== -1) {
-      list[index] = { ...list[index], ...updates };
+      list[index] = updatedItem || { ...list[index], ...updates };
       setStored(KEYS.CONTAINERS, list);
 
       await auditService.logAction(
@@ -82,10 +146,16 @@ export const containerService = {
 
       return list[index];
     }
-    return null;
+    return updatedItem;
   },
 
   async deleteContainer(id, currentUser = "Operations Staff") {
+    try {
+      await apiClient.delete(`containers/${id}`);
+    } catch (e) {
+      console.warn('[containerService] API deleteContainer failed, using local fallback:', e.message);
+    }
+
     const list = getStored(KEYS.CONTAINERS);
     const existing = list.find(item => item.id === id || item.containerNumber === id);
     if (!existing) return false;
@@ -107,17 +177,63 @@ export const containerService = {
 
 export const vesselService = {
   async getVessels() {
+    try {
+      const res = await apiClient.get('vessels');
+      if (res && res.data) {
+        const items = Array.isArray(res.data) ? res.data : (res.data.items || res.data.vessels || []);
+        if (items.length > 0) {
+          setStored(KEYS.VESSELS, items);
+          return items;
+        }
+      }
+    } catch (e) {
+      console.warn('[vesselService] API getVessels failed, using fallback:', e.message);
+    }
     return getStored(KEYS.VESSELS);
   },
 
   async getVoyages() {
+    try {
+      const res = await apiClient.get('voyages');
+      if (res && res.data) {
+        const items = Array.isArray(res.data) ? res.data : (res.data.items || res.data.voyages || []);
+        if (items.length > 0) {
+          setStored(KEYS.VOYAGES, items);
+          return items;
+        }
+      }
+    } catch (e) {
+      console.warn('[vesselService] API getVoyages failed, using fallback:', e.message);
+    }
     return getStored(KEYS.VOYAGES);
   },
 
   async createVessel(data, currentUser = "Operations Staff") {
+    let created = null;
+    try {
+      const payload = {
+        name: data.name,
+        imoNumber: data.imoNumber || `IMO-${Math.floor(9000000 + Math.random() * 999999)}`,
+        carrier: data.carrier || "Tropical Shipping",
+        type: data.type || "Geared Feeder Container Vessel",
+        capacityTeu: Number(data.capacityTeu) || 1200,
+        deadweightTonnage: Number(data.deadweightTonnage) || 15000,
+        flag: data.flag || "Bahamas (BHS)",
+        activeRoute: data.activeRoute || "Miami → Nassau → Freeport Loop",
+        currentVoyage: data.currentVoyage || "VOY-2026-088",
+        status: data.status || "At Sea (In Transit)"
+      };
+      const res = await apiClient.post('vessels', payload);
+      if (res && res.data) {
+        created = res.data;
+      }
+    } catch (e) {
+      console.warn('[vesselService] API createVessel failed, using local fallback:', e.message);
+    }
+
     const list = getStored(KEYS.VESSELS);
-    const id = data.id || `vsl-${Date.now()}`;
-    const newVessel = {
+    const id = created?.id || data.id || `vsl-${Date.now()}`;
+    const newVessel = created || {
       ...data,
       id,
       name: data.name || "M/V Caribbean Voyager",
@@ -132,7 +248,7 @@ export const vesselService = {
       status: data.status || "At Sea (In Transit)"
     };
 
-    const updated = [newVessel, ...list];
+    const updated = [newVessel, ...list.filter(v => v.id !== newVessel.id && v.imoNumber !== newVessel.imoNumber)];
     setStored(KEYS.VESSELS, updated);
 
     await auditService.logAction(
@@ -147,10 +263,20 @@ export const vesselService = {
   },
 
   async updateVessel(id, updates, currentUser = "Operations Staff") {
+    let updatedItem = null;
+    try {
+      const res = await apiClient.patch(`vessels/${id}`, updates);
+      if (res && res.data) {
+        updatedItem = res.data;
+      }
+    } catch (e) {
+      console.warn('[vesselService] API updateVessel failed, using local fallback:', e.message);
+    }
+
     const list = getStored(KEYS.VESSELS);
-    const index = list.findIndex(item => item.id === id || item.name === id);
+    const index = list.findIndex(item => item.id === id || item.name === id || item.imoNumber === id);
     if (index !== -1) {
-      list[index] = { ...list[index], ...updates };
+      list[index] = updatedItem || { ...list[index], ...updates };
       setStored(KEYS.VESSELS, list);
 
       await auditService.logAction(
@@ -163,15 +289,21 @@ export const vesselService = {
 
       return list[index];
     }
-    return null;
+    return updatedItem;
   },
 
   async deleteVessel(id, currentUser = "Operations Staff") {
+    try {
+      await apiClient.delete(`vessels/${id}`);
+    } catch (e) {
+      console.warn('[vesselService] API deleteVessel failed, using local fallback:', e.message);
+    }
+
     const list = getStored(KEYS.VESSELS);
-    const existing = list.find(item => item.id === id || item.name === id);
+    const existing = list.find(item => item.id === id || item.name === id || item.imoNumber === id);
     if (!existing) return false;
 
-    const filtered = list.filter(item => item.id !== id && item.name !== id);
+    const filtered = list.filter(item => item.id !== id && item.name !== id && item.imoNumber !== id);
     setStored(KEYS.VESSELS, filtered);
 
     await auditService.logAction(
@@ -257,29 +389,70 @@ export const vesselService = {
 
 export const agentService = {
   async getAgents(filters = {}) {
+    try {
+      const res = await apiClient.get('agents');
+      if (res && res.data) {
+        const items = Array.isArray(res.data) ? res.data : (res.data.items || res.data.agents || []);
+        if (items.length > 0) {
+          setStored(KEYS.AGENTS, items);
+          return items;
+        }
+      }
+    } catch (e) {
+      console.warn('[agentService] API getAgents failed, using fallback:', e.message);
+    }
     const list = getStored(KEYS.AGENTS);
     let filtered = [...list];
     if (filters.search) {
       const q = filters.search.toLowerCase();
       filtered = filtered.filter(item =>
-        item.name.toLowerCase().includes(q) ||
-        item.agentCode.toLowerCase().includes(q) ||
-        item.contactPerson.toLowerCase().includes(q) ||
-        item.territory.toLowerCase().includes(q)
+        item.name?.toLowerCase().includes(q) ||
+        item.agentCode?.toLowerCase().includes(q) ||
+        item.contactPerson?.toLowerCase().includes(q) ||
+        item.territory?.toLowerCase().includes(q)
       );
     }
     return filtered;
   },
 
   async getAgentById(id) {
+    try {
+      const res = await apiClient.get(`agents/${id}`);
+      if (res && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      console.warn('[agentService] API getAgentById failed, using fallback:', e.message);
+    }
     const list = getStored(KEYS.AGENTS);
     return list.find(item => item.id === id || item.agentCode === id) || null;
   },
 
   async createAgent(data, currentUser = "Operations Staff") {
+    let created = null;
+    try {
+      const payload = {
+        name: data.name,
+        agentCode: data.agentCode || `AGT-CARIB-${Math.floor(10 + Math.random() * 90)}`,
+        territory: data.territory || "Caribbean Sea",
+        contactPerson: data.contactPerson || "Agent Representative",
+        email: data.email || "agent@ports.com",
+        phone: data.phone || "+1 (242) 555-0199",
+        address: data.address || "Main Harbour Terminal",
+        assignedPortCode: data.assignedPortCode || "NAS",
+        creditLimitUsd: String(data.creditLimitUsd || 50000)
+      };
+      const res = await apiClient.post('agents', payload);
+      if (res && res.data) {
+        created = res.data;
+      }
+    } catch (e) {
+      console.warn('[agentService] API createAgent failed, using local fallback:', e.message);
+    }
+
     const list = getStored(KEYS.AGENTS);
-    const id = data.id || `AGT-${data.agentCode || Math.floor(100 + Math.random() * 900)}`;
-    const newAgent = {
+    const id = created?.id || data.id || `AGT-${data.agentCode || Math.floor(100 + Math.random() * 900)}`;
+    const newAgent = created || {
       ...data,
       id,
       name: data.name || "Caribbean Port Logistics",
@@ -295,7 +468,7 @@ export const agentService = {
       assignedShipments: data.assignedShipments || []
     };
 
-    const updated = [newAgent, ...list];
+    const updated = [newAgent, ...list.filter(a => a.id !== newAgent.id && a.agentCode !== newAgent.agentCode)];
     setStored(KEYS.AGENTS, updated);
 
     await auditService.logAction(
@@ -310,10 +483,20 @@ export const agentService = {
   },
 
   async updateAgent(id, updates, currentUser = "Operations Staff") {
+    let updatedItem = null;
+    try {
+      const res = await apiClient.patch(`agents/${id}`, updates);
+      if (res && res.data) {
+        updatedItem = res.data;
+      }
+    } catch (e) {
+      console.warn('[agentService] API updateAgent failed, using local fallback:', e.message);
+    }
+
     const list = getStored(KEYS.AGENTS);
     const index = list.findIndex(item => item.id === id || item.agentCode === id);
     if (index !== -1) {
-      list[index] = { ...list[index], ...updates };
+      list[index] = updatedItem || { ...list[index], ...updates };
       setStored(KEYS.AGENTS, list);
 
       await auditService.logAction(
@@ -326,10 +509,16 @@ export const agentService = {
 
       return list[index];
     }
-    return null;
+    return updatedItem;
   },
 
   async deleteAgent(id, currentUser = "Operations Staff") {
+    try {
+      await apiClient.delete(`agents/${id}`);
+    } catch (e) {
+      console.warn('[agentService] API deleteAgent failed, using local fallback:', e.message);
+    }
+
     const list = getStored(KEYS.AGENTS);
     const existing = list.find(item => item.id === id || item.agentCode === id);
     if (!existing) return false;
@@ -351,10 +540,36 @@ export const agentService = {
 
 export const userService = {
   async getUsers() {
+    try {
+      const res = await apiClient.get('users');
+      if (res && res.data) {
+        const users = Array.isArray(res.data) ? res.data : (res.data.items || res.data.users || []);
+        if (users.length > 0) return users;
+      }
+    } catch (e) {
+      console.warn('[userService] Failed to fetch users from API, using fallback:', e.message);
+    }
     return getStored(KEYS.USERS);
   },
 
   async createUser(data, currentUser = "Super Admin") {
+    try {
+      const payload = {
+        name: data.name,
+        email: data.email,
+        password: data.password || 'password123',
+        roleKey: data.roleKey || 'operations',
+        department: data.department || 'Operations',
+        phone: data.phone || '',
+      };
+      const res = await apiClient.post('users', payload);
+      if (res && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      console.warn('[userService] API create user failed, using local storage:', e.message);
+    }
+
     const list = getStored(KEYS.USERS);
     const id = data.id || `USR-${String(list.length + 1).padStart(3, '0')}`;
     const initials = data.name
@@ -389,6 +604,15 @@ export const userService = {
   },
 
   async updateUser(id, updates, currentUser = "Super Admin") {
+    try {
+      const res = await apiClient.patch(`users/${id}`, updates);
+      if (res && res.data) {
+        return res.data;
+      }
+    } catch (e) {
+      console.warn('[userService] API update user failed, using local storage:', e.message);
+    }
+
     const list = getStored(KEYS.USERS);
     const index = list.findIndex(item => item.id === id || item.email === id);
     if (index !== -1) {
@@ -409,6 +633,13 @@ export const userService = {
   },
 
   async deleteUser(id, currentUser = "Super Admin") {
+    try {
+      await apiClient.delete(`users/${id}`);
+      return true;
+    } catch (e) {
+      console.warn('[userService] API delete user failed, using local storage:', e.message);
+    }
+
     const list = getStored(KEYS.USERS);
     const existing = list.find(item => item.id === id || item.email === id);
     if (!existing) return false;

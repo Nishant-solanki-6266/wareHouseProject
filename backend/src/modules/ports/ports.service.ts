@@ -23,6 +23,11 @@ export class PortsService {
     await this.getPort(idOrCode);
     return this.repo.update(idOrCode, input);
   }
+
+  async deletePort(idOrCode: string) {
+    await this.getPort(idOrCode);
+    return this.repo.delete(idOrCode);
+  }
 }
 
 export const portsService = new PortsService();

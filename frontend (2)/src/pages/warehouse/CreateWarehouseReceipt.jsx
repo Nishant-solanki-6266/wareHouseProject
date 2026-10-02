@@ -634,7 +634,7 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
                   style={{ background: '#FFFFFF', borderColor: '#0284C7', color: '#0284C7', fontWeight: 700 }}
                 >
                   <Plus size={15} />
-                  <span>+ Add Another Package Row</span>
+                  <span>Add Another Package Row</span>
                 </button>
 
                 <div style={{ fontSize: '0.75rem', color: '#64748B' }}>

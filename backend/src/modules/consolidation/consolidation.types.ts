@@ -7,8 +7,8 @@ export interface ConsolidationFilterParams {
 }
 
 export interface CreateConsolidationInput {
-  consolidationNumber?: string;
   id?: string;
+  consolidationNumber?: string;
   title: string;
   destinationPort: string;
   destinationCode?: string;
@@ -39,8 +39,11 @@ export interface CreateConsolidationInput {
   containerFillPercentage?: number | null;
   assignedShipmentId?: string | null;
   assignedMasterBLId?: string | null;
+  agentId?: string | null;
+  agentName?: string | null;
+  etd?: string | null;
+  eta?: string | null;
   notes?: string | null;
 }
 
 export interface UpdateConsolidationInput extends Partial<CreateConsolidationInput> {}
-

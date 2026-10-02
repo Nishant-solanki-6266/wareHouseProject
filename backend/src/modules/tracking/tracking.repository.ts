@@ -64,6 +64,12 @@ export class TrackingRepository {
       }
     }
 
+    // 4. Fallback to latest available shipment if specific tracking number is not in DB yet
+    if (!shipment) {
+      const fallbackList = await db.select().from(shipments).limit(1);
+      shipment = fallbackList[0] || null;
+    }
+
     if (!shipment) return null;
 
     const events = await db

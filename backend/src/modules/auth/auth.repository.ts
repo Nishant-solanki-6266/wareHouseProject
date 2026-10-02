@@ -1,4 +1,5 @@
-import { eq } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
+
 import { db } from '../../db/index.js';
 import { users, agents } from '../../db/schema/index.js';
 
@@ -20,8 +21,14 @@ export class AuthRepository {
       })
       .from(users)
       .leftJoin(agents, eq(users.agentId, agents.id))
-      .where(eq(users.email, email.toLowerCase().trim()))
+      .where(
+        or(
+          eq(users.email, email.toLowerCase().trim()),
+          eq(users.userCode, email.toUpperCase().trim())
+        )
+      )
       .limit(1);
+
 
     return result[0] || null;
   }

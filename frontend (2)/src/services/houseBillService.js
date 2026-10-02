@@ -1,8 +1,19 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
 
 export const houseBillService = {
   async getHouseBills(filters = {}) {
+    try {
+      const res = await apiClient.get('house-bills', filters);
+      if (res && Array.isArray(res.data)) {
+        setStored(KEYS.HOUSE_BILLS, res.data);
+        return res.data;
+      }
+    } catch (err) {
+      console.warn('API error fetching house bills, fallback to local:', err);
+    }
+
     const list = getStored(KEYS.HOUSE_BILLS);
     let filtered = [...list];
 
@@ -32,14 +43,56 @@ export const houseBillService = {
   },
 
   async getHouseBillById(id) {
+    try {
+      const res = await apiClient.get(`house-bills/${id}`);
+      if (res && res.data) return res.data;
+    } catch (err) {
+      console.warn('API error fetching house bill by id:', err);
+    }
+
     const list = getStored(KEYS.HOUSE_BILLS);
     return list.find(item => item.id === id || item.hblNumber === id) || null;
   },
 
   async createHouseBill(data, currentUser = "Documentation Staff") {
+    try {
+      const payload = {
+        customerId: data.customerId || undefined,
+        customerName: data.customerName || data.customer || 'Valued Customer',
+        shipper: typeof data.shipper === 'object' ? data.shipper : { name: data.shipper || data.customerName || 'General Shipper', address: 'Miami, FL' },
+        consignee: typeof data.consignee === 'object' ? data.consignee : { name: data.consignee || 'Consignee', address: data.destinationPort || 'Nassau, Bahamas' },
+        notifyParty: data.notifyParty ? (typeof data.notifyParty === 'object' ? data.notifyParty : { name: data.notifyParty, address: 'Destination Port' }) : undefined,
+        agentId: data.agentId || undefined,
+        agentName: data.agentName || undefined,
+        originPort: data.originPort || 'Port of Miami (USMIA), FL',
+        destinationPort: data.destinationPort || 'Port of Nassau (BSNAS)',
+        destinationCode: data.destinationCode || 'NAS',
+        warehouseReceiptIds: data.warehouseReceiptIds || [],
+        cargoDescription: data.cargoDescription || 'General Cargo',
+        packages: data.packages || [],
+        totalPackages: Number(data.totalPackages) || 0,
+        totalPieces: Number(data.totalPieces) || 0,
+        totalWeightLbs: Number(data.totalWeightLbs) || 0,
+        totalWeightKg: Number(data.totalWeightKg) || 0,
+        totalCft: Number(data.totalCft) || 0,
+        totalCbm: Number(data.totalCbm) || 0,
+        freightTerms: data.freightTerms || 'Freight Prepaid',
+        notes: data.notes || '',
+      };
+      const res = await apiClient.post('house-bills', payload);
+      if (res && res.data) {
+        const list = getStored(KEYS.HOUSE_BILLS);
+        setStored(KEYS.HOUSE_BILLS, [res.data, ...list]);
+        return res.data;
+      }
+    } catch (err) {
+      console.warn('API error creating house bill, fallback to local:', err);
+    }
+
     const list = getStored(KEYS.HOUSE_BILLS);
     const nextSeq = list.length + 1;
     const id = data.hblNumber || `HBL-2026-${String(nextSeq).padStart(4, '0')}`;
+
 
     // Read linked WRs if any to ensure package items and totals are complete
     const wrList = getStored(KEYS.WAREHOUSE_RECEIPTS);
@@ -163,6 +216,12 @@ export const houseBillService = {
   },
 
   async updateHouseBill(id, updates, currentUser = "Documentation Staff") {
+    try {
+      await apiClient.patch(`house-bills/${id}`, updates);
+    } catch (err) {
+      console.warn('API error updating house bill:', err);
+    }
+
     const list = getStored(KEYS.HOUSE_BILLS);
     const index = list.findIndex(item => item.id === id || item.hblNumber === id);
     if (index !== -1) {
@@ -186,6 +245,12 @@ export const houseBillService = {
   },
 
   async deleteHouseBill(id, currentUser = "Documentation Staff") {
+    try {
+      await apiClient.delete(`house-bills/${id}`);
+    } catch (err) {
+      console.warn('API error deleting house bill:', err);
+    }
+
     const list = getStored(KEYS.HOUSE_BILLS);
     const existing = list.find(item => item.id === id || item.hblNumber === id);
     if (!existing) return false;
@@ -218,6 +283,12 @@ export const houseBillService = {
   },
 
   async placeHold(hblId, reason, notes, currentUser = "Documentation Staff") {
+    try {
+      await apiClient.post(`house-bills/${hblId}/hold`, { reason, holdNotes: notes });
+    } catch (err) {
+      console.warn('API error placing house bill on hold:', err);
+    }
+
     const list = getStored(KEYS.HOUSE_BILLS);
     const index = list.findIndex(item => item.id === hblId || item.hblNumber === hblId);
     if (index === -1) return null;
@@ -250,6 +321,12 @@ export const houseBillService = {
   },
 
   async clearHold(hblId, currentUser = "Super Admin", clearNotes = "") {
+    try {
+      await apiClient.post(`house-bills/${hblId}/release`, {});
+    } catch (err) {
+      console.warn('API error clearing house bill hold:', err);
+    }
+
     const list = getStored(KEYS.HOUSE_BILLS);
     const index = list.findIndex(item => item.id === hblId || item.hblNumber === hblId);
     if (index === -1) return null;
@@ -280,6 +357,7 @@ export const houseBillService = {
 
     return updatedHBL;
   },
+
 
   async updateStatus(hblId, newStatus, currentUser = "Documentation Staff") {
     const list = getStored(KEYS.HOUSE_BILLS);

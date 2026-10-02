@@ -1,25 +1,21 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
 import { apiFetch } from './apiConfig';
 
 export const manifestService = {
   async getManifests(filters = {}) {
     try {
-      const queryParams = new URLSearchParams();
-      if (filters.search) queryParams.set('search', filters.search);
-      if (filters.status && filters.status !== 'All') queryParams.set('status', filters.status);
-
-      const qs = queryParams.toString();
-      const endpoint = qs ? `/manifests?${qs}&limit=100` : '/manifests?limit=100';
-      const res = await apiFetch(endpoint);
-
+      const res = await apiClient.get('manifests', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        setStored(KEYS.MANIFESTS, liveList);
-        return liveList;
+        if (liveList.length > 0) {
+          setStored(KEYS.MANIFESTS, liveList);
+          return liveList;
+        }
       }
     } catch (err) {
-      console.warn('Backend API /manifests fetch failed, using cached store:', err.message);
+      console.warn('Backend API /manifests fetch failed, using cached store:', err?.message || err);
     }
 
     const list = getStored(KEYS.MANIFESTS, []);
@@ -41,12 +37,10 @@ export const manifestService = {
   async getManifestById(id) {
     if (!id) return null;
     try {
-      const res = await apiFetch(`/manifests/${encodeURIComponent(id)}`);
-      if (res && res.data) {
-        return res.data;
-      }
+      const res = await apiClient.get(`manifests/${encodeURIComponent(id)}`);
+      if (res && res.data) return res.data;
     } catch (err) {
-      console.warn(`Backend API fetch for manifest ${id} failed:`, err.message);
+      console.warn(`Backend API fetch for manifest ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.MANIFESTS, []);
@@ -56,15 +50,12 @@ export const manifestService = {
   async generateManifest(manifestData, currentUser = "Documentation Staff") {
     let createdManifest = null;
     try {
-      const res = await apiFetch('/manifests', {
-        method: 'POST',
-        body: JSON.stringify(manifestData)
-      });
+      const res = await apiClient.post('manifests', manifestData);
       if (res && res.data) {
         createdManifest = res.data;
       }
     } catch (err) {
-      console.warn('Backend generateManifest failed, using local store:', err.message);
+      console.warn('Backend generateManifest failed, using local store:', err?.message || err);
     }
 
     if (!createdManifest) {
@@ -98,15 +89,12 @@ export const manifestService = {
   async updateManifest(id, updates, currentUser = "Documentation Staff") {
     let updatedManifest = null;
     try {
-      const res = await apiFetch(`/manifests/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        body: JSON.stringify(updates)
-      });
+      const res = await apiClient.put(`manifests/${encodeURIComponent(id)}`, updates);
       if (res && res.data) {
         updatedManifest = res.data;
       }
     } catch (err) {
-      console.warn(`Backend updateManifest ${id} failed:`, err.message);
+      console.warn(`Backend updateManifest ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.MANIFESTS, []);
@@ -133,11 +121,9 @@ export const manifestService = {
 
   async deleteManifest(id, currentUser = "Documentation Staff") {
     try {
-      await apiFetch(`/manifests/${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      });
+      await apiClient.delete(`manifests/${encodeURIComponent(id)}`);
     } catch (err) {
-      console.warn(`Backend deleteManifest ${id} failed:`, err.message);
+      console.warn(`Backend deleteManifest ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.MANIFESTS, []);

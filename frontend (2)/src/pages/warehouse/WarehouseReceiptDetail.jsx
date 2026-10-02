@@ -18,7 +18,12 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
   const [fetchedReceipt, setFetchedReceipt] = useState(null);
   const [isFetching, setIsFetching] = useState(false);
 
-  const contextReceipt = warehouseReceipts.find(r => r.id === receiptId || r.receiptNumber === receiptId);
+  const contextReceipt = warehouseReceipts.find(r => 
+    String(r.id) === String(receiptId) || 
+    String(r.receiptNumber) === String(receiptId) ||
+    r.id === receiptId || 
+    r.receiptNumber === receiptId
+  );
   const receipt = contextReceipt || fetchedReceipt;
 
   useEffect(() => {
@@ -90,7 +95,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
                 id="btn-create-hbl-wr"
               >
                 <FileText size={15} />
-                <span>+ Create House B/L</span>
+                <span>Create House B/L</span>
               </button>
             )}
             <button

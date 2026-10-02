@@ -43,16 +43,26 @@ export class ConsolidationRepository {
   }
 
   async findByIdOrNumber(idOrNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const condition = isUuid
+      ? or(eq(consolidations.id, idOrNumber), eq(consolidations.consolidationNumber, idOrNumber))
+      : eq(consolidations.consolidationNumber, idOrNumber);
+
     const result = await db
       .select()
       .from(consolidations)
-      .where(or(eq(consolidations.id, idOrNumber), eq(consolidations.consolidationNumber, idOrNumber)))
+      .where(condition)
       .limit(1);
 
     return result[0] || null;
   }
 
-  async create(data: Record<string, unknown>) {
+  async countTotal(): Promise<number> {
+    const [{ total }] = await db.select({ total: count() }).from(consolidations);
+    return Number(total);
+  }
+
+  async create(data: Record<string, unknown> | any) {
     const [created] = await db.insert(consolidations).values(data as any).returning();
     return created;
   }
@@ -79,3 +89,4 @@ export class ConsolidationRepository {
 }
 
 export const consolidationRepository = new ConsolidationRepository();
+

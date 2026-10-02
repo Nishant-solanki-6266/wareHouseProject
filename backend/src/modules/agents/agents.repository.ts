@@ -42,6 +42,15 @@ export class AgentsRepository {
 
     return updated || null;
   }
+
+  async delete(idOrCode: string) {
+    const [deleted] = await db
+      .delete(agents)
+      .where(or(eq(agents.id, idOrCode), eq(agents.agentCode, idOrCode)))
+      .returning();
+    return !!deleted;
+  }
 }
+
 
 export const agentsRepository = new AgentsRepository();

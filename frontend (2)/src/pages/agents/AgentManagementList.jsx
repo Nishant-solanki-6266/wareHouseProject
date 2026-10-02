@@ -136,7 +136,7 @@ export const AgentManagementList = ({ onNavigate }) => {
             className="btn btn-primary btn-sm"
           >
             <Plus size={15} />
-            <span>+ Register Port Agent</span>
+            <span>Register Port Agent</span>
           </button>
         }
       />

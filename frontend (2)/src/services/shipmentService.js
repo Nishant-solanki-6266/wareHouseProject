@@ -1,27 +1,21 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
 import { apiFetch } from './apiConfig';
 
 export const shipmentService = {
   async getShipments(filters = {}) {
     try {
-      const queryParams = new URLSearchParams();
-      if (filters.search) queryParams.set('search', filters.search);
-      if (filters.status && filters.status !== 'All') queryParams.set('status', filters.status);
-      if (filters.destination && filters.destination !== 'All') queryParams.set('destinationCode', filters.destination);
-      if (filters.agentId && filters.agentId !== 'All') queryParams.set('agentId', filters.agentId);
-
-      const qs = queryParams.toString();
-      const endpoint = qs ? `/shipments?${qs}&limit=100` : '/shipments?limit=100';
-      const res = await apiFetch(endpoint);
-
+      const res = await apiClient.get('shipments', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        setStored(KEYS.SHIPMENTS, liveList);
-        return liveList;
+        if (liveList.length > 0) {
+          setStored(KEYS.SHIPMENTS, liveList);
+          return liveList;
+        }
       }
     } catch (err) {
-      console.warn('Backend API /shipments fetch failed, using cached store:', err.message);
+      console.warn('Backend API /shipments fetch failed, using cached store:', err?.message || err);
     }
 
     // Fallback to local cache
@@ -33,23 +27,21 @@ export const shipmentService = {
       filtered = filtered.filter(item =>
         item.shipmentNumber?.toLowerCase().includes(q) ||
         item.trackingNumber?.toLowerCase().includes(q) ||
+        item.vesselName?.toLowerCase().includes(q) ||
         item.destinationPort?.toLowerCase().includes(q) ||
         item.containerNumber?.toLowerCase().includes(q) ||
-        item.vesselName?.toLowerCase().includes(q) ||
+        item.billOfLadingNumber?.toLowerCase().includes(q) ||
         item.agentName?.toLowerCase().includes(q)
       );
     }
     if (filters.status && filters.status !== 'All') {
       filtered = filtered.filter(item => item.status === filters.status);
     }
-    if (filters.agentId && filters.agentId !== 'All') {
-      filtered = filtered.filter(item => item.agentId === filters.agentId);
-    }
-    if (filters.blStatus && filters.blStatus !== 'All') {
-      filtered = filtered.filter(item => item.blStatus === filters.blStatus);
-    }
     if (filters.destination && filters.destination !== 'All') {
       filtered = filtered.filter(item => item.destinationCode === filters.destination);
+    }
+    if (filters.agentId && filters.agentId !== 'All') {
+      filtered = filtered.filter(item => item.agentId === filters.agentId);
     }
 
     return filtered;
@@ -58,12 +50,12 @@ export const shipmentService = {
   async getShipmentById(id) {
     if (!id) return null;
     try {
-      const res = await apiFetch(`/shipments/${encodeURIComponent(id)}`);
+      const res = await apiClient.get(`shipments/${encodeURIComponent(id)}`);
       if (res && res.data) {
         return res.data;
       }
     } catch (err) {
-      console.warn(`Backend API fetch for shipment ${id} failed:`, err.message);
+      console.warn(`Backend API fetch for shipment ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.SHIPMENTS, []);
@@ -73,29 +65,26 @@ export const shipmentService = {
   async createShipment(data, currentUser = "Operations Staff") {
     let createdShipment = null;
     try {
-      const res = await apiFetch('/shipments', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      const res = await apiClient.post('shipments', data);
       if (res && res.data) {
         createdShipment = res.data;
       }
     } catch (err) {
-      console.warn('Backend createShipment failed, storing locally:', err.message);
+      console.warn('Backend createShipment failed, storing locally:', err?.message || err);
     }
 
     if (!createdShipment) {
       const list = getStored(KEYS.SHIPMENTS, []);
-      const id = `SHP-2026-${292 + list.length}`;
+      const id = data.shipmentNumber || `SHP-2026-${292 + list.length}`;
       createdShipment = {
         ...data,
         id,
         shipmentNumber: id,
-        trackingNumber: `TRK-VI-${Math.floor(100000 + Math.random() * 900000)}`,
-        createdDate: new Date().toISOString().split('T')[0],
+        trackingNumber: data.trackingNumber || `TRK-VI-${Math.floor(100000 + Math.random() * 900000)}`,
+        createdDate: data.createdDate || new Date().toISOString().split('T')[0],
         status: data.status || "Cargo Received",
         blStatus: data.blStatus || "Draft",
-        trackingCheckpoints: [
+        trackingCheckpoints: data.trackingCheckpoints || [
           {
             id: `chk-${Date.now()}-1`,
             stage: "Cargo Received",
@@ -123,7 +112,7 @@ export const shipmentService = {
     }
 
     const list = getStored(KEYS.SHIPMENTS, []);
-    const updated = [createdShipment, ...list.filter(s => s.id !== createdShipment.id)];
+    const updated = [createdShipment, ...list.filter(s => s.id !== createdShipment.id && s.shipmentNumber !== createdShipment.shipmentNumber)];
     setStored(KEYS.SHIPMENTS, updated);
 
     await auditService.logAction(
@@ -140,15 +129,12 @@ export const shipmentService = {
   async updateShipment(id, updates, currentUser = "Operations Staff") {
     let updatedShipment = null;
     try {
-      const res = await apiFetch(`/shipments/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        body: JSON.stringify(updates)
-      });
+      const res = await apiClient.put(`shipments/${encodeURIComponent(id)}`, updates);
       if (res && res.data) {
         updatedShipment = res.data;
       }
     } catch (err) {
-      console.warn(`Backend updateShipment ${id} failed:`, err.message);
+      console.warn(`Backend updateShipment ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.SHIPMENTS, []);
@@ -172,11 +158,9 @@ export const shipmentService = {
 
   async deleteShipment(id, currentUser = "Operations Staff") {
     try {
-      await apiFetch(`/shipments/${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      });
+      await apiClient.delete(`shipments/${encodeURIComponent(id)}`);
     } catch (err) {
-      console.warn(`Backend deleteShipment ${id} failed:`, err.message);
+      console.warn(`Backend deleteShipment ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.SHIPMENTS, []);
@@ -190,7 +174,7 @@ export const shipmentService = {
         "Shipments",
         "Deleted Shipment",
         id,
-        `Deleted shipment ${id} (${existing.shipmentNumber}).`
+        `Deleted Master Shipment ${id} (${existing.shipmentNumber}).`
       );
     }
 

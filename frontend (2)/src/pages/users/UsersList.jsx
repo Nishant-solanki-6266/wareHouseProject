@@ -124,7 +124,7 @@ export const UsersList = ({ onNavigate }) => {
             className="btn btn-primary btn-sm"
           >
             <UserPlus size={15} />
-            <span>+ Add Staff Account</span>
+            <span>Add Staff Account</span>
           </button>
         }
       />

@@ -1,16 +1,8 @@
 import { z } from 'zod';
 
-export const consolidationQuerySchema = z.object({
-  page: z.coerce.number().optional().default(1),
-  limit: z.coerce.number().optional().default(20),
-  search: z.string().optional(),
-  status: z.string().optional(),
-  destinationCode: z.string().optional(),
-});
-
 export const createConsolidationSchema = z.object({
-  consolidationNumber: z.string().optional(),
   id: z.string().optional(),
+  consolidationNumber: z.string().optional(),
   title: z.string().min(1, 'Title is required'),
   destinationPort: z.string().min(1, 'Destination port is required'),
   destinationCode: z.string().optional().default('NAS'),
@@ -41,8 +33,19 @@ export const createConsolidationSchema = z.object({
   containerFillPercentage: z.coerce.number().nullish().default(0),
   assignedShipmentId: z.string().nullish(),
   assignedMasterBLId: z.string().nullish(),
+  agentId: z.string().nullish(),
+  agentName: z.string().nullish(),
+  etd: z.string().nullish(),
+  eta: z.string().nullish(),
   notes: z.string().nullish().default(''),
 });
 
 export const updateConsolidationSchema = createConsolidationSchema.partial();
 
+export const consolidationQuerySchema = z.object({
+  page: z.coerce.number().optional().default(1),
+  limit: z.coerce.number().optional().default(20),
+  search: z.string().optional(),
+  status: z.string().optional(),
+  destinationCode: z.string().optional(),
+});

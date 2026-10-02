@@ -1,27 +1,21 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
 import { apiFetch } from './apiConfig';
 
 export const cargoService = {
   async getCargo(filters = {}) {
     try {
-      const queryParams = new URLSearchParams();
-      if (filters.search) queryParams.set('search', filters.search);
-      if (filters.status && filters.status !== 'All') queryParams.set('status', filters.status);
-      if (filters.destination && filters.destination !== 'All') queryParams.set('destinationCode', filters.destination);
-      if (filters.destinationCode && filters.destinationCode !== 'All') queryParams.set('destinationCode', filters.destinationCode);
-
-      const qs = queryParams.toString();
-      const endpoint = qs ? `/cargo?${qs}&limit=100` : '/cargo?limit=100';
-      const res = await apiFetch(endpoint);
-
+      const res = await apiClient.get('cargo', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        setStored(KEYS.CARGO, liveList);
-        return liveList;
+        if (liveList.length > 0) {
+          setStored(KEYS.CARGO, liveList);
+          return liveList;
+        }
       }
     } catch (err) {
-      console.warn('Backend API /cargo fetch failed, using local store:', err.message);
+      console.warn('Backend API /cargo fetch failed, using local store:', err?.message || err);
     }
 
     const list = getStored(KEYS.CARGO, []);
@@ -47,12 +41,10 @@ export const cargoService = {
   async getCargoById(id) {
     if (!id) return null;
     try {
-      const res = await apiFetch(`/cargo/${encodeURIComponent(id)}`);
-      if (res && res.data) {
-        return res.data;
-      }
+      const res = await apiClient.get(`cargo/${encodeURIComponent(id)}`);
+      if (res && res.data) return res.data;
     } catch (err) {
-      console.warn(`Backend API fetch for cargo ${id} failed:`, err.message);
+      console.warn(`API error fetching cargo by id ${id}:`, err?.message || err);
     }
 
     const list = getStored(KEYS.CARGO, []);
@@ -99,15 +91,12 @@ export const cargoService = {
 
     let createdCargo = null;
     try {
-      const res = await apiFetch('/cargo', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
+      const res = await apiClient.post('cargo', payload);
       if (res && res.data) {
         createdCargo = res.data;
       }
     } catch (err) {
-      console.warn('Backend createCargo failed, saving locally:', err.message);
+      console.warn('Backend createCargo failed, saving locally:', err?.message || err);
     }
 
     if (!createdCargo) {
@@ -134,15 +123,12 @@ export const cargoService = {
   async updateCargo(id, updates, currentUser = "Warehouse Staff") {
     let updatedCargo = null;
     try {
-      const res = await apiFetch(`/cargo/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        body: JSON.stringify(updates)
-      });
+      const res = await apiClient.put(`cargo/${encodeURIComponent(id)}`, updates);
       if (res && res.data) {
         updatedCargo = res.data;
       }
     } catch (err) {
-      console.warn(`Backend updateCargo ${id} failed:`, err.message);
+      console.warn(`Backend updateCargo ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.CARGO, []);
@@ -187,11 +173,9 @@ export const cargoService = {
 
   async deleteCargo(id, currentUser = "Warehouse Staff") {
     try {
-      await apiFetch(`/cargo/${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      });
+      await apiClient.delete(`cargo/${encodeURIComponent(id)}`);
     } catch (err) {
-      console.warn(`Backend deleteCargo ${id} failed:`, err.message);
+      console.warn(`Backend deleteCargo ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.CARGO, []);
@@ -199,16 +183,16 @@ export const cargoService = {
     const filtered = list.filter(item => item.id !== id && item.cargoNumber !== id);
     setStored(KEYS.CARGO, filtered);
 
-    await auditService.logAction(
-      currentUser,
-      "Cargo Inventory",
-      "Deleted Cargo Unit",
-      id,
-      `Deleted cargo unit ${id} (${existing?.customer || 'Cargo'}).`
-    );
+    if (existing) {
+      await auditService.logAction(
+        currentUser,
+        "Cargo Inventory",
+        "Deleted Cargo Unit",
+        id,
+        `Deleted cargo unit ${id} (${existing?.customer || 'Cargo'}).`
+      );
+    }
 
     return true;
   }
 };
-
-

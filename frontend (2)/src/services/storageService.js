@@ -37,18 +37,30 @@ const KEYS = {
 
 // Initialize localStorage with mock seed data if empty
 export const initializeStorage = () => {
-  const CLEAN_SLATE_KEY = 'kers_clean_slate_v4';
+  const CLEAN_SLATE_KEY = 'kers_clean_slate_v5';
   if (!localStorage.getItem(CLEAN_SLATE_KEY)) {
-    clearTransactionalData();
+    // Sync modern roles and user directory
+    localStorage.setItem(KEYS.USERS, JSON.stringify(initialUsers));
+    localStorage.setItem(KEYS.ROLES, JSON.stringify(initialRolesPermissions));
+
+    // Update active user session if Carlos Mendez was logged in with old role
+    try {
+      const activeRaw = localStorage.getItem('kers_active_user');
+      if (activeRaw) {
+        const active = JSON.parse(activeRaw);
+        if (active.id === 'USR-003') {
+          active.roleKey = 'warehouse';
+          active.role = 'Warehouse Staff';
+          localStorage.setItem('kers_active_user', JSON.stringify(active));
+        }
+      }
+    } catch (e) {
+      // ignore JSON parse error
+    }
+
     localStorage.setItem(KEYS.AGENTS, JSON.stringify(initialAgents));
     localStorage.setItem(KEYS.PORTS, JSON.stringify(initialPorts));
     localStorage.setItem(KEYS.SETTINGS, JSON.stringify(initialSettings));
-    if (!localStorage.getItem(KEYS.USERS)) {
-      localStorage.setItem(KEYS.USERS, JSON.stringify(initialUsers));
-    }
-    if (!localStorage.getItem(KEYS.ROLES)) {
-      localStorage.setItem(KEYS.ROLES, JSON.stringify(initialRolesPermissions));
-    }
     localStorage.setItem(CLEAN_SLATE_KEY, 'true');
   }
 

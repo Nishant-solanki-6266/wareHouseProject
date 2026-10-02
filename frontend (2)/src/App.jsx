@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ToastProvider } from './context/ToastContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { AppDataProvider } from './context/AppDataContext';
+import { AppDataProvider, useAppData } from './context/AppDataContext';
 import { AppLayout } from './layouts/AppLayout';
 import { AgentLayout } from './layouts/AgentLayout';
 
@@ -143,9 +143,17 @@ const getUrlForRoute = (tab, recordIdOrAction) => {
 
 const MainAppRouter = () => {
   const { isAuthenticated, isAgent } = useAuth();
+  const { fetchMenuApi } = useAppData();
 
   const [routeState, setRouteState] = useState(() => parseUrlToRoute(isAgent));
   const { tab: activeTab, selectedRecordId, subAction } = routeState;
+
+  // On activeTab change, trigger ONLY the clicked menu's API
+  useEffect(() => {
+    if (isAuthenticated && activeTab && fetchMenuApi) {
+      fetchMenuApi(activeTab);
+    }
+  }, [isAuthenticated, activeTab, fetchMenuApi]);
 
   // Unified navigateTo function that updates state, browser URL, and history
   const navigateTo = useCallback((tab, recordIdOrAction = null, options = {}) => {

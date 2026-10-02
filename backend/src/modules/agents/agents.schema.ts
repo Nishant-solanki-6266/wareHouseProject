@@ -9,10 +9,10 @@ export const createAgentSchema = z.object({
   territory: z.string().optional(),
   address: z.string().optional(),
   assignedPortCode: z.string().optional(),
-  creditLimitUsd: z.string().optional(),
+  creditLimitUsd: z.union([z.string(), z.number()]).transform(v => String(v)).optional(),
 });
 
 export const updateAgentSchema = createAgentSchema.partial().extend({
   status: z.enum(['Active', 'Inactive']).optional(),
-  currentBalanceUsd: z.string().optional(),
+  currentBalanceUsd: z.union([z.string(), z.number()]).transform(v => String(v)).optional(),
 });

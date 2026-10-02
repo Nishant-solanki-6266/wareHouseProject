@@ -372,8 +372,13 @@ button {
     display: none !important;
   }
 
-  .show-mobile-only {
-    display: inline-flex !important;
+}
+
+/* Dedicated Warehouse & Logistics Mobile Breakpoints */
+@media (max-width: 960px) {
+  .col-span-8-mobile,
+  .col-span-4-mobile {
+    grid-column: span 12 / span 12 !important;
   }
 }
 
@@ -420,6 +425,14 @@ button {
     grid-column: span 12 / span 12 !important;
   }
 
+  .grid-cols-5-mobile {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .doc-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+
   .card-header {
     padding: 0.875rem 1rem;
     flex-wrap: wrap;
@@ -441,4 +454,14 @@ button {
   .page-header-actions .btn {
     width: 100%;
   }
+
+  .grid-cols-5-mobile {
+    grid-template-columns: 1fr !important;
+  }
+
+  .printable-label-4x6 {
+    transform: scale(0.85);
+    transform-origin: top center;
+  }
 }
+

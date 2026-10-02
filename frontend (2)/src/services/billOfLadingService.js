@@ -1,26 +1,21 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiClient } from './apiClient';
 import { apiFetch } from './apiConfig';
 
 export const billOfLadingService = {
   async getBillsOfLading(filters = {}) {
     try {
-      const queryParams = new URLSearchParams();
-      if (filters.search) queryParams.set('search', filters.search);
-      if (filters.status && filters.status !== 'All') queryParams.set('status', filters.status);
-      if (filters.agentId && filters.agentId !== 'All') queryParams.set('agentId', filters.agentId);
-
-      const qs = queryParams.toString();
-      const endpoint = qs ? `/bills-of-lading?${qs}&limit=100` : '/bills-of-lading?limit=100';
-      const res = await apiFetch(endpoint);
-
+      const res = await apiClient.get('bills-of-lading', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        setStored(KEYS.BILLS_OF_LADING, liveList);
-        return liveList;
+        if (liveList.length > 0) {
+          setStored(KEYS.BILLS_OF_LADING, liveList);
+          return liveList;
+        }
       }
     } catch (err) {
-      console.warn('Backend API /bills-of-lading fetch failed, using cached store:', err.message);
+      console.warn('API error fetching bills of lading, fallback to local:', err?.message || err);
     }
 
     const list = getStored(KEYS.BILLS_OF_LADING, []);
@@ -41,7 +36,7 @@ export const billOfLadingService = {
       filtered = filtered.filter(item => item.status === filters.status);
     }
     if (filters.agentId && filters.agentId !== 'All') {
-      filtered = filtered.filter(item => item.agentId === filters.agentId);
+      filtered = filtered.filter(item => item.agentId === filters.agentId || item.consignee?.agentId === filters.agentId);
     }
 
     return filtered;
@@ -50,12 +45,10 @@ export const billOfLadingService = {
   async getBillOfLadingById(id) {
     if (!id) return null;
     try {
-      const res = await apiFetch(`/bills-of-lading/${encodeURIComponent(id)}`);
-      if (res && res.data) {
-        return res.data;
-      }
+      const res = await apiClient.get(`bills-of-lading/${encodeURIComponent(id)}`);
+      if (res && res.data) return res.data;
     } catch (err) {
-      console.warn(`Backend API fetch for B/L ${id} failed:`, err.message);
+      console.warn(`API error fetching bill of lading by id ${id}:`, err?.message || err);
     }
 
     const list = getStored(KEYS.BILLS_OF_LADING, []);
@@ -65,15 +58,12 @@ export const billOfLadingService = {
   async createBillOfLading(data, currentUser = "Documentation Staff") {
     let createdBL = null;
     try {
-      const res = await apiFetch('/bills-of-lading', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      const res = await apiClient.post('bills-of-lading', data);
       if (res && res.data) {
         createdBL = res.data;
       }
     } catch (err) {
-      console.warn('Backend createBillOfLading failed, storing locally:', err.message);
+      console.warn('Backend createBillOfLading failed, storing locally:', err?.message || err);
     }
 
     if (!createdBL) {
@@ -114,15 +104,12 @@ export const billOfLadingService = {
   async updateBillOfLading(id, updates, currentUser = "Documentation Staff") {
     let updatedBL = null;
     try {
-      const res = await apiFetch(`/bills-of-lading/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        body: JSON.stringify(updates)
-      });
+      const res = await apiClient.put(`bills-of-lading/${encodeURIComponent(id)}`, updates);
       if (res && res.data) {
         updatedBL = res.data;
       }
     } catch (err) {
-      console.warn(`Backend updateBillOfLading ${id} failed:`, err.message);
+      console.warn(`Backend updateBillOfLading ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.BILLS_OF_LADING, []);
@@ -146,11 +133,9 @@ export const billOfLadingService = {
 
   async deleteBillOfLading(id, currentUser = "Documentation Staff") {
     try {
-      await apiFetch(`/bills-of-lading/${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      });
+      await apiClient.delete(`bills-of-lading/${encodeURIComponent(id)}`);
     } catch (err) {
-      console.warn(`Backend deleteBillOfLading ${id} failed:`, err.message);
+      console.warn(`Backend deleteBillOfLading ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.BILLS_OF_LADING, []);
@@ -173,12 +158,9 @@ export const billOfLadingService = {
 
   async placeHold(blId, reason, notes, currentUser = "Documentation Staff") {
     try {
-      await apiFetch(`/bills-of-lading/${encodeURIComponent(blId)}/hold`, {
-        method: 'POST',
-        body: JSON.stringify({ reason, holdNotes: notes })
-      });
+      await apiClient.post(`bills-of-lading/${encodeURIComponent(blId)}/hold`, { reason, holdNotes: notes });
     } catch (err) {
-      console.warn(`Backend placeHold ${blId} notice:`, err.message);
+      console.warn('API error placing bill of lading on hold:', err?.message || err);
     }
 
     const list = getStored(KEYS.BILLS_OF_LADING, []);
@@ -186,118 +168,94 @@ export const billOfLadingService = {
     if (index === -1) return null;
 
     const currentBL = list[index];
-    const updatedBL = {
-      ...currentBL,
-      status: "On Hold",
-      holdDetails: {
-        isOnHold: true,
-        reason: reason || "Administrative Hold",
-        placedBy: typeof currentUser === 'string' ? currentUser : currentUser?.name || "Staff",
-        placedAt: new Date().toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
-        holdCategory: "Compliance & Financial",
-        holdNotes: notes || "Documents and release restricted until clearance.",
-        contactEmail: "documentation@vicustoms.com",
-        contactPhone: "+1 (305) 555-5377"
-      }
+    const prevHoldDetails = currentBL.holdDetails || {};
+
+    const updatedHoldDetails = {
+      isOnHold: true,
+      reason,
+      notes,
+      placedBy: typeof currentUser === 'string' ? currentUser : currentUser.name,
+      placedAt: new Date().toISOString(),
+      history: [
+        ...(prevHoldDetails.history || []),
+        {
+          action: "HOLD_PLACED",
+          reason,
+          notes,
+          by: typeof currentUser === 'string' ? currentUser : currentUser.name,
+          timestamp: new Date().toISOString()
+        }
+      ]
     };
 
-    list[index] = updatedBL;
-    setStored(KEYS.BILLS_OF_LADING, list);
+    list[index] = {
+      ...currentBL,
+      status: "Hold",
+      holdDetails: updatedHoldDetails
+    };
 
-    if (currentBL.shipmentId) {
-      const shipments = getStored(KEYS.SHIPMENTS, []);
-      const sIndex = shipments.findIndex(s => s.id === currentBL.shipmentId || s.billOfLadingId === blId);
-      if (sIndex !== -1) {
-        shipments[sIndex].blStatus = "On Hold";
-        setStored(KEYS.SHIPMENTS, shipments);
-      }
-    }
+    setStored(KEYS.BILLS_OF_LADING, list);
 
     await auditService.logAction(
       currentUser,
       "Bill of Lading",
-      "Placed B/L On Hold",
+      "Placed B/L on Hold",
       blId,
-      `Placed Master B/L ${blId} On Hold. Reason: "${reason}". Notes: "${notes || 'None'}"`
+      `Master B/L ${blId} placed on hold. Reason: ${reason}. Notes: ${notes || 'None'}`
     );
 
-    return updatedBL;
+    return list[index];
   },
 
   async clearHold(blId, currentUser = "Super Admin", clearNotes = "") {
     try {
-      await apiFetch(`/bills-of-lading/${encodeURIComponent(blId)}/release`, {
-        method: 'POST'
-      });
+      await apiClient.post(`bills-of-lading/${encodeURIComponent(blId)}/release`, { clearNotes });
     } catch (err) {
-      console.warn(`Backend clearHold ${blId} notice:`, err.message);
+      console.warn('API error clearing bill of lading hold:', err?.message || err);
     }
 
     const list = getStored(KEYS.BILLS_OF_LADING, []);
     const index = list.findIndex(item => item.id === blId || item.blNumber === blId);
+
     if (index === -1) return null;
 
     const currentBL = list[index];
-    const previousReason = currentBL.holdDetails?.reason || "Hold";
+    const prevHoldDetails = currentBL.holdDetails || {};
 
-    const updatedBL = {
-      ...currentBL,
-      status: "Released",
-      holdDetails: {
-        isOnHold: false,
-        reason: null,
-        releasedBy: typeof currentUser === 'string' ? currentUser : currentUser?.name || "Authorized Staff",
-        releasedAt: new Date().toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
-        clearNotes: clearNotes || "Hold cleared upon verification."
-      }
+    const updatedHoldDetails = {
+      isOnHold: false,
+      reason: null,
+      notes: null,
+      placedBy: null,
+      placedAt: null,
+      clearedBy: typeof currentUser === 'string' ? currentUser : currentUser.name,
+      clearedAt: new Date().toISOString(),
+      clearNotes,
+      history: [
+        ...(prevHoldDetails.history || []),
+        {
+          action: "HOLD_CLEARED",
+          notes: clearNotes,
+          by: typeof currentUser === 'string' ? currentUser : currentUser.name,
+          timestamp: new Date().toISOString()
+        }
+      ]
     };
 
-    list[index] = updatedBL;
-    setStored(KEYS.BILLS_OF_LADING, list);
+    list[index] = {
+      ...currentBL,
+      status: "Draft",
+      holdDetails: updatedHoldDetails
+    };
 
-    if (currentBL.shipmentId) {
-      const shipments = getStored(KEYS.SHIPMENTS, []);
-      const sIndex = shipments.findIndex(s => s.id === currentBL.shipmentId || s.billOfLadingId === blId);
-      if (sIndex !== -1) {
-        shipments[sIndex].blStatus = "Released";
-        setStored(KEYS.SHIPMENTS, shipments);
-      }
-    }
+    setStored(KEYS.BILLS_OF_LADING, list);
 
     await auditService.logAction(
       currentUser,
       "Bill of Lading",
-      "Cleared Hold & Released B/L",
+      "Cleared B/L Hold",
       blId,
-      `Authorized hold clearance for B/L ${blId}. Previous hold reason was: "${previousReason}". Status set to RELEASED.`
-    );
-
-    return updatedBL;
-  },
-
-  async updateStatus(blId, newStatus, currentUser = "Documentation Staff") {
-    const list = getStored(KEYS.BILLS_OF_LADING, []);
-    const index = list.findIndex(item => item.id === blId || item.blNumber === blId);
-    if (index === -1) return null;
-
-    list[index].status = newStatus;
-    setStored(KEYS.BILLS_OF_LADING, list);
-
-    if (list[index].shipmentId) {
-      const shipments = getStored(KEYS.SHIPMENTS, []);
-      const sIndex = shipments.findIndex(s => s.id === list[index].shipmentId);
-      if (sIndex !== -1) {
-        shipments[sIndex].blStatus = newStatus;
-        setStored(KEYS.SHIPMENTS, shipments);
-      }
-    }
-
-    await auditService.logAction(
-      currentUser,
-      "Bill of Lading",
-      `Updated B/L Status to ${newStatus}`,
-      blId,
-      `Master B/L ${blId} status changed to ${newStatus}.`
+      `Hold released on Master B/L ${blId} by ${typeof currentUser === 'string' ? currentUser : currentUser.name}. Notes: ${clearNotes || 'None'}`
     );
 
     return list[index];

@@ -29,6 +29,13 @@ export class AgentsController {
     const updated = await this.service.updateAgent(id, body);
     reply.send(successResponse(updated, 'Agent updated successfully'));
   };
+
+  delete = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    await this.service.deleteAgent(id);
+    reply.send(successResponse(null, 'Agent deleted successfully'));
+  };
 }
+
 
 export const agentsController = new AgentsController();
