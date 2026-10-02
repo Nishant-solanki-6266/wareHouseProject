@@ -14,7 +14,6 @@ import { auditService } from '../services/auditService';
 import { apiClient } from '../services/apiClient';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
-import { apiClient } from '../services/apiClient';
 
 const AppDataContext = createContext(null);
 
