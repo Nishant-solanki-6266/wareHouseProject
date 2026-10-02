@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Ship, X, Save, Plus } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
 
@@ -10,9 +10,11 @@ export const ShipmentModal = ({
   isEdit = false
 }) => {
   const { ports, vessels } = useAppData();
-  const defaultOrigin = ports.find(p => p.code === 'MIA') ? 'MIA - Port of Miami' : (ports[0] ? `${ports[0].code} - ${ports[0].name}` : 'MIA - Port of Miami');
-  const defaultDest = ports[0] ? `${ports[0].code} - ${ports[0].name}` : 'NAS - Nassau Container Port';
-  const defaultDestCode = ports[0]?.code || 'NAS';
+  const hasInitializedRef = useRef(false);
+  const getPortCode = (p) => p?.portCode || p?.code || 'NAS';
+  const defaultOrigin = ports.find(p => getPortCode(p) === 'MIA') ? 'MIA - Port of Miami' : (ports[0] ? `${getPortCode(ports[0])} - ${ports[0].name}` : 'MIA - Port of Miami');
+  const defaultDest = ports.find(p => getPortCode(p) === 'NAS') ? 'NAS - Nassau Container Port' : (ports[0] ? `${getPortCode(ports[0])} - ${ports[0].name}` : 'NAS - Nassau Container Port');
+  const defaultDestCode = ports.find(p => getPortCode(p) === 'NAS') ? 'NAS' : (ports[0] ? getPortCode(ports[0]) : 'NAS');
 
   const [formData, setFormData] = useState({
     shipmentNumber: '',
@@ -36,6 +38,13 @@ export const ShipmentModal = ({
   });
 
   useEffect(() => {
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      return;
+    }
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
     if (shipment && isEdit) {
       setFormData({
         shipmentNumber: shipment.shipmentNumber || '',
@@ -95,19 +104,26 @@ export const ShipmentModal = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div className="modal-dialog modal-lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">
             <Ship size={20} style={{ color: '#0A192F' }} />
             <span>{isEdit ? `Edit Shipment ${formData.shipmentNumber}` : 'Create Direct Ocean Shipment'}</span>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '72vh', overflowY: 'auto' }}>
             <div className="grid grid-cols-2 gap-4">
               <div className="form-group">
@@ -142,11 +158,14 @@ export const ShipmentModal = ({
                   value={formData.origin}
                   onChange={(e) => setFormData({ ...formData, origin: e.target.value })}
                 >
-                  {ports.map(p => (
-                    <option key={`shp-orig-${p.id || p.code}`} value={`${p.code} - ${p.name}`}>
-                      {p.code} — {p.name} ({p.island || p.country})
-                    </option>
-                  ))}
+                  {ports.map(p => {
+                    const pCode = p.portCode || p.code || 'PORT';
+                    return (
+                      <option key={`shp-orig-${p.id || pCode}`} value={`${pCode} - ${p.name}`}>
+                        {pCode} — {p.name} ({p.island || p.country || 'Caribbean'})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -161,11 +180,14 @@ export const ShipmentModal = ({
                   }}
                   required
                 >
-                  {ports.map(p => (
-                    <option key={`shp-dest-${p.id || p.code}`} value={`${p.code} - ${p.name}`}>
-                      {p.code} — {p.name} ({p.island || p.country})
-                    </option>
-                  ))}
+                  {ports.map(p => {
+                    const pCode = p.portCode || p.code || 'PORT';
+                    return (
+                      <option key={`shp-dest-${p.id || pCode}`} value={`${pCode} - ${p.name}`}>
+                        {pCode} — {p.name} ({p.island || p.country || 'Caribbean'})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>

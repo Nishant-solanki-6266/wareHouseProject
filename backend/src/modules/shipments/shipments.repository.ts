@@ -1,6 +1,6 @@
 import { eq, ilike, or, count, and, desc } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { shipments } from '../../db/schema/index.js';
+import { shipments, NewShipment } from '../../db/schema/index.js';
 import { ShipmentFilterParams } from './shipments.types.js';
 
 export class ShipmentsRepository {
@@ -49,19 +49,52 @@ export class ShipmentsRepository {
 
   async findByIdOrNumber(idOrNumber: string) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
-    const condition = isUuid
+    const whereCondition = isUuid
       ? or(eq(shipments.id, idOrNumber), eq(shipments.shipmentNumber, idOrNumber))
       : eq(shipments.shipmentNumber, idOrNumber);
 
     const result = await db
       .select()
       .from(shipments)
-      .where(condition)
+      .where(whereCondition)
       .limit(1);
 
     return result[0] || null;
   }
 
+  async countTotal(): Promise<number> {
+    const [{ total }] = await db.select({ total: count() }).from(shipments);
+    return Number(total);
+  }
+
+  async create(data: NewShipment) {
+    const [created] = await db
+      .insert(shipments)
+      .values(data)
+      .returning();
+
+    return created;
+  }
+
+  async update(id: string, data: Partial<NewShipment>) {
+    const [updated] = await db
+      .update(shipments)
+      .set({ ...data, updatedAt: new Date() })
+      .where(or(eq(shipments.id, id), eq(shipments.shipmentNumber, id)))
+      .returning();
+
+    return updated || null;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const [deleted] = await db
+      .delete(shipments)
+      .where(or(eq(shipments.id, id), eq(shipments.shipmentNumber, id)))
+      .returning();
+
+    return !!deleted;
+  }
 }
 
 export const shipmentsRepository = new ShipmentsRepository();
+

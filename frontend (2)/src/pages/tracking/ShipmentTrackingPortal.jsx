@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { HoldAlertBanner } from '../../components/common/HoldAlertBanner';
@@ -23,6 +23,15 @@ export const ShipmentTrackingPortal = ({ initialQuery = '', onNavigate }) => {
   const [searchQuery, setSearchQuery] = useState(initialQuery || '');
   const [searchResult, setSearchResult] = useState(null);
   const [searched, setSearched] = useState(Boolean(initialQuery));
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialQuery) {
+      setSearchQuery(initialQuery);
+      handleSearch(null, initialQuery);
+    }
+  }, [initialQuery]);
+
   const formatWRToTracking = (wr) => ({
     trackingNumber: wr.receiptNumber || wr.id,
     status: wr.status || 'Ready for Consolidation',

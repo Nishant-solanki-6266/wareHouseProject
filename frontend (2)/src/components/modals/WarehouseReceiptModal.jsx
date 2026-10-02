@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Package, X, Save, Calculator } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
 
@@ -9,6 +9,7 @@ export const WarehouseReceiptModal = ({
   receipt = null
 }) => {
   const { ports } = useAppData();
+  const hasInitializedRef = useRef(false);
 
   const [formData, setFormData] = useState({
     customer: '',
@@ -28,6 +29,13 @@ export const WarehouseReceiptModal = ({
   });
 
   useEffect(() => {
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      return;
+    }
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
     if (receipt) {
       setFormData({
         customer: receipt.customer || '',
@@ -58,18 +66,62 @@ export const WarehouseReceiptModal = ({
   const calculatedCft = Number(((l * w * h * pkg) / 1728).toFixed(2));
   const calculatedCbm = Number((calculatedCft * 0.0283168).toFixed(2));
 
+  const getPortCode = (p) => p?.portCode || p?.code || 'NAS';
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    const pkg = Number(formData.packageCount) || 1;
+    const l = Number(formData.lengthInches) || 0;
+    const w = Number(formData.widthInches) || 0;
+    const h = Number(formData.heightInches) || 0;
+    const calculatedCft = Number(((l * w * h * pkg) / 1728).toFixed(2));
+    const calculatedCbm = Number((calculatedCft * 0.0283168).toFixed(2));
+    const weightLbs = Number(formData.weightLbs) || 0;
+
+    const updatedPackages = [
+      {
+        id: `PKG-${receipt?.receiptNumber || '01'}-01`,
+        packageType: formData.packageType || 'Carton',
+        description: formData.cargoDescription || 'General Cargo',
+        lengthInches: l,
+        widthInches: w,
+        heightInches: h,
+        weightLbs,
+        pieces: pkg,
+        cft: calculatedCft,
+        cbm: calculatedCbm
+      }
+    ];
+
     onSave({
       ...formData,
+      customerName: formData.customer || formData.shipper || formData.consignee || 'General Cargo',
+      customer: formData.customer || formData.shipper || formData.consignee || 'General Cargo',
+      consignee: formData.consignee,
+      shipper: formData.shipper,
+      cargoDescription: formData.cargoDescription,
+      packageCount: pkg,
+      totalPieces: pkg,
+      packageType: formData.packageType,
+      packages: updatedPackages,
+      lengthInches: l,
+      widthInches: w,
+      heightInches: h,
+      weightLbs,
+      weightKg: Number((weightLbs * 0.453592).toFixed(1)),
       cft: calculatedCft,
-      cbm: calculatedCbm
+      cbm: calculatedCbm,
+      totalCft: calculatedCft,
+      totalCbm: calculatedCbm,
+      destinationPort: formData.destinationPort,
+      destinationCode: formData.destinationCode,
+      status: formData.status
     });
     onClose();
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div
         className="modal-dialog modal-lg"
         onClick={(e) => e.stopPropagation()}
@@ -80,6 +132,7 @@ export const WarehouseReceiptModal = ({
             <span>Edit Warehouse Receipt {receipt?.receiptNumber}</span>
           </div>
           <button
+            type="button"
             onClick={onClose}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}
           >
@@ -87,7 +140,14 @@ export const WarehouseReceiptModal = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '72vh', overflowY: 'auto' }}>
             <div className="grid grid-cols-2 gap-4">
               <div className="form-group">
@@ -216,7 +276,7 @@ export const WarehouseReceiptModal = ({
                   value={formData.destinationPort}
                   onChange={(e) => {
                     const dest = e.target.value;
-                    const code = dest.split(' - ')[0];
+                    const code = dest.includes(' - ') ? dest.split(' - ')[0].trim() : dest;
                     setFormData({
                       ...formData,
                       destinationCode: code,
@@ -224,11 +284,14 @@ export const WarehouseReceiptModal = ({
                     });
                   }}
                 >
-                  {ports.map(p => (
-                    <option key={p.id || p.code} value={`${p.code} - ${p.name}`}>
-                      {p.code} — {p.name} ({p.island})
-                    </option>
-                  ))}
+                  {ports.map(p => {
+                    const pCode = getPortCode(p);
+                    return (
+                      <option key={p.id || pCode} value={`${pCode} - ${p.name}`}>
+                        {pCode} — {p.name} ({p.island || p.country})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

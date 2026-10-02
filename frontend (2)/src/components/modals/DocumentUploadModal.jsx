@@ -31,14 +31,14 @@ export const DocumentUploadModal = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div className="modal-dialog" style={{ maxWidth: '560px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">
             <FileStack size={20} style={{ color: '#0284C7' }} />
             <span>Upload &amp; Attach Supporting Document</span>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
             <X size={18} />
           </button>
         </div>

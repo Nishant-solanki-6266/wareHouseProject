@@ -105,7 +105,8 @@ const parseUrlToRoute = (isAgent) => {
     // Role protection: Agent cannot access internal staff operations tabs
     const agentAllowedTabs = [
       'agent-dashboard', 'agent-shipments', 'agent-bl-detail', 'agent-documents', 'agent-tracking',
-      'shipments', 'consolidations', 'manifests', 'bills-of-lading', 'cargo', 'tracking'
+      'shipments', 'consolidations', 'manifests', 'bills-of-lading', 'cargo', 'tracking',
+      'warehouse-receipts', 'house-bills', 'customers'
     ];
     
     if (isAgent && !agentAllowedTabs.includes(tab)) {
@@ -209,7 +210,8 @@ const MainAppRouter = () => {
     
     const agentAllowedTabs = [
       'agent-dashboard', 'agent-shipments', 'agent-bl-detail', 'agent-documents', 'agent-tracking',
-      'shipments', 'consolidations', 'manifests', 'bills-of-lading', 'cargo', 'tracking'
+      'shipments', 'consolidations', 'manifests', 'bills-of-lading', 'cargo', 'tracking',
+      'warehouse-receipts', 'house-bills', 'customers'
     ];
 
     if (isAgent && !agentAllowedTabs.includes(activeTab)) {
@@ -241,7 +243,8 @@ const MainAppRouter = () => {
             // Agent persona: only route to valid agent portal views
             const agentAllowedTabs = [
               'agent-dashboard', 'agent-shipments', 'agent-bl-detail', 'agent-documents', 'agent-tracking',
-              'shipments', 'consolidations', 'manifests', 'bills-of-lading', 'cargo', 'tracking'
+              'shipments', 'consolidations', 'manifests', 'bills-of-lading', 'cargo', 'tracking',
+              'warehouse-receipts', 'house-bills', 'customers'
             ];
             
             if (parsed.tab && agentAllowedTabs.includes(parsed.tab)) {

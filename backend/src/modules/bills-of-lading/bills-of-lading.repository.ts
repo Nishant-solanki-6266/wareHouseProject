@@ -1,6 +1,6 @@
 import { eq, ilike, or, count, and, desc } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { billsOfLading, HoldDetails } from '../../db/schema/index.js';
+import { billsOfLading, NewBillOfLading, HoldDetails } from '../../db/schema/index.js';
 import { BillOfLadingFilterParams } from './bills-of-lading.types.js';
 
 export class BillsOfLadingRepository {
@@ -45,22 +45,55 @@ export class BillsOfLadingRepository {
 
   async findByIdOrNumber(idOrNumber: string) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
-    const condition = isUuid
-      ? or(eq(billsOfLading.id, idOrNumber), eq(billsOfLading.blNumber, idOrNumber))
-      : eq(billsOfLading.blNumber, idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(billsOfLading.id, idOrNumber), eq(billsOfLading.blNumber, idOrNumber), eq(billsOfLading.shipmentId, idOrNumber))
+      : or(eq(billsOfLading.blNumber, idOrNumber), eq(billsOfLading.shipmentNumber, idOrNumber), eq(billsOfLading.containerNumber, idOrNumber));
 
     const result = await db
       .select()
       .from(billsOfLading)
-      .where(condition)
+      .where(whereCondition)
       .limit(1);
 
     return result[0] || null;
   }
 
+  async countTotal(): Promise<number> {
+    const [{ total }] = await db.select({ total: count() }).from(billsOfLading);
+    return Number(total);
+  }
+
+  async create(data: NewBillOfLading) {
+    const [created] = await db
+      .insert(billsOfLading)
+      .values(data)
+      .returning();
+
+    return created;
+  }
+
+  async update(id: string, data: Partial<NewBillOfLading>) {
+    const [updated] = await db
+      .update(billsOfLading)
+      .set({ ...data, updatedAt: new Date() })
+      .where(or(eq(billsOfLading.id, id), eq(billsOfLading.blNumber, id)))
+      .returning();
+
+    return updated || null;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const [deleted] = await db
+      .delete(billsOfLading)
+      .where(or(eq(billsOfLading.id, id), eq(billsOfLading.blNumber, id)))
+      .returning();
+
+    return !!deleted;
+  }
+
   async updateHoldStatus(id: string, status: string, holdDetails: HoldDetails) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    const condition = isUuid
+    const whereCondition = isUuid
       ? or(eq(billsOfLading.id, id), eq(billsOfLading.blNumber, id))
       : eq(billsOfLading.blNumber, id);
 
@@ -71,10 +104,47 @@ export class BillsOfLadingRepository {
         holdDetails,
         updatedAt: new Date(),
       })
-      .where(condition)
+      .where(whereCondition)
       .returning();
 
     return updated || null;
+  }
+
+  async create(data: Partial<typeof billsOfLading.$inferInsert>) {
+    const [created] = await db
+      .insert(billsOfLading)
+      .values(data as any)
+      .returning();
+    return created;
+  }
+
+  async update(idOrNumber: string, data: Partial<typeof billsOfLading.$inferInsert>) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(billsOfLading.id, idOrNumber), eq(billsOfLading.blNumber, idOrNumber))
+      : eq(billsOfLading.blNumber, idOrNumber);
+
+    const [updated] = await db
+      .update(billsOfLading)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(whereCondition)
+      .returning();
+
+    return updated || null;
+  }
+
+  async delete(idOrNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(billsOfLading.id, idOrNumber), eq(billsOfLading.blNumber, idOrNumber))
+      : eq(billsOfLading.blNumber, idOrNumber);
+
+    const [deleted] = await db
+      .delete(billsOfLading)
+      .where(whereCondition)
+      .returning();
+
+    return !!deleted;
   }
 }
 

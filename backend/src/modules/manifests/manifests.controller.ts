@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ManifestsService, manifestsService } from './manifests.service.js';
-import { manifestQuerySchema } from './manifests.schema.js';
+import { manifestQuerySchema, createManifestSchema, updateManifestSchema } from './manifests.schema.js';
 import { successResponse, paginatedResponse } from '../../common/utils/response.js';
 import { getPaginationParams, buildPaginationMeta } from '../../common/utils/pagination.js';
 
@@ -26,6 +26,25 @@ export class ManifestsController {
     const { id } = request.params as { id: string };
     const item = await this.service.getManifest(id);
     reply.send(successResponse(item));
+  };
+
+  create = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const body = createManifestSchema.parse(request.body);
+    const created = await this.service.createManifest(body);
+    reply.status(201).send(successResponse(created, 'Shipping manifest created successfully'));
+  };
+
+  update = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    const body = updateManifestSchema.parse(request.body);
+    const updated = await this.service.updateManifest(id, body);
+    reply.send(successResponse(updated, 'Shipping manifest updated successfully'));
+  };
+
+  delete = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    await this.service.deleteManifest(id);
+    reply.send(successResponse(null, 'Shipping manifest deleted successfully'));
   };
 }
 

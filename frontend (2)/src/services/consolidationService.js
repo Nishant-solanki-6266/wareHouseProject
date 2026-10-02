@@ -1,20 +1,24 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
 import { apiClient } from './apiClient';
+import { apiFetch } from './apiConfig';
 
 export const consolidationService = {
   async getConsolidations(filters = {}) {
     try {
-      const res = await apiClient.get('consolidations', filters);
-      if (res && Array.isArray(res.data)) {
-        setStored(KEYS.CONSOLIDATIONS, res.data);
-        return res.data;
+      const res = await apiClient.get('consolidations', { params: { ...filters, limit: 100 } });
+      if (res && res.data) {
+        const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
+        if (liveList.length > 0) {
+          setStored(KEYS.CONSOLIDATIONS, liveList);
+          return liveList;
+        }
       }
     } catch (err) {
-      console.warn('API error fetching consolidations, fallback to local:', err);
+      console.warn('Backend API /consolidations fetch failed, using local store:', err?.message || err);
     }
 
-    const list = getStored(KEYS.CONSOLIDATIONS);
+    const list = getStored(KEYS.CONSOLIDATIONS, []);
     let filtered = [...list];
 
     if (filters.search) {
@@ -39,14 +43,15 @@ export const consolidationService = {
   },
 
   async getConsolidationById(id) {
+    if (!id) return null;
     try {
-      const res = await apiClient.get(`consolidations/${id}`);
+      const res = await apiClient.get(`consolidations/${encodeURIComponent(id)}`);
       if (res && res.data) return res.data;
     } catch (err) {
-      console.warn('API error fetching consolidation by id:', err);
+      console.warn(`API error fetching consolidation by id ${id}:`, err?.message || err);
     }
 
-    const list = getStored(KEYS.CONSOLIDATIONS);
+    const list = getStored(KEYS.CONSOLIDATIONS, []);
     return list.find(item => item.id === id || item.consolidationNumber === id) || null;
   },
 
@@ -130,13 +135,14 @@ export const consolidationService = {
     totalCft = Number(totalCft.toFixed(2));
     totalCbm = Number(totalCbm.toFixed(2));
 
-    const capacity = Number(consolidationData.containerCapacityCbm) || 67.7;
-    const containerFillPercentage = Number(((totalCbm / capacity) * 100).toFixed(1));
-
-    const newConsolidation = {
+    let createdConsolidation = null;
+    const payload = {
       ...consolidationData,
       id,
       consolidationNumber: id,
+      title: consolidationData.title || `Consolidation ${id} - ${consolidationData.destinationPort || 'NAS'}`,
+      destinationPort: consolidationData.destinationPort || 'NAS - Nassau, Bahamas',
+      destinationCode: consolidationData.destinationCode || (consolidationData.destinationPort?.includes(' - ') ? consolidationData.destinationPort.split(' - ')[0].trim() : 'NAS'),
       createdDate: new Date().toISOString().split('T')[0],
       status: consolidationData.status || "Loaded",
       totalHouseBills: selectedHbls.length || selectedHblIds.length,
@@ -155,7 +161,23 @@ export const consolidationService = {
       assignedManifestId: manifestId
     };
 
-    const updatedConsolidations = [newConsolidation, ...list];
+    try {
+      const res = await apiFetch('/consolidations', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      if (res && res.data) {
+        createdConsolidation = res.data;
+      }
+    } catch (err) {
+      console.warn('Backend createConsolidation failed, saving locally:', err.message);
+    }
+
+    if (!createdConsolidation) {
+      createdConsolidation = payload;
+    }
+
+    const updatedConsolidations = [createdConsolidation, ...list.filter(c => c.id !== createdConsolidation.id && c.consolidationNumber !== createdConsolidation.consolidationNumber)];
     setStored(KEYS.CONSOLIDATIONS, updatedConsolidations);
 
     // 4. Update linked House Bills in storage
@@ -436,16 +458,29 @@ export const consolidationService = {
       `Consolidation ${id} created with ${selectedHblIds.length} House B/L(s) (${allReceiptIds.length} WRs) in container ${consolidationData.containerNumber}. Generated Shipment ${shipmentId}, Master B/L ${blId} & Manifest ${manifestId}.`
     );
 
-    return newConsolidation;
+    return createdConsolidation;
   },
 
   async updateConsolidation(id, updates, currentUser = "Operations Staff") {
-    const list = getStored(KEYS.CONSOLIDATIONS);
+    let updatedConsolidation = null;
+    try {
+      const res = await apiFetch(`/consolidations/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+      if (res && res.data) {
+        updatedConsolidation = res.data;
+      }
+    } catch (err) {
+      console.warn(`Backend updateConsolidation ${id} failed:`, err.message);
+    }
+
+    const list = getStored(KEYS.CONSOLIDATIONS, []);
     const index = list.findIndex(item => item.id === id || item.consolidationNumber === id);
     if (index !== -1) {
       list[index] = {
         ...list[index],
-        ...updates
+        ...(updatedConsolidation || updates)
       };
       setStored(KEYS.CONSOLIDATIONS, list);
 
@@ -459,14 +494,20 @@ export const consolidationService = {
 
       return list[index];
     }
-    return null;
+    return updatedConsolidation;
   },
 
   async deleteConsolidation(id, currentUser = "Operations Staff") {
-    const list = getStored(KEYS.CONSOLIDATIONS);
-    const existing = list.find(item => item.id === id || item.consolidationNumber === id);
-    if (!existing) return false;
+    try {
+      await apiFetch(`/consolidations/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.warn(`Backend deleteConsolidation ${id} failed:`, err.message);
+    }
 
+    const list = getStored(KEYS.CONSOLIDATIONS, []);
+    const existing = list.find(item => item.id === id || item.consolidationNumber === id);
     const filtered = list.filter(item => item.id !== id && item.consolidationNumber !== id);
     setStored(KEYS.CONSOLIDATIONS, filtered);
 
@@ -475,7 +516,7 @@ export const consolidationService = {
       "Consolidation",
       "Deleted Consolidation",
       id,
-      `Deleted Consolidation ${id} (${existing.title}).`
+      `Deleted Consolidation ${id} (${existing?.title || 'Consolidation'}).`
     );
 
     return true;

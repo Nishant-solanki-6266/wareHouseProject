@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { initialUsers, initialRolesPermissions } from '../data/mock/usersData';
-import { getStored, KEYS, initializeStorage } from '../services/storageService';
+import { getStored, setStored, KEYS, initializeStorage } from '../services/storageService';
 import { apiClient } from '../services/apiClient';
 
 const AuthContext = createContext(null);
@@ -33,16 +33,32 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const hasToken = !!localStorage.getItem('kers_token');
+    const hasToken = !!localStorage.getItem('kers_token') || !!localStorage.getItem('kers_jwt_token');
     const wasAuth = localStorage.getItem('kers_is_authenticated') === 'true';
     return hasToken || wasAuth;
   });
 
+  const persistToken = (token) => {
+    if (token) {
+      localStorage.setItem('kers_token', token);
+      localStorage.setItem('kers_jwt_token', token);
+      apiClient.setToken(token);
+      setAuthToken(token);
+    } else {
+      localStorage.removeItem('kers_token');
+      localStorage.removeItem('kers_jwt_token');
+      apiClient.setToken(null);
+      setAuthToken(null);
+    }
+  };
+
   // Validate server session on initial mount
   useEffect(() => {
     const checkServerSession = async () => {
-      const token = apiClient.getToken();
+      const token = apiClient.getToken() || localStorage.getItem('kers_token') || localStorage.getItem('kers_jwt_token');
       if (!token) return;
+
+      persistToken(token);
 
       try {
         const res = await apiClient.get('auth/me');
@@ -55,7 +71,7 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         if (err.status === 401) {
           console.warn('[AuthContext] Stored token is invalid or expired. Resetting session.');
-          apiClient.setToken(null);
+          persistToken(null);
           localStorage.removeItem('kers_is_authenticated');
           setIsAuthenticated(false);
         }
@@ -71,48 +87,58 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
-  const fetchJwtToken = async (userObj) => {
-    try {
-      const res = await fetch('http://127.0.0.1:5000/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userObj?.email || 'carlos.m@vicustoms.com',
-          password: 'Password123!'
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const token = data?.data?.token || data?.token;
-        if (token) {
-          localStorage.setItem('kers_jwt_token', token);
-          apiClient.setToken(token);
+  // Validate or initialize backend token on mount
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = apiClient.getToken();
+      if (token) {
+        try {
+          const res = await apiClient.get('/auth/me');
+          if (res?.data?.user) {
+            setCurrentUser(res.data.user);
+            setIsAuthenticated(true);
+            return;
+          }
+        } catch {
+          // Token expired or invalid
         }
       }
-    } catch (err) {
-      console.warn('JWT login token notice:', err.message);
-    }
-  };
 
-  const login = async (emailOrId, password = 'password123') => {
+      // Auto-authenticate with backend in dev if needed
+      try {
+        const loginRes = await apiClient.post('/auth/login', {
+          email: currentUser?.email || 'carlos.m@vicustoms.com',
+          password: 'Password123!',
+        });
+        if (loginRes?.data?.token) {
+          apiClient.setToken(loginRes.data.token);
+        }
+      } catch (err) {
+        console.warn('Backend auto-login notice:', err.message);
+      }
+    };
+
+    initAuth();
+  }, [currentUser?.email]);
+
+  const login = async (emailOrId, password = 'Password123!') => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
     let targetUser = allUsers.find(
-      u => u.id === emailOrId || u.email.toLowerCase() === String(emailOrId).toLowerCase()
+      u => u.id === emailOrId || u.email?.toLowerCase() === String(emailOrId).toLowerCase()
     );
 
-    const email = targetUser ? targetUser.email : emailOrId;
-    const pwd = password || 'password123';
+    const email = targetUser?.email || (String(emailOrId).includes('@') ? emailOrId : 'carlos.m@vicustoms.com');
+    const pwd = password || 'Password123!';
 
     try {
-      const res = await apiClient.post('auth/login', { email, password: pwd });
+      const res = await apiClient.post('/auth/login', { email, password: pwd });
       if (res && res.data && res.data.token) {
-        apiClient.setToken(res.data.token);
+        persistToken(res.data.token);
         const loggedUser = res.data.user;
         setCurrentUser(loggedUser);
         setIsAuthenticated(true);
         localStorage.setItem('kers_is_authenticated', 'true');
         localStorage.setItem('kers_active_user', JSON.stringify(loggedUser));
-        localStorage.setItem('kers_jwt_token', res.data.token);
         return loggedUser;
       }
     } catch (err) {
@@ -124,26 +150,23 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(fallbackUser);
     setIsAuthenticated(true);
     localStorage.setItem('kers_is_authenticated', 'true');
-    fetchJwtToken(fallbackUser);
+    if (typeof fetchJwtToken === 'function') {
+      fetchJwtToken(fallbackUser);
+    }
     return fallbackUser;
   };
 
   const logout = async () => {
     try {
-      if (apiClient.getToken()) {
-        await apiClient.post('auth/logout');
-      }
-    } catch (err) {
-      console.warn('[AuthContext] Server logout warning:', err.message);
-    } finally {
-      apiClient.setToken(null);
-      localStorage.removeItem('kers_is_authenticated');
-      localStorage.removeItem('kers_active_user');
-      localStorage.removeItem('kers_jwt_token');
-      setIsAuthenticated(false);
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        window.history.replaceState(null, '', '/login');
-      }
+      await apiClient.post('/auth/logout');
+    } catch {
+      // Ignored
+    }
+    apiClient.setToken(null);
+    localStorage.removeItem('kers_is_authenticated');
+    setIsAuthenticated(false);
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.history.replaceState(null, '', '/login');
     }
   };
 
@@ -151,10 +174,7 @@ export const AuthProvider = ({ children }) => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
     const found = allUsers.find(u => u.id === userId);
     if (found) {
-      setCurrentUser(found);
-      setIsAuthenticated(true);
-      localStorage.setItem('kers_is_authenticated', 'true');
-      await fetchJwtToken(found);
+      await login(found.email, 'Password123!');
     }
   };
 

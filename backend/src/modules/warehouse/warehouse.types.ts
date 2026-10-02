@@ -11,31 +11,41 @@ export interface WarehouseReceiptFilterParams {
 }
 
 export interface CreateWarehouseReceiptInput {
+  receiptNumber?: string;
+  sequenceNumber?: number;
   date?: string;
-  customerId?: string;
-  customerName: string;
-  shipper?: string;
-  consignee?: string;
-  agentId?: string;
-  agentName?: string;
-  destinationPort: string;
-  destinationCode: string;
-  cargoDescription?: string;
+  customerId?: string | null;
+  customerName?: string;
+  customer?: string;
+  shipper?: string | null;
+  consignee?: string | null;
+  agentId?: string | null;
+  agentName?: string | null;
+  destinationPort?: string;
+  destinationCode?: string;
+  cargoDescription?: string | null;
   packages?: PackageItem[];
+  packageCount?: number;
+  totalPieces?: number;
   packageType?: string;
-  lengthInches?: number;
-  widthInches?: number;
-  heightInches?: number;
-  weightLbs?: number;
+  lengthInches?: number | null;
+  widthInches?: number | null;
+  heightInches?: number | null;
+  weightLbs?: number | null;
+  weightKg?: number | null;
+  cft?: number | null;
+  cbm?: number | null;
+  totalCft?: number | null;
+  totalCbm?: number | null;
   warehouseLocation?: string;
   status?: string;
   hazardous?: boolean;
   fragile?: boolean;
-  notes?: string;
+  notes?: string | null;
 }
 
 export interface UpdateWarehouseReceiptInput extends Partial<CreateWarehouseReceiptInput> {
-  assignedHouseBillId?: string;
-  assignedConsolidationId?: string;
-  assignedShipmentId?: string;
+  assignedHouseBillId?: string | null;
+  assignedConsolidationId?: string | null;
+  assignedShipmentId?: string | null;
 }

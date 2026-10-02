@@ -9,10 +9,15 @@ export class AgentsRepository {
   }
 
   async findByIdOrCode(idOrCode: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrCode);
+    const whereCondition = isUuid
+      ? or(eq(agents.id, idOrCode), eq(agents.agentCode, idOrCode))
+      : eq(agents.agentCode, idOrCode);
+
     const result = await db
       .select()
       .from(agents)
-      .where(or(eq(agents.id, idOrCode), eq(agents.agentCode, idOrCode)))
+      .where(whereCondition)
       .limit(1);
 
     return result[0] || null;
@@ -24,10 +29,15 @@ export class AgentsRepository {
   }
 
   async update(idOrCode: string, data: UpdateAgentInput) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrCode);
+    const whereCondition = isUuid
+      ? or(eq(agents.id, idOrCode), eq(agents.agentCode, idOrCode))
+      : eq(agents.agentCode, idOrCode);
+
     const [updated] = await db
       .update(agents)
       .set({ ...data, updatedAt: new Date() })
-      .where(or(eq(agents.id, idOrCode), eq(agents.agentCode, idOrCode)))
+      .where(whereCondition)
       .returning();
 
     return updated || null;

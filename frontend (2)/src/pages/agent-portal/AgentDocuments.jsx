@@ -1,50 +1,82 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { FileStack, FileText, FileSpreadsheet, Lock, Download, Eye, AlertTriangle } from 'lucide-react';
-import { useAppData } from '../../context/AppDataContext';
+import { FileStack, FileText, FileSpreadsheet, Lock, Download, Eye, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
+import { agentPortalService } from '../../services/agentPortalService';
 import { useToast } from '../../context/ToastContext';
 
 export const AgentDocuments = ({ onNavigate }) => {
-  const { billsOfLading, manifests } = useAppData();
   const { showToast } = useToast();
 
-  const agentBLs = billsOfLading.filter(b => b.agentId === 'AGT-001' || b.portOfDischarge?.includes('Nassau'));
-  const agentManifests = manifests.filter(m => m.portOfDischarge?.includes('Nassau') || m.vesselName?.includes('Island Voyager'));
+  const [docs, setDocs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
-  const docs = [
-    ...agentBLs.map(b => ({
-      id: b.id,
-      docNumber: b.blNumber,
-      docType: 'Master Bill of Lading',
-      title: `Consigned to ${b.consignee?.name}`,
-      vessel: `${b.oceanVessel} (${b.voyageNumber})`,
-      status: b.status,
-      isOnHold: b.status === 'On Hold' || b.holdDetails?.isOnHold,
-      entityType: 'BL'
-    })),
-    ...agentManifests.map(m => ({
-      id: m.id,
-      docNumber: m.manifestNumber,
-      docType: 'Shipping Manifest',
-      title: `Outward Manifest — ${m.portOfLoading} to ${m.portOfDischarge}`,
-      vessel: `${m.vesselName} (${m.voyageNumber})`,
-      status: m.status.includes('Hold') ? 'On Hold' : 'Available',
-      isOnHold: m.status.includes('Hold'),
-      entityType: 'MANIFEST'
-    }))
-  ];
+  const fetchDocuments = useCallback(async (isSilent = false) => {
+    if (!isSilent) setIsLoading(true);
+    else setIsRefreshing(true);
+    setError(null);
+
+    try {
+      const [blsRes, manifestsRes] = await Promise.all([
+        agentPortalService.getBillsOfLading({ limit: 100 }),
+        agentPortalService.getManifests({ limit: 100 }),
+      ]);
+
+      const bls = blsRes.data || [];
+      const manifests = manifestsRes.data || [];
+
+      const combinedDocs = [
+        ...bls.map((b) => ({
+          id: b.id || b.blNumber,
+          docNumber: b.blNumber,
+          docType: 'Master Bill of Lading',
+          title: `Consigned to ${b.consignee?.name || 'Authorized Importer'}`,
+          vessel: `${b.oceanVessel || 'Island Voyager'} (${b.voyageNumber || 'V.2026-14N'})`,
+          status: b.status,
+          isOnHold: b.status === 'On Hold' || b.holdDetails?.isOnHold,
+          entityType: 'BL',
+          fileName: `Master_BL_${b.blNumber}.pdf`,
+        })),
+        ...manifests.map((m) => ({
+          id: m.id || m.manifestNumber,
+          docNumber: m.manifestNumber,
+          docType: 'Shipping Manifest',
+          title: m.title || `Outward Manifest — ${m.portOfLoading} to ${m.portOfDischarge}`,
+          vessel: `${m.vesselName} (${m.voyageNumber})`,
+          status: m.status.includes('Hold') ? 'On Hold' : 'Available',
+          isOnHold: m.status.includes('Hold'),
+          entityType: 'MANIFEST',
+          fileName: `Customs_Manifest_${m.manifestNumber}.csv`,
+        })),
+      ];
+
+      setDocs(combinedDocs);
+    } catch (err) {
+      console.error('Failed to load agent documents from API:', err);
+      setError(err.message || 'Failed to fetch authorized documents from backend');
+      showToast(err.message || 'Error loading documents from server', 'danger', 'API Error');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
 
   const handleDownload = (item) => {
     if (item.isOnHold) {
       showToast(
-        `Access Blocked: ${item.docNumber} is currently ON HOLD. Contact Head Office for clearance.`,
+        `Access Blocked: ${item.docNumber} is currently ON HOLD by Head Office. Contact Documentation Desk for release clearance.`,
         'danger',
         'Download Locked'
       );
     } else {
-      showToast(`${item.docNumber}.pdf downloaded.`, 'success', 'Document Downloaded');
+      showToast(`${item.fileName || `${item.docNumber}.pdf`} downloaded.`, 'success', 'Document Downloaded');
     }
   };
 
@@ -124,18 +156,60 @@ export const AgentDocuments = ({ onNavigate }) => {
           { label: 'Agent Portal', href: '#' },
           { label: 'Documents' }
         ]}
+        actions={
+          <button
+            onClick={() => fetchDocuments(true)}
+            className="btn btn-outline btn-sm"
+            disabled={isRefreshing}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+            <span>{isRefreshing ? 'Syncing...' : 'Sync Documents'}</span>
+          </button>
+        }
       />
 
-      <ResponsiveTable
-        columns={columns}
-        data={docs}
-        searchPlaceholder="Search agent documents, B/L #, manifest..."
-        pageSize={6}
-        onRowClick={(item) => {
-          if (item.entityType === 'BL') onNavigate('agent-bl-detail', item.id);
-          else onNavigate('manifests', item.id);
-        }}
-      />
+      {error && (
+        <div style={{
+          background: '#FEF2F2',
+          border: '1px solid #FECACA',
+          borderRadius: '8px',
+          padding: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          color: '#991B1B',
+          fontSize: '0.85rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={18} />
+            <span>{error}</span>
+          </div>
+          <button onClick={() => fetchDocuments()} className="btn btn-sm btn-danger">
+            Retry
+          </button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '3rem 1rem', alignItems: 'center', justifyContent: 'center' }}>
+          <Loader2 size={32} className="animate-spin" style={{ color: '#0284C7' }} />
+          <div style={{ color: '#64748B', fontSize: '0.875rem', fontWeight: 600 }}>
+            Loading authorized documents from PostgreSQL database...
+          </div>
+        </div>
+      ) : (
+        <ResponsiveTable
+          columns={columns}
+          data={docs}
+          searchPlaceholder="Search agent documents, B/L #, manifest..."
+          pageSize={6}
+          onRowClick={(item) => {
+            if (item.entityType === 'BL') onNavigate('agent-bl-detail', item.id);
+            else onNavigate('manifests', item.id);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -29,8 +29,10 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
   const nextSeq = 3100 + warehouseReceipts.length;
   const initialReceiptNum = String(nextSeq);
 
-  const defaultPort = ports[0] ? `${ports[0].code} - ${ports[0].name}` : 'NAS - Nassau Container Port';
-  const defaultPortCode = ports[0]?.code || 'NAS';
+  const getPortCode = (p) => p?.portCode || p?.code || 'NAS';
+  const nasPort = ports.find(p => getPortCode(p) === 'NAS') || ports[0];
+  const defaultPort = nasPort ? `${getPortCode(nasPort)} - ${nasPort.name}` : 'NAS - Nassau Container Port';
+  const defaultPortCode = nasPort ? getPortCode(nasPort) : 'NAS';
 
   // Form Header State (Fresh Blank State)
   const [formData, setFormData] = useState({
@@ -41,7 +43,7 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
     customerName: '',
     shipper: '',
     consignee: '',
-    agentId: agents[0]?.id || 'AGT-001',
+    agentId: agents[0]?.id || null,
     agentName: agents[0]?.name || 'Caribbean Express Freight Ltd.',
     destinationPort: defaultPort,
     destinationCode: defaultPortCode,
@@ -329,16 +331,19 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
                     value={formData.destinationPort}
                     onChange={(e) => {
                       const dest = e.target.value;
-                      const code = dest.split(' - ')[0];
+                      const code = dest.includes(' - ') ? dest.split(' - ')[0].trim() : dest;
                       setFormData(prev => ({ ...prev, destinationPort: dest, destinationCode: code }));
                     }}
                     required
                   >
-                    {ports.map(p => (
-                      <option key={p.id || p.code} value={`${p.code} - ${p.name}`}>
-                        {p.code} — {p.name} ({p.island}, {p.country})
-                      </option>
-                    ))}
+                    {ports.map(p => {
+                      const pCode = getPortCode(p);
+                      return (
+                        <option key={p.id || pCode} value={`${pCode} - ${p.name}`}>
+                          {pCode} — {p.name} ({p.island || p.country})
+                        </option>
+                      );
+                    })}
                   </select>
                   <div style={{ fontSize: '0.72rem', color: '#0284C7', fontWeight: 600, marginTop: '3px' }}>
                     Destination flows into 4x6 Label, House B/L, Consolidation, and Manifest.

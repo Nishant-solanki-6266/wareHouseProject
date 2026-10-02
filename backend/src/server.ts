@@ -15,11 +15,11 @@ async function startServer(): Promise<void> {
     app.log.info(`Health check: ${address}/health`);
     app.log.info(`API v1 root: ${address}/api/v1/health`);
 
-    const isDbConnected = await testDbConnection();
-    if (isDbConnected) {
-      app.log.info('Database connected successfully (PostgreSQL: wereHouseDb)');
+    const dbStatus = await testDbConnection();
+    if (dbStatus.connected) {
+      app.log.info(`Database connected successfully (PostgreSQL: ${dbStatus.databaseName || 'wereHouseDb'})`);
     } else {
-      app.log.warn('Database connection failed! Please check your PostgreSQL service.');
+      app.log.warn(`Database connection warning: ${dbStatus.error || 'Please check PostgreSQL'}`);
     }
   } catch (err) {
     app.log.error(err);

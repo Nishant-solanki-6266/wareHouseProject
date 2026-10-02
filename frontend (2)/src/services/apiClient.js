@@ -1,136 +1,160 @@
-const API_BASE = 'http://127.0.0.1:5000/api/v1';
+let authPromise = null;
 
-let isAuthenticating = false;
-
-async function getOrFetchToken() {
-  let token = localStorage.getItem('kers_jwt_token') || localStorage.getItem('kers_token');
-  if (token) return token;
-
-  if (isAuthenticating) return null;
-  isAuthenticating = true;
-
-  try {
-    const activeUser = JSON.parse(localStorage.getItem('kers_active_user') || '{}');
-    const email = activeUser.email || 'carlos.m@vicustoms.com';
-    const password = 'Password123!';
-
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      const freshToken = data?.data?.token || data?.token;
-      if (freshToken) {
-        localStorage.setItem('kers_jwt_token', freshToken);
-        localStorage.setItem('kers_token', freshToken);
-        token = freshToken;
-      }
-    }
-  } catch (err) {
-    console.warn('Auto token fetch notice:', err.message);
-  } finally {
-    isAuthenticating = false;
-  }
-
-  return token;
-}
+const API_BASE_URL = typeof window !== 'undefined' && window.location.port === '5173'
+  ? '/api/v1'
+  : 'http://127.0.0.1:5000/api/v1';
 
 export const apiClient = {
   getToken() {
-    return localStorage.getItem('kers_jwt_token') || localStorage.getItem('kers_token') || null;
+    return localStorage.getItem('kers_token');
   },
 
   setToken(token) {
     if (token) {
-      localStorage.setItem('kers_jwt_token', token);
       localStorage.setItem('kers_token', token);
     } else {
-      localStorage.removeItem('kers_jwt_token');
       localStorage.removeItem('kers_token');
     }
   },
 
-  async fetchApi(endpoint, options = {}, isRetry = false) {
-    const token = await getOrFetchToken();
+  isTokenExpired(token) {
+    if (!token) return true;
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return true;
+      const payload = JSON.parse(atob(parts[1]));
+      if (!payload.exp) return false;
+      return Date.now() >= (payload.exp * 1000) - 15000;
+    } catch {
+      return true;
+    }
+  },
+
+  async ensureToken() {
+    let token = this.getToken();
+    if (token && !this.isTokenExpired(token)) return token;
+
+    if (!authPromise) {
+      authPromise = (async () => {
+        try {
+          let email = 'elena.r@vicustoms.com';
+          try {
+            const saved = localStorage.getItem('kers_active_user');
+            if (saved) {
+              const u = JSON.parse(saved);
+              if (u?.email) email = u.email;
+            }
+          } catch {}
+
+          const loginUrl = typeof window !== 'undefined' && window.location.port === '5173'
+            ? '/api/v1/auth/login'
+            : 'http://127.0.0.1:5000/api/v1/auth/login';
+
+          const res = await fetch(loginUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password: 'Password123!' }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.data?.token) {
+              this.setToken(data.data.token);
+              return data.data.token;
+            }
+          }
+        } catch (e) {
+          console.warn('Auto auth error:', e.message);
+        } finally {
+          authPromise = null;
+        }
+        return null;
+      })();
+    }
+
+    return authPromise;
+  },
+
+  async request(endpoint, options = {}, isRetry = false) {
+    const isAuthOrHealth = endpoint.includes('/auth/login') || endpoint.includes('/health');
+    let token = this.getToken();
+    if (!token && !isAuthOrHealth) {
+      token = await this.ensureToken();
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     };
 
-    try {
-      const resUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
-      const response = await fetch(resUrl, {
-        ...options,
-        headers,
-      });
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${cleanEndpoint}`;
 
-      if (response.status === 401 && !isRetry) {
-        localStorage.removeItem('kers_jwt_token');
-        localStorage.removeItem('kers_token');
-        const newToken = await getOrFetchToken();
-        if (newToken) {
-          return this.fetchApi(endpoint, options, true);
-        }
-      }
+    const config = {
+      ...options,
+      headers,
+    };
+
+    if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
+      config.body = JSON.stringify(config.body);
+    }
+
+    try {
+      const response = await fetch(url, config);
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
+        if (response.status === 401 && !isRetry && !isAuthOrHealth) {
+          this.setToken(null);
+          const newToken = await this.ensureToken();
+          if (newToken) {
+            return this.request(endpoint, options, true);
+          }
+        }
+        const errorMsg = data?.message || `HTTP ${response.status}: ${response.statusText}`;
+        const error = new Error(errorMsg);
+        error.status = response.status;
+        error.data = data;
+        throw error;
       }
 
-      const resJson = await response.json();
-      return resJson.data !== undefined ? resJson.data : resJson;
+      return data;
     } catch (err) {
-      console.warn(`API call ${endpoint} notice:`, err.message);
+      console.warn(`[API Client] Call to ${endpoint} failed:`, err.message);
       throw err;
     }
   },
 
-  get(endpoint, params = {}) {
-    let url = endpoint;
-    if (params && typeof params === 'object' && Object.keys(params).length > 0) {
-      const searchParams = new URLSearchParams();
-      Object.entries(params).forEach(([key, val]) => {
-        if (val !== undefined && val !== null && val !== '') {
-          searchParams.append(key, String(val));
-        }
-      });
-      const queryString = searchParams.toString();
-      if (queryString) {
-        url += (url.includes('?') ? '&' : '?') + queryString;
-      }
+  async checkHealth() {
+    try {
+      const target = typeof window !== 'undefined' && window.location.port === '5173'
+        ? '/api/v1/health'
+        : 'http://127.0.0.1:5000/health';
+      const res = await fetch(target);
+      return res.ok;
+    } catch {
+      return false;
     }
-    return this.fetchApi(url, { method: 'GET' });
   },
 
-  post(endpoint, body) {
-    return this.fetchApi(endpoint, {
-      method: 'POST',
-      body: typeof body === 'string' ? body : JSON.stringify(body),
-    });
+  get(endpoint, options) {
+    return this.request(endpoint, { ...options, method: 'GET' });
   },
 
-  put(endpoint, body) {
-    return this.fetchApi(endpoint, {
-      method: 'PUT',
-      body: typeof body === 'string' ? body : JSON.stringify(body),
-    });
+  post(endpoint, body, options) {
+    return this.request(endpoint, { ...options, method: 'POST', body });
   },
 
-  patch(endpoint, body) {
-    return this.fetchApi(endpoint, {
-      method: 'PATCH',
-      body: typeof body === 'string' ? body : JSON.stringify(body),
-    });
+  put(endpoint, body, options) {
+    return this.request(endpoint, { ...options, method: 'PUT', body });
   },
 
-  delete(endpoint) {
-    return this.fetchApi(endpoint, { method: 'DELETE' });
-  }
+  patch(endpoint, body, options) {
+    return this.request(endpoint, { ...options, method: 'PATCH', body });
+  },
+
+  delete(endpoint, options) {
+    return this.request(endpoint, { ...options, method: 'DELETE' });
+  },
 };
-
-export default apiClient;
