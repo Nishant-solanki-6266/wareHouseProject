@@ -1,6 +1,6 @@
 import { eq, ilike, or, count, and, desc } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { manifests } from '../../db/schema/index.js';
+import { manifests, NewManifest } from '../../db/schema/index.js';
 import { ManifestFilterParams } from './manifests.types.js';
 
 export class ManifestsRepository {
@@ -47,6 +47,39 @@ export class ManifestsRepository {
       .limit(1);
 
     return result[0] || null;
+  }
+
+  async countTotal(): Promise<number> {
+    const [{ total }] = await db.select({ total: count() }).from(manifests);
+    return Number(total);
+  }
+
+  async create(data: NewManifest) {
+    const [created] = await db
+      .insert(manifests)
+      .values(data)
+      .returning();
+
+    return created;
+  }
+
+  async update(id: string, data: Partial<NewManifest>) {
+    const [updated] = await db
+      .update(manifests)
+      .set({ ...data, updatedAt: new Date() })
+      .where(or(eq(manifests.id, id), eq(manifests.manifestNumber, id)))
+      .returning();
+
+    return updated || null;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const [deleted] = await db
+      .delete(manifests)
+      .where(or(eq(manifests.id, id), eq(manifests.manifestNumber, id)))
+      .returning();
+
+    return !!deleted;
   }
 }
 

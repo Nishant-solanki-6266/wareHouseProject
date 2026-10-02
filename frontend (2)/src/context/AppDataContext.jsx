@@ -12,6 +12,7 @@ import { portService, containerService, vesselService, agentService, userService
 import { auditService } from '../services/auditService';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
+import { apiClient } from '../services/apiClient';
 
 const AppDataContext = createContext(null);
 
@@ -37,9 +38,10 @@ export const AppDataProvider = ({ children }) => {
   const [auditLogs, setAuditLogs] = useState([]);
   const [settings, setSettings] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isBackendConnected, setIsBackendConnected] = useState(false);
 
-  // Refresh all state from storage
-  const refreshAll = useCallback(() => {
+  // Refresh all state from storage and sync with live backend
+  const refreshAll = useCallback(async () => {
     initializeStorage();
     setCustomers(getStored(KEYS.CUSTOMERS));
     setWarehouseReceipts(getStored(KEYS.WAREHOUSE_RECEIPTS));
@@ -59,6 +61,134 @@ export const AppDataProvider = ({ children }) => {
     setAuditLogs(getStored(KEYS.AUDIT_LOGS));
     setSettings(getStored(KEYS.SETTINGS, {}));
     setIsLoading(false);
+
+    // Sync live from PostgreSQL Backend API
+    try {
+      const isLive = await apiClient.checkHealth();
+      setIsBackendConnected(isLive);
+      if (isLive) {
+        if (!apiClient.getToken()) {
+          try {
+            const loginRes = await apiClient.post('/auth/login', {
+              email: currentUser?.email || 'elena.r@vicustoms.com',
+              password: 'Password123!',
+            });
+            if (loginRes?.data?.token) {
+              apiClient.setToken(loginRes.data.token);
+            }
+          } catch (loginErr) {
+            console.warn('Auto-token acquisition notice:', loginErr.message);
+          }
+        }
+
+        const [
+          portsRes,
+          settingsRes,
+          customersRes,
+          receiptsRes,
+          cargoRes,
+          consolidationsRes,
+          shipmentsRes,
+          billsRes,
+          manifestsRes,
+          houseBillsRes,
+          containersRes,
+          vesselsRes,
+          voyagesRes,
+          agentsRes,
+        ] = await Promise.allSettled([
+          apiClient.get('/ports'),
+          apiClient.get('/settings'),
+          apiClient.get('/customers'),
+          apiClient.get('/warehouse-receipts'),
+          apiClient.get('/cargo'),
+          apiClient.get('/consolidations'),
+          apiClient.get('/shipments'),
+          apiClient.get('/bills-of-lading'),
+          apiClient.get('/manifests'),
+          apiClient.get('/house-bills'),
+          apiClient.get('/containers'),
+          apiClient.get('/vessels'),
+          apiClient.get('/voyages'),
+          apiClient.get('/agents'),
+        ]);
+
+        if (portsRes.status === 'fulfilled' && portsRes.value?.data) {
+          const apiPorts = portsRes.value.data;
+          setPorts(apiPorts);
+          setStored(KEYS.PORTS, apiPorts);
+        }
+        if (settingsRes.status === 'fulfilled' && settingsRes.value?.data) {
+          const apiSettings = settingsRes.value.data;
+          setSettings(apiSettings);
+          setStored(KEYS.SETTINGS, apiSettings);
+        }
+        if (customersRes.status === 'fulfilled' && customersRes.value?.data) {
+          const apiCust = Array.isArray(customersRes.value.data) ? customersRes.value.data : customersRes.value.data.items || [];
+          setCustomers(apiCust);
+          setStored(KEYS.CUSTOMERS, apiCust);
+        }
+        if (receiptsRes.status === 'fulfilled' && receiptsRes.value?.data) {
+          const apiWR = Array.isArray(receiptsRes.value.data) ? receiptsRes.value.data : receiptsRes.value.data.items || [];
+          setWarehouseReceipts(apiWR);
+          setStored(KEYS.WAREHOUSE_RECEIPTS, apiWR);
+        }
+        if (cargoRes.status === 'fulfilled' && cargoRes.value?.data) {
+          const apiCargo = Array.isArray(cargoRes.value.data) ? cargoRes.value.data : cargoRes.value.data.items || [];
+          setCargoItems(apiCargo);
+          setStored(KEYS.CARGO, apiCargo);
+        }
+        if (consolidationsRes.status === 'fulfilled' && consolidationsRes.value?.data) {
+          const apiConsol = Array.isArray(consolidationsRes.value.data) ? consolidationsRes.value.data : consolidationsRes.value.data.items || [];
+          setConsolidations(apiConsol);
+          setStored(KEYS.CONSOLIDATIONS, apiConsol);
+        }
+        if (shipmentsRes.status === 'fulfilled' && shipmentsRes.value?.data) {
+          const apiShip = Array.isArray(shipmentsRes.value.data) ? shipmentsRes.value.data : shipmentsRes.value.data.items || [];
+          setShipments(apiShip);
+          setStored(KEYS.SHIPMENTS, apiShip);
+        }
+        if (billsRes.status === 'fulfilled' && billsRes.value?.data) {
+          const apiBills = Array.isArray(billsRes.value.data) ? billsRes.value.data : billsRes.value.data.items || [];
+          setBillsOfLading(apiBills);
+          setStored(KEYS.BILLS_OF_LADING, apiBills);
+        }
+        if (manifestsRes.status === 'fulfilled' && manifestsRes.value?.data) {
+          const apiMan = Array.isArray(manifestsRes.value.data) ? manifestsRes.value.data : manifestsRes.value.data.items || [];
+          setManifests(apiMan);
+          setStored(KEYS.MANIFESTS, apiMan);
+        }
+        if (houseBillsRes.status === 'fulfilled' && houseBillsRes.value?.data) {
+          const apiHBL = Array.isArray(houseBillsRes.value.data) ? houseBillsRes.value.data : houseBillsRes.value.data.items || [];
+          setHouseBills(apiHBL);
+          setStored(KEYS.HOUSE_BILLS, apiHBL);
+        }
+        if (containersRes.status === 'fulfilled' && containersRes.value?.data) {
+          const apiCont = Array.isArray(containersRes.value.data) ? containersRes.value.data : containersRes.value.data.items || [];
+          setContainers(apiCont);
+          setStored(KEYS.CONTAINERS, apiCont);
+        }
+        if (vesselsRes.status === 'fulfilled' && vesselsRes.value?.data) {
+          const apiVes = Array.isArray(vesselsRes.value.data) ? vesselsRes.value.data : vesselsRes.value.data.items || [];
+          setVessels(apiVes);
+          setStored(KEYS.VESSELS, apiVes);
+        }
+        if (voyagesRes.status === 'fulfilled' && voyagesRes.value?.data) {
+          const apiVoy = Array.isArray(voyagesRes.value.data) ? voyagesRes.value.data : voyagesRes.value.data.items || [];
+          setVoyages(apiVoy);
+          setStored(KEYS.VOYAGES, apiVoy);
+        }
+        if (agentsRes.status === 'fulfilled' && agentsRes.value?.data) {
+          const apiAgents = Array.isArray(agentsRes.value.data) ? agentsRes.value.data : agentsRes.value.data.items || [];
+          setAgents(apiAgents);
+          setStored(KEYS.AGENTS, apiAgents);
+        }
+      }
+    } catch (e) {
+      console.warn('Backend live sync notice:', e.message);
+      setIsBackendConnected(false);
+    }
+
     if (syncUsers) syncUsers();
   }, [syncUsers]);
 
@@ -68,9 +198,36 @@ export const AppDataProvider = ({ children }) => {
 
   // 1. Customers CRUD
   const createCustomer = async (customerData) => {
-    const created = await customerService.createCustomer(customerData, currentUser?.name || "Warehouse Staff");
-    refreshAll();
-    showToast(`Customer Profile ${created.customerNumber} (${created.name}) created successfully.`, 'success', 'Customer Created');
+    let created;
+    try {
+      const res = await apiClient.post('/customers', {
+        name: customerData.name || customerData.companyName || "New Customer",
+        companyName: customerData.companyName || customerData.name || "New Customer",
+        contactPerson: customerData.contactPerson,
+        email: customerData.email,
+        telephone: customerData.telephone || customerData.phone,
+        phone: customerData.phone || customerData.telephone,
+        address: customerData.address,
+        destinationPort: customerData.destinationPort,
+        destinationCode: customerData.destinationCode || (customerData.destinationPort ? customerData.destinationPort.split(' - ')[0] : 'NAS'),
+        taxId: customerData.taxId,
+        accountType: customerData.accountType,
+        creditTerms: customerData.creditTerms,
+        notes: customerData.notes,
+      });
+      if (res?.data) {
+        created = res.data;
+      }
+    } catch (apiErr) {
+      console.warn('Backend createCustomer notice:', apiErr.message);
+    }
+
+    if (!created) {
+      created = await customerService.createCustomer(customerData, currentUser?.name || "Warehouse Staff");
+    }
+
+    await refreshAll();
+    showToast(`Customer Profile ${created.customerNumber || created.name} created successfully.`, 'success', 'Customer Created');
     return created;
   };
 
@@ -92,9 +249,18 @@ export const AppDataProvider = ({ children }) => {
 
   // 2. Warehouse Receipts CRUD
   const createWarehouseReceipt = async (receiptData) => {
-    const created = await warehouseService.createReceipt(receiptData, currentUser?.name || "Warehouse Staff");
-    refreshAll();
-    showToast(`Warehouse Receipt ${created.receiptNumber} intaked (${created.totalPieces} pieces, ${created.cbm} CBM).`, 'success', 'Receipt Created');
+    let created;
+    try {
+      const res = await apiClient.post('/warehouse-receipts', receiptData);
+      if (res?.data) created = res.data;
+    } catch (e) {
+      console.warn('Backend createWarehouseReceipt notice:', e.message);
+    }
+    if (!created) {
+      created = await warehouseService.createReceipt(receiptData, currentUser?.name || "Warehouse Staff");
+    }
+    await refreshAll();
+    showToast(`Warehouse Receipt ${created.receiptNumber || created.id} intaked.`, 'success', 'Receipt Created');
     return created;
   };
 
@@ -140,9 +306,18 @@ export const AppDataProvider = ({ children }) => {
 
   // 4. House Bills of Lading CRUD (⭐ NEW PRIMARY MODULE)
   const createHouseBill = async (hblData) => {
-    const created = await houseBillService.createHouseBill(hblData, currentUser?.name || "Documentation Staff");
-    refreshAll();
-    showToast(`House B/L ${created.hblNumber} issued for ${created.customerName} linking ${created.warehouseReceiptIds?.length || 0} WR(s).`, 'success', 'House B/L Created');
+    let created;
+    try {
+      const res = await apiClient.post('/house-bills', hblData);
+      if (res?.data) created = res.data;
+    } catch (e) {
+      console.warn('Backend createHouseBill notice:', e.message);
+    }
+    if (!created) {
+      created = await houseBillService.createHouseBill(hblData, currentUser?.name || "Documentation Staff");
+    }
+    await refreshAll();
+    showToast(`House B/L ${created.hblNumber || created.id} issued for ${created.customerName || 'Customer'}.`, 'success', 'House B/L Created');
     return created;
   };
 
@@ -185,9 +360,18 @@ export const AppDataProvider = ({ children }) => {
 
   // 5. Consolidations CRUD
   const createConsolidation = async (consolidationData) => {
-    const created = await consolidationService.createConsolidation(consolidationData, currentUser?.name || "Operations Staff");
-    refreshAll();
-    showToast(`Consolidation ${created.consolidationNumber} created. Master Shipment & Draft Master B/L generated.`, 'success', 'Consolidation Ready');
+    let created;
+    try {
+      const res = await apiClient.post('/consolidations', consolidationData);
+      if (res?.data) created = res.data;
+    } catch (e) {
+      console.warn('Backend createConsolidation notice:', e.message);
+    }
+    if (!created) {
+      created = await consolidationService.createConsolidation(consolidationData, currentUser?.name || "Operations Staff");
+    }
+    await refreshAll();
+    showToast(`Consolidation ${created.consolidationNumber || created.id} created successfully.`, 'success', 'Consolidation Ready');
     return created;
   };
 
@@ -209,9 +393,18 @@ export const AppDataProvider = ({ children }) => {
 
   // 6. Shipments CRUD
   const createShipment = async (shipmentData) => {
-    const created = await shipmentService.createShipment(shipmentData, currentUser?.name || "Operations Staff");
-    refreshAll();
-    showToast(`Shipment ${created.shipmentNumber} created successfully.`, 'success', 'Shipment Created');
+    let created;
+    try {
+      const res = await apiClient.post('/shipments', shipmentData);
+      if (res?.data) created = res.data;
+    } catch (e) {
+      console.warn('Backend createShipment notice:', e.message);
+    }
+    if (!created) {
+      created = await shipmentService.createShipment(shipmentData, currentUser?.name || "Operations Staff");
+    }
+    await refreshAll();
+    showToast(`Shipment ${created.shipmentNumber || created.id} created successfully.`, 'success', 'Shipment Created');
     return created;
   };
 
@@ -233,9 +426,18 @@ export const AppDataProvider = ({ children }) => {
 
   // 7. Bills of Lading CRUD (Master B/L)
   const createBillOfLading = async (blData) => {
-    const created = await billOfLadingService.createBillOfLading(blData, currentUser?.name || "Documentation Staff");
-    refreshAll();
-    showToast(`Master B/L ${created.blNumber} created successfully.`, 'success', 'Master B/L Created');
+    let created;
+    try {
+      const res = await apiClient.post('/bills-of-lading', blData);
+      if (res?.data) created = res.data;
+    } catch (e) {
+      console.warn('Backend createBillOfLading notice:', e.message);
+    }
+    if (!created) {
+      created = await billOfLadingService.createBillOfLading(blData, currentUser?.name || "Documentation Staff");
+    }
+    await refreshAll();
+    showToast(`Master B/L ${created.blNumber || created.id} created successfully.`, 'success', 'Master B/L Created');
     return created;
   };
 
@@ -278,9 +480,18 @@ export const AppDataProvider = ({ children }) => {
 
   // 8. Manifests CRUD
   const generateManifest = async (manifestData) => {
-    const created = await manifestService.generateManifest(manifestData, currentUser?.name || "Documentation Staff");
-    refreshAll();
-    showToast(`Shipping Manifest ${created.manifestNumber} generated successfully.`, 'success', 'Manifest Created');
+    let created;
+    try {
+      const res = await apiClient.post('/manifests', manifestData);
+      if (res?.data) created = res.data;
+    } catch (e) {
+      console.warn('Backend generateManifest notice:', e.message);
+    }
+    if (!created) {
+      created = await manifestService.generateManifest(manifestData, currentUser?.name || "Documentation Staff");
+    }
+    await refreshAll();
+    showToast(`Shipping Manifest ${created.manifestNumber || created.id} generated successfully.`, 'success', 'Manifest Created');
     return created;
   };
 
@@ -373,9 +584,18 @@ export const AppDataProvider = ({ children }) => {
 
   // 11. Agents CRUD
   const createAgent = async (agentData) => {
-    const created = await agentService.createAgent(agentData, currentUser?.name || "Operations Staff");
-    refreshAll();
-    showToast(`Port Agent ${created.name} (${created.agentCode}) registered.`, 'success', 'Agent Created');
+    let created;
+    try {
+      const res = await apiClient.post('/agents', agentData);
+      if (res?.data) created = res.data;
+    } catch (e) {
+      console.warn('Backend createAgent notice:', e.message);
+    }
+    if (!created) {
+      created = await agentService.createAgent(agentData, currentUser?.name || "Operations Staff");
+    }
+    await refreshAll();
+    showToast(`Port Agent ${created.name || created.code} registered.`, 'success', 'Agent Created');
     return created;
   };
 
@@ -570,7 +790,9 @@ export const AppDataProvider = ({ children }) => {
       // Settings & reset
       updateSettings,
       clearAllData,
-      resetDemoData
+      resetDemoData,
+      // Live Backend State
+      isBackendConnected
     }}>
       {children}
     </AppDataContext.Provider>

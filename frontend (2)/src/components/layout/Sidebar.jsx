@@ -43,7 +43,7 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose }) => {
             { id: 'customers', label: 'Customers', icon: Users },
             { id: 'warehouse-receipts', label: 'Warehouse Receipts', icon: Package },
             { id: 'cargo', label: 'Cargo Inventory', icon: Box },
-            { id: 'bills-of-lading', label: 'House B/Ls', icon: FileText },
+            { id: 'house-bills', label: 'House B/Ls', icon: FileText },
             { id: 'documents', label: 'Labels & Docs', icon: Tag },
             { id: 'consolidations', label: 'Consolidations', icon: Layers },
             { id: 'shipments', label: 'Shipments', icon: Ship },

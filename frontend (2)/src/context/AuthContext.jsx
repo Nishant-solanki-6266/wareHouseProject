@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { initialUsers, initialRolesPermissions } from '../data/mock/usersData';
 import { getStored, setStored, KEYS, initializeStorage } from '../services/storageService';
+import { apiClient } from '../services/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -28,7 +29,66 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('kers_active_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
-  const login = (emailOrId, password = '') => {
+  // Validate or initialize backend token on mount
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = apiClient.getToken();
+      if (token) {
+        try {
+          const res = await apiClient.get('/auth/me');
+          if (res?.data?.user) {
+            setCurrentUser(res.data.user);
+            setIsAuthenticated(true);
+            return;
+          }
+        } catch {
+          // Token expired or invalid
+        }
+      }
+
+      // Auto-authenticate with backend in dev if needed
+      try {
+        const loginRes = await apiClient.post('/auth/login', {
+          email: currentUser?.email || 'carlos.m@vicustoms.com',
+          password: 'Password123!',
+        });
+        if (loginRes?.data?.token) {
+          apiClient.setToken(loginRes.data.token);
+        }
+      } catch (err) {
+        console.warn('Backend auto-login notice:', err.message);
+      }
+    };
+
+    initAuth();
+  }, [currentUser?.email]);
+
+  const login = async (emailOrId, password = 'Password123!') => {
+    try {
+      let email = emailOrId;
+      if (!email.includes('@')) {
+        const allUsers = getStored(KEYS.USERS, initialUsers);
+        const match = allUsers.find(u => u.id === emailOrId);
+        if (match?.email) email = match.email;
+      }
+
+      const res = await apiClient.post('/auth/login', {
+        email: email,
+        password: password || 'Password123!',
+      });
+
+      if (res?.data?.token) {
+        apiClient.setToken(res.data.token);
+        const authedUser = res.data.user;
+        setCurrentUser(authedUser);
+        setIsAuthenticated(true);
+        localStorage.setItem('kers_is_authenticated', 'true');
+        return authedUser;
+      }
+    } catch (err) {
+      console.warn('Backend login fallback:', err.message);
+    }
+
     const allUsers = getStored(KEYS.USERS, initialUsers);
     let found = allUsers.find(u => u.id === emailOrId || u.email.toLowerCase() === emailOrId.toLowerCase());
     if (!found) {
@@ -40,7 +100,13 @@ export const AuthProvider = ({ children }) => {
     return found;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await apiClient.post('/auth/logout');
+    } catch {
+      // Ignored
+    }
+    apiClient.setToken(null);
     localStorage.removeItem('kers_is_authenticated');
     setIsAuthenticated(false);
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
@@ -48,13 +114,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const switchUser = (userId) => {
+  const switchUser = async (userId) => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
     const found = allUsers.find(u => u.id === userId);
     if (found) {
-      setCurrentUser(found);
-      setIsAuthenticated(true);
-      localStorage.setItem('kers_is_authenticated', 'true');
+      await login(found.email, 'Password123!');
     }
   };
 

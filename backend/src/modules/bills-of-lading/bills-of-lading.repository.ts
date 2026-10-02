@@ -1,6 +1,6 @@
 import { eq, ilike, or, count, and, desc } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { billsOfLading, HoldDetails } from '../../db/schema/index.js';
+import { billsOfLading, NewBillOfLading, HoldDetails } from '../../db/schema/index.js';
 import { BillOfLadingFilterParams } from './bills-of-lading.types.js';
 
 export class BillsOfLadingRepository {
@@ -51,6 +51,39 @@ export class BillsOfLadingRepository {
       .limit(1);
 
     return result[0] || null;
+  }
+
+  async countTotal(): Promise<number> {
+    const [{ total }] = await db.select({ total: count() }).from(billsOfLading);
+    return Number(total);
+  }
+
+  async create(data: NewBillOfLading) {
+    const [created] = await db
+      .insert(billsOfLading)
+      .values(data)
+      .returning();
+
+    return created;
+  }
+
+  async update(id: string, data: Partial<NewBillOfLading>) {
+    const [updated] = await db
+      .update(billsOfLading)
+      .set({ ...data, updatedAt: new Date() })
+      .where(or(eq(billsOfLading.id, id), eq(billsOfLading.blNumber, id)))
+      .returning();
+
+    return updated || null;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const [deleted] = await db
+      .delete(billsOfLading)
+      .where(or(eq(billsOfLading.id, id), eq(billsOfLading.blNumber, id)))
+      .returning();
+
+    return !!deleted;
   }
 
   async updateHoldStatus(id: string, status: string, holdDetails: HoldDetails) {

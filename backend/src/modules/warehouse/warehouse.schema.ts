@@ -15,11 +15,11 @@ export const packageItemSchema = z.object({
 
 export const createWarehouseReceiptSchema = z.object({
   date: z.string().optional(),
-  customerId: z.string().uuid().optional(),
-  customerName: z.string().min(2, 'Customer name is required'),
+  customerId: z.string().nullish(),
+  customerName: z.string().min(1, 'Customer name is required'),
   shipper: z.string().optional(),
   consignee: z.string().optional(),
-  agentId: z.string().uuid().optional(),
+  agentId: z.string().nullish(),
   agentName: z.string().optional(),
   destinationPort: z.string().min(2, 'Destination port is required'),
   destinationCode: z.string().min(2, 'Destination port code is required'),

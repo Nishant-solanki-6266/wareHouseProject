@@ -1,6 +1,6 @@
 import { eq, ilike, or, count, and, desc } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { consolidations } from '../../db/schema/index.js';
+import { consolidations, NewConsolidation } from '../../db/schema/index.js';
 import { ConsolidationFilterParams } from './consolidation.types.js';
 
 export class ConsolidationRepository {
@@ -50,6 +50,39 @@ export class ConsolidationRepository {
       .limit(1);
 
     return result[0] || null;
+  }
+
+  async countTotal(): Promise<number> {
+    const [{ total }] = await db.select({ total: count() }).from(consolidations);
+    return Number(total);
+  }
+
+  async create(data: NewConsolidation) {
+    const [created] = await db
+      .insert(consolidations)
+      .values(data)
+      .returning();
+
+    return created;
+  }
+
+  async update(id: string, data: Partial<NewConsolidation>) {
+    const [updated] = await db
+      .update(consolidations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id)))
+      .returning();
+
+    return updated || null;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const [deleted] = await db
+      .delete(consolidations)
+      .where(or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id)))
+      .returning();
+
+    return !!deleted;
   }
 }
 

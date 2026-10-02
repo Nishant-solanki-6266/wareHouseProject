@@ -90,6 +90,17 @@ export async function seedDatabase(): Promise<void> {
       avatar: 'DC',
       phone: '+1 (242) 555-9000',
     },
+    {
+      userCode: 'USR-005',
+      name: 'Elena Rostova',
+      email: 'elena.r@vicustoms.com',
+      roleKey: ROLES.WAREHOUSE_STAFF,
+      department: 'Vessel Operations & Consolidations',
+      passwordHash: defaultPasswordHash,
+      status: 'Active',
+      avatar: 'ER',
+      phone: '+1 (305) 555-0199',
+    },
   ];
 
   for (const user of initialUsersToSeed) {
