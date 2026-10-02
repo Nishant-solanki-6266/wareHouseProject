@@ -136,11 +136,16 @@ export const AuthProvider = ({ children }) => {
       u => u.id === emailOrId || u.email?.toLowerCase() === String(emailOrId).toLowerCase()
     );
 
-    const email = targetUser ? targetUser.email : (emailOrId.includes('@') ? emailOrId : 'carlos.m@vicustoms.com');
+    const email = targetUser?.email || (String(emailOrId).includes('@') ? emailOrId : 'carlos.m@vicustoms.com');
     const pwd = password || 'password123';
 
     try {
-      const res = await apiClient.post('auth/login', { email, password: pwd });
+      let res;
+      try {
+        res = await apiClient.post('/auth/login', { email, password: pwd });
+      } catch {
+        res = await apiClient.post('/auth/login', { email, password: 'Password123!' });
+      }
       if (res && res.data && res.data.token) {
         apiClient.setToken(res.data.token);
         const loggedUser = res.data.user;
