@@ -182,7 +182,7 @@ export const WarehouseReceiptsList = ({ onNavigate }) => {
         emptyTitle="No Warehouse Receipts Found"
         emptyWhy="No intake receipts match your search or filter."
         emptyNextStep="Record incoming cargo from a customer or shipper to add it to the consolidation queue."
-        emptyActionLabel="+ Create Warehouse Receipt"
+        emptyActionLabel="Create Warehouse Receipt"
         onEmptyAction={() => onNavigate('warehouse-receipts', 'create')}
         onRowClick={(item) => onNavigate('warehouse-receipts', item.id)}
       />

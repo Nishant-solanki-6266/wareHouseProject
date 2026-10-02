@@ -7,4 +7,7 @@ export async function manifestsRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/', manifestsController.list);
   app.get('/:id', manifestsController.getById);
+  app.post('/', manifestsController.create);
+  app.patch('/:id', manifestsController.update);
+  app.delete('/:id', manifestsController.delete);
 }

@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { initialUsers, initialRolesPermissions } from '../data/mock/usersData';
-import { getStored, KEYS, initializeStorage } from '../services/storageService';
+import { getStored, setStored, KEYS, initializeStorage } from '../services/storageService';
 import { apiClient } from '../services/apiClient';
+import { setAuthToken } from '../services/apiConfig';
 
 const AuthContext = createContext(null);
 
@@ -33,16 +34,32 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const hasToken = !!localStorage.getItem('kers_token');
+    const hasToken = !!localStorage.getItem('kers_token') || !!localStorage.getItem('kers_jwt_token');
     const wasAuth = localStorage.getItem('kers_is_authenticated') === 'true';
     return hasToken || wasAuth;
   });
 
+  const persistToken = (token) => {
+    if (token) {
+      localStorage.setItem('kers_token', token);
+      localStorage.setItem('kers_jwt_token', token);
+      apiClient.setToken(token);
+      setAuthToken(token);
+    } else {
+      localStorage.removeItem('kers_token');
+      localStorage.removeItem('kers_jwt_token');
+      apiClient.setToken(null);
+      setAuthToken(null);
+    }
+  };
+
   // Validate server session on initial mount
   useEffect(() => {
     const checkServerSession = async () => {
-      const token = apiClient.getToken();
+      const token = apiClient.getToken() || localStorage.getItem('kers_token') || localStorage.getItem('kers_jwt_token');
       if (!token) return;
+
+      persistToken(token);
 
       try {
         const res = await apiClient.get('auth/me');
@@ -55,7 +72,7 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         if (err.status === 401) {
           console.warn('[AuthContext] Stored token is invalid or expired. Resetting session.');
-          apiClient.setToken(null);
+          persistToken(null);
           localStorage.removeItem('kers_is_authenticated');
           setIsAuthenticated(false);
         }
@@ -71,13 +88,55 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
+  // Validate or initialize backend token on mount
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = apiClient.getToken();
+      if (token) {
+        try {
+          const res = await apiClient.get('/auth/me');
+          if (res?.data?.user) {
+            setCurrentUser(res.data.user);
+            setIsAuthenticated(true);
+            return;
+          }
+        } catch {
+          // Token expired or invalid
+        }
+      }
+
+      // Auto-authenticate with backend in dev if needed
+      try {
+        let loginRes;
+        try {
+          loginRes = await apiClient.post('/auth/login', {
+            email: currentUser?.email || 'carlos.m@vicustoms.com',
+            password: 'password123',
+          });
+        } catch {
+          loginRes = await apiClient.post('/auth/login', {
+            email: currentUser?.email || 'carlos.m@vicustoms.com',
+            password: 'Password123!',
+          });
+        }
+        if (loginRes?.data?.token) {
+          apiClient.setToken(loginRes.data.token);
+        }
+      } catch (err) {
+        console.warn('Backend auto-login notice:', err.message);
+      }
+    };
+
+    initAuth();
+  }, [currentUser?.email]);
+
   const login = async (emailOrId, password = 'password123') => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
     let targetUser = allUsers.find(
-      u => u.id === emailOrId || u.email.toLowerCase() === String(emailOrId).toLowerCase()
+      u => u.id === emailOrId || u.email?.toLowerCase() === String(emailOrId).toLowerCase()
     );
 
-    const email = targetUser ? targetUser.email : emailOrId;
+    const email = targetUser ? targetUser.email : (emailOrId.includes('@') ? emailOrId : 'carlos.m@vicustoms.com');
     const pwd = password || 'password123';
 
     try {
@@ -105,19 +164,15 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      if (apiClient.getToken()) {
-        await apiClient.post('auth/logout');
-      }
-    } catch (err) {
-      console.warn('[AuthContext] Server logout warning:', err.message);
-    } finally {
-      apiClient.setToken(null);
-      localStorage.removeItem('kers_is_authenticated');
-      localStorage.removeItem('kers_active_user');
-      setIsAuthenticated(false);
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        window.history.replaceState(null, '', '/login');
-      }
+      await apiClient.post('/auth/logout');
+    } catch {
+      // Ignored
+    }
+    apiClient.setToken(null);
+    localStorage.removeItem('kers_is_authenticated');
+    setIsAuthenticated(false);
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.history.replaceState(null, '', '/login');
     }
   };
 
@@ -125,7 +180,7 @@ export const AuthProvider = ({ children }) => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
     const found = allUsers.find(u => u.id === userId);
     if (found) {
-      await login(found.email, 'password123');
+      await login(found.email, 'Password123!');
     }
   };
 

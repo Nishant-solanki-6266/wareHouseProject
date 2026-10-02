@@ -20,7 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 export async function seedDatabase(): Promise<void> {
   console.log('🌱 Checking PostgreSQL connection before seeding...');
   const isConnected = await testDbConnection();
-  if (!isConnected) {
+  if (!isConnected.connected) {
     throw new Error('Database connection failed. Please ensure PostgreSQL is running.');
   }
 
@@ -168,14 +168,14 @@ export async function seedDatabase(): Promise<void> {
       contactPerson: 'David Cartwright',
       email: 'operations@caribbeanexpressbahamas.com',
       phone: '+1 (242) 555-9000',
-      territory: 'Nassau & New Providence',
-      address: 'Customs Freight Terminal, Arawak Cay, Nassau',
+      territory: 'Nassau & Freeport (Bahamas)',
+      address: 'Arawak Cay Port Terminal, Nassau, Bahamas',
       assignedPortCode: 'NAS',
       status: 'Active',
       rating: '5.0/5',
       creditLimitUsd: '50000.00',
-      currentBalanceUsd: '12400.00',
-      lastActivity: 'Active',
+      currentBalanceUsd: '0.00',
+      lastActivity: 'Active Inbound Handling',
     },
     {
       agentCode: 'AGT-002',
@@ -194,11 +194,26 @@ export async function seedDatabase(): Promise<void> {
     },
     {
       agentCode: 'AGT-003',
-      name: 'Out Islands Marine Logistics',
-      contactPerson: 'Capt. Leroy Moss',
-      email: 'outislands@bahamasfreight.com',
-      phone: '+1 (242) 336-9810',
-      territory: 'Exuma Cays & Southern Bahamas',
+      name: 'Abaco Maritime Services',
+      contactPerson: 'Sarah Albury',
+      email: 'clearing@abacomaritime.com',
+      phone: '+1 (242) 367-4402',
+      territory: 'Marsh Harbour & Cays',
+      address: 'Port Dock Road, Marsh Harbour, Abaco',
+      assignedPortCode: 'MHH',
+      status: 'Active',
+      rating: '4.7/5',
+      creditLimitUsd: '20000.00',
+      currentBalanceUsd: '1800.00',
+      lastActivity: 'Active',
+    },
+    {
+      agentCode: 'AGT-004',
+      name: 'Exuma Harbor Cargo Agency',
+      contactPerson: 'Kenron Rolle',
+      email: 'agent@exumacargo.com',
+      phone: '+1 (242) 336-9920',
+      territory: 'George Town Harbour',
       address: 'Commercial Dock, George Town, Exuma',
       assignedPortCode: 'GGT',
       status: 'Active',
@@ -211,7 +226,27 @@ export async function seedDatabase(): Promise<void> {
 
   let primaryAgentId: string | undefined = undefined;
   for (const agent of initialAgents) {
-    const [inserted] = await db.insert(agents).values(agent).onConflictDoNothing().returning();
+    const [inserted] = await db
+      .insert(agents)
+      .values(agent)
+      .onConflictDoUpdate({
+        target: agents.agentCode,
+        set: {
+          name: agent.name,
+          contactPerson: agent.contactPerson,
+          email: agent.email,
+          phone: agent.phone,
+          territory: agent.territory,
+          address: agent.address,
+          assignedPortCode: agent.assignedPortCode,
+          status: agent.status,
+          rating: agent.rating,
+          creditLimitUsd: agent.creditLimitUsd,
+          currentBalanceUsd: agent.currentBalanceUsd,
+          lastActivity: agent.lastActivity,
+        },
+      })
+      .returning();
     if (inserted && inserted.agentCode === 'AGT-001') {
       primaryAgentId = inserted.id;
     }
@@ -367,6 +402,7 @@ export async function seedDatabase(): Promise<void> {
       status: 'Active',
       avatar: 'MV',
       phone: '+1 (305) 555-0100',
+      agentId: null,
     },
     {
       userCode: 'USR-005',
@@ -389,6 +425,7 @@ export async function seedDatabase(): Promise<void> {
       status: 'Active',
       avatar: 'SJ',
       phone: '+1 (305) 555-0142',
+      agentId: null,
     },
     {
       userCode: 'USR-003',
@@ -400,6 +437,7 @@ export async function seedDatabase(): Promise<void> {
       status: 'Active',
       avatar: 'CM',
       phone: '+1 (305) 555-0188',
+      agentId: null,
     },
     {
       userCode: 'USR-004',
@@ -413,10 +451,34 @@ export async function seedDatabase(): Promise<void> {
       avatar: 'DC',
       phone: '+1 (242) 555-9000',
     },
+    {
+      userCode: 'USR-005',
+      name: 'Elena Rostova',
+      email: 'elena.r@vicustoms.com',
+      roleKey: ROLES.WAREHOUSE_STAFF,
+      department: 'Vessel Operations & Consolidations',
+      passwordHash: defaultPasswordHash,
+      status: 'Active',
+      avatar: 'ER',
+      phone: '+1 (305) 555-0199',
+    },
   ];
 
   for (const user of initialUsersToSeed) {
-    await db.insert(users).values(user).onConflictDoNothing();
+    await db
+      .insert(users)
+      .values(user)
+      .onConflictDoUpdate({
+        target: users.email,
+        set: {
+          roleKey: user.roleKey,
+          agentId: user.agentId,
+          name: user.name,
+          department: user.department,
+          status: user.status,
+          passwordHash: user.passwordHash,
+        },
+      });
   }
 
   console.log('🌱 Seeding full system settings (Branding, Sequences, Labels, Units)...');
@@ -477,9 +539,8 @@ export async function seedDatabase(): Promise<void> {
     await db.insert(settings).values(setting).onConflictDoNothing();
   }
 
-  console.log('✅ Database seeding finished successfully.');
+  console.log('✅ Master system setup finished successfully (Seeded commercial entities and workflow users).');
 }
-
 
 // Allow direct execution
 if (process.argv[1] === __filename) {

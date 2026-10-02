@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { ConsolidationService, consolidationService } from './consolidation.service.js';
-import { consolidationQuerySchema, createConsolidationSchema } from './consolidation.schema.js';
+import { consolidationQuerySchema, createConsolidationSchema, updateConsolidationSchema } from './consolidation.schema.js';
 import { successResponse, paginatedResponse } from '../../common/utils/response.js';
 import { getPaginationParams, buildPaginationMeta } from '../../common/utils/pagination.js';
 
@@ -31,10 +31,22 @@ export class ConsolidationController {
 
   create = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const body = createConsolidationSchema.parse(request.body);
-    const created = await this.service.createConsolidation(body, request.user);
-    reply.status(201).send(successResponse(created, 'Consolidation created and cascade executed successfully'));
+    const created = await this.service.createConsolidation(body);
+    reply.status(201).send(successResponse(created, 'Consolidation created successfully'));
+  };
+
+  update = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    const body = updateConsolidationSchema.parse(request.body);
+    const updated = await this.service.updateConsolidation(id, body);
+    reply.send(successResponse(updated, 'Consolidation updated successfully'));
+  };
+
+  delete = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    await this.service.deleteConsolidation(id);
+    reply.send(successResponse(null, 'Consolidation deleted successfully'));
   };
 }
 
 export const consolidationController = new ConsolidationController();
-

@@ -5,9 +5,8 @@ export const cargo = pgTable('cargo', {
   id: uuid('id').defaultRandom().primaryKey(),
   cargoNumber: text('cargo_number').notNull().unique(), // e.g. "CRG-1041-01"
   warehouseReceiptId: uuid('warehouse_receipt_id')
-    .references(() => warehouseReceipts.id, { onDelete: 'cascade' })
-    .notNull(),
-  receiptNumber: text('receipt_number').notNull(),
+    .references(() => warehouseReceipts.id, { onDelete: 'cascade' }),
+  receiptNumber: text('receipt_number'),
   customer: text('customer').notNull(),
   description: text('description').notNull(),
   packageCount: integer('package_count').default(1).notNull(),

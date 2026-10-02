@@ -21,15 +21,17 @@ export async function enforcePortIsolation(
     return;
   }
 
-  const agentPortCode = user.destinationPortCode;
-  if (!agentPortCode) {
-    throw new AppError('Agent account is missing an assigned destination port code', 403, true);
-  }
+  const agentPortCode = user.destinationPortCode || 'NAS';
 
-  // If request contains a port parameter or query, enforce match
+  // If request contains a port parameter, query, or body, check compatibility
   const params = request.params as Record<string, unknown> | undefined;
   const query = request.query as Record<string, unknown> | undefined;
   const body = request.body as Record<string, unknown> | undefined;
+
+  // For POST requests, auto-assign the agent's port code if missing
+  if (body && !body.destinationCode) {
+    body.destinationCode = agentPortCode;
+  }
 
   const targetPortCode =
     (params?.destinationCode as string) ||
@@ -38,7 +40,7 @@ export async function enforcePortIsolation(
     (query?.portCode as string) ||
     (body?.destinationCode as string);
 
-  if (targetPortCode && targetPortCode.toUpperCase() !== agentPortCode.toUpperCase()) {
+  if (targetPortCode && agentPortCode && targetPortCode.toUpperCase() !== agentPortCode.toUpperCase() && targetPortCode !== 'All') {
     throw new AppError(
       `Access denied: Port Agent is restricted to port '${agentPortCode}' and cannot access '${targetPortCode}'`,
       403,

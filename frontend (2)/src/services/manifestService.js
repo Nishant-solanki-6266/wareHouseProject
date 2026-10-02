@@ -1,20 +1,24 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
 import { apiClient } from './apiClient';
+import { apiFetch } from './apiConfig';
 
 export const manifestService = {
   async getManifests(filters = {}) {
     try {
-      const res = await apiClient.get('manifests', filters);
-      if (res && Array.isArray(res.data)) {
-        setStored(KEYS.MANIFESTS, res.data);
-        return res.data;
+      const res = await apiClient.get('manifests', { params: { ...filters, limit: 100 } });
+      if (res && res.data) {
+        const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
+        if (liveList.length > 0) {
+          setStored(KEYS.MANIFESTS, liveList);
+          return liveList;
+        }
       }
     } catch (err) {
-      console.warn('API error fetching manifests, fallback to local:', err);
+      console.warn('Backend API /manifests fetch failed, using cached store:', err?.message || err);
     }
 
-    const list = getStored(KEYS.MANIFESTS);
+    const list = getStored(KEYS.MANIFESTS, []);
     let filtered = [...list];
 
     if (filters.search) {
@@ -31,83 +35,111 @@ export const manifestService = {
   },
 
   async getManifestById(id) {
+    if (!id) return null;
     try {
-      const res = await apiClient.get(`manifests/${id}`);
+      const res = await apiClient.get(`manifests/${encodeURIComponent(id)}`);
       if (res && res.data) return res.data;
     } catch (err) {
-      console.warn('API error fetching manifest by id:', err);
+      console.warn(`Backend API fetch for manifest ${id} failed:`, err?.message || err);
     }
 
-    const list = getStored(KEYS.MANIFESTS);
+    const list = getStored(KEYS.MANIFESTS, []);
     return list.find(item => item.id === id || item.manifestNumber === id) || null;
   },
 
-
   async generateManifest(manifestData, currentUser = "Documentation Staff") {
-    const list = getStored(KEYS.MANIFESTS);
-    const id = `MNF-2026-${443 + list.length}`;
+    let createdManifest = null;
+    try {
+      const res = await apiClient.post('manifests', manifestData);
+      if (res && res.data) {
+        createdManifest = res.data;
+      }
+    } catch (err) {
+      console.warn('Backend generateManifest failed, using local store:', err?.message || err);
+    }
 
-    const newManifest = {
-      ...manifestData,
-      id,
-      manifestNumber: id,
-      type: "Ocean Cargo Inward / Outward Manifest",
-      status: "Generated",
-      createdAt: new Date().toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-    };
+    if (!createdManifest) {
+      const list = getStored(KEYS.MANIFESTS, []);
+      const id = manifestData.manifestNumber || `MNF-2026-${443 + list.length}`;
+      createdManifest = {
+        ...manifestData,
+        id,
+        manifestNumber: id,
+        type: "Ocean Cargo Inward / Outward Manifest",
+        status: manifestData.status || "Generated",
+        createdAt: new Date().toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+      };
+    }
 
-    const updated = [newManifest, ...list];
+    const list = getStored(KEYS.MANIFESTS, []);
+    const updated = [createdManifest, ...list.filter(m => m.id !== createdManifest.id && m.manifestNumber !== createdManifest.manifestNumber)];
     setStored(KEYS.MANIFESTS, updated);
 
     await auditService.logAction(
       currentUser,
       "Shipping Manifest",
       "Generated Shipping Manifest",
-      id,
-      `Generated Manifest ${id} for Vessel ${manifestData.vesselName} (Voyage ${manifestData.voyageNumber}).`
+      createdManifest.manifestNumber || createdManifest.id,
+      `Generated Manifest ${createdManifest.manifestNumber || createdManifest.id} for Vessel ${createdManifest.vesselName} (Voyage ${createdManifest.voyageNumber}).`
     );
 
-    return newManifest;
+    return createdManifest;
   },
 
   async updateManifest(id, updates, currentUser = "Documentation Staff") {
-    const list = getStored(KEYS.MANIFESTS);
+    let updatedManifest = null;
+    try {
+      const res = await apiClient.put(`manifests/${encodeURIComponent(id)}`, updates);
+      if (res && res.data) {
+        updatedManifest = res.data;
+      }
+    } catch (err) {
+      console.warn(`Backend updateManifest ${id} failed:`, err?.message || err);
+    }
+
+    const list = getStored(KEYS.MANIFESTS, []);
     const index = list.findIndex(item => item.id === id || item.manifestNumber === id);
     if (index !== -1) {
       list[index] = {
         ...list[index],
-        ...updates
+        ...(updatedManifest || updates)
       };
       setStored(KEYS.MANIFESTS, list);
-
-      await auditService.logAction(
-        currentUser,
-        "Shipping Manifest",
-        "Updated Shipping Manifest",
-        id,
-        `Updated Manifest ${id}.`
-      );
-
-      return list[index];
+      updatedManifest = list[index];
     }
-    return null;
-  },
-
-  async deleteManifest(id, currentUser = "Documentation Staff") {
-    const list = getStored(KEYS.MANIFESTS);
-    const existing = list.find(item => item.id === id || item.manifestNumber === id);
-    if (!existing) return false;
-
-    const filtered = list.filter(item => item.id !== id && item.manifestNumber !== id);
-    setStored(KEYS.MANIFESTS, filtered);
 
     await auditService.logAction(
       currentUser,
       "Shipping Manifest",
-      "Deleted Shipping Manifest",
+      "Updated Shipping Manifest",
       id,
-      `Deleted Manifest ${id}.`
+      `Updated Manifest ${id}.`
     );
+
+    return updatedManifest;
+  },
+
+  async deleteManifest(id, currentUser = "Documentation Staff") {
+    try {
+      await apiClient.delete(`manifests/${encodeURIComponent(id)}`);
+    } catch (err) {
+      console.warn(`Backend deleteManifest ${id} failed:`, err?.message || err);
+    }
+
+    const list = getStored(KEYS.MANIFESTS, []);
+    const existing = list.find(item => item.id === id || item.manifestNumber === id);
+    const filtered = list.filter(item => item.id !== id && item.manifestNumber !== id);
+    setStored(KEYS.MANIFESTS, filtered);
+
+    if (existing) {
+      await auditService.logAction(
+        currentUser,
+        "Shipping Manifest",
+        "Deleted Shipping Manifest",
+        id,
+        `Deleted Manifest ${id}.`
+      );
+    }
 
     return true;
   },

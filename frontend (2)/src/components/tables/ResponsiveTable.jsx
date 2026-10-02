@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ChevronLeft, ChevronRight, Inbox, Filter } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Inbox, Filter, Plus } from 'lucide-react';
 
 export const ResponsiveTable = ({
   columns = [],
@@ -182,9 +182,10 @@ export const ResponsiveTable = ({
                         type="button"
                         onClick={onEmptyAction}
                         className="btn btn-primary btn-sm"
-                        style={{ marginTop: '0.4rem' }}
+                        style={{ marginTop: '0.4rem', gap: '4px' }}
                       >
-                        {emptyActionLabel}
+                        <Plus size={14} />
+                        <span>{emptyActionLabel}</span>
                       </button>
                     )}
                   </div>

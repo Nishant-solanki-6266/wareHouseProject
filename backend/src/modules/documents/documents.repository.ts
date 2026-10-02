@@ -1,4 +1,4 @@
-import { eq, count, and, desc } from 'drizzle-orm';
+import { eq, or, count, and, desc } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { documents } from '../../db/schema/index.js';
 import { DocumentFilterParams } from './documents.types.js';
@@ -36,7 +36,12 @@ export class DocumentsRepository {
   }
 
   async findById(id: string) {
-    const result = await db.select().from(documents).where(eq(documents.id, id)).limit(1);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const whereCondition = isUuid
+      ? or(eq(documents.id, id), eq(documents.documentNumber, id))
+      : eq(documents.documentNumber, id);
+
+    const result = await db.select().from(documents).where(whereCondition).limit(1);
     return result[0] || null;
   }
 }

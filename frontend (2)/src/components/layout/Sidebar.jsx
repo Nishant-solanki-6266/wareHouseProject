@@ -42,9 +42,13 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose }) => {
             { id: 'dashboard', label: 'CFS Dashboard', icon: LayoutDashboard },
             { id: 'warehouse-receipts', label: 'Warehouse Receipts (WR)', icon: Package },
             { id: 'cargo', label: 'Cargo Inventory', icon: Box },
-            { id: 'documents', label: 'Labels & 4x6 Roll', icon: Tag },
-            { id: 'customers', label: 'Customer Profiles', icon: Users },
-            { id: 'tracking', label: 'Cargo Tracking', icon: Search }
+            { id: 'house-bills', label: 'House B/Ls', icon: FileText },
+            { id: 'documents', label: 'Labels & Docs', icon: Tag },
+            { id: 'consolidations', label: 'Consolidations', icon: Layers },
+            { id: 'shipments', label: 'Shipments', icon: Ship },
+            { id: 'containers', label: 'Containers', icon: Box },
+            { id: 'vessels', label: 'Vessels & Voyages', icon: Anchor },
+            { id: 'tracking', label: 'Tracking', icon: Search }
           ]
         }
       ];

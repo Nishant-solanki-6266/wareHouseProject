@@ -22,14 +22,14 @@ export const ClearHoldModal = ({ isOpen, onClose, bl, onConfirm }) => {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header" style={{ background: '#F0FDF4', borderBottomColor: '#BBF7D0' }}>
           <div className="modal-title" style={{ color: '#166534' }}>
             <ShieldCheck size={22} style={{ color: '#16A34A' }} />
             <span>Authorize Hold Clearance &amp; B/L Release</span>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close modal">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close modal">
             <X size={18} />
           </button>
         </div>

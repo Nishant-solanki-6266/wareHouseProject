@@ -22,22 +22,22 @@ export const customerService = {
         setStored(KEYS.CUSTOMERS, mapped);
         return mapped;
       }
-
-    } catch (e) {
-      console.warn('[customerService] API getCustomers failed, using fallback:', e.message);
+    } catch (err) {
+      console.warn('Backend customers API notice, using local store:', err?.message || err);
     }
 
-    const list = getStored(KEYS.CUSTOMERS);
+    const list = getStored(KEYS.CUSTOMERS, []);
     let filtered = [...list];
 
     if (filters.search) {
       const q = filters.search.toLowerCase();
       filtered = filtered.filter(item =>
-        item.name?.toLowerCase().includes(q) ||
         item.customerNumber?.toLowerCase().includes(q) ||
+        item.name?.toLowerCase().includes(q) ||
         item.contactPerson?.toLowerCase().includes(q) ||
         item.email?.toLowerCase().includes(q) ||
-        item.telephone?.toLowerCase().includes(q) ||
+        item.telephone?.includes(q) ||
+        item.phone?.includes(q) ||
         item.destinationPort?.toLowerCase().includes(q)
       );
     }
@@ -52,78 +52,34 @@ export const customerService = {
   },
 
   async getCustomerById(id) {
+    if (!id) return null;
     try {
-      const res = await apiClient.get(`customers/${id}`);
-      if (res && res.data) {
+      const res = await apiClient.get(`customers/${encodeURIComponent(id)}`);
+      const apiData = res?.data || res;
+      if (apiData && apiData.id) {
         return {
-          ...res.data,
-          customerNumber: res.data.customerNumber || res.data.id,
-          telephone: res.data.telephone || res.data.phone || '',
+          ...apiData,
+          customerNumber: apiData.customerNumber || apiData.id,
+          telephone: apiData.telephone || apiData.phone || '',
         };
       }
-    } catch {
-      // fallback
+    } catch (err) {
+      console.warn(`Backend API fetch for customer ${id} failed:`, err?.message || err);
     }
-    const list = getStored(KEYS.CUSTOMERS);
+
+    const list = getStored(KEYS.CUSTOMERS, []);
     return list.find(item => item.id === id || item.customerNumber === id || item.name === id) || null;
   },
 
   async createCustomer(data, currentUser = "Warehouse Staff") {
-    let createdItem = null;
-    try {
-      const payload = {
-        name: data.name || data.companyName || "New Customer",
-        companyName: data.companyName || data.name || "New Customer",
-        contactPerson: data.contactPerson || "",
-        email: data.email || "",
-        telephone: data.telephone || data.phone || "",
-        phone: data.telephone || data.phone || "",
-        address: data.address || "",
-        destinationPort: data.destinationPort || "NAS - Nassau, Bahamas",
-        destinationCode: data.destinationCode || (data.destinationPort ? data.destinationPort.split(' - ')[0] : "NAS"),
-        taxId: data.taxId || "",
-        accountType: data.accountType || "Commercial Importer",
-        creditTerms: data.creditTerms || "Net 30",
-        notes: data.notes || "",
-      };
-      const res = await apiClient.post('customers', payload);
-      if (res && res.data) {
-        createdItem = {
-          ...res.data,
-          customerNumber: res.data.customerNumber || res.data.id,
-          telephone: res.data.telephone || res.data.phone || payload.telephone || '',
-        };
-      }
-    } catch (e) {
-      console.warn('[customerService] API createCustomer failed, using fallback:', e.message);
-    }
-
-    const list = getStored(KEYS.CUSTOMERS);
-    if (createdItem) {
-      const updated = [createdItem, ...list.filter(item => item.id !== createdItem.id && item.customerNumber !== createdItem.customerNumber)];
-      setStored(KEYS.CUSTOMERS, updated);
-
-      await auditService.logAction(
-        currentUser,
-        "Customer",
-        "Created Customer Profile",
-        createdItem.id || createdItem.customerNumber,
-        `Created Customer Profile ${createdItem.customerNumber} for ${createdItem.name}.`
-      );
-
-      return createdItem;
-    }
-
+    const list = getStored(KEYS.CUSTOMERS, []);
     const nextSeq = list.length + 1;
-    const id = `CUS-2026-${String(nextSeq).padStart(4, '0')}`;
+    const id = data.customerNumber || `CUS-2026-${String(nextSeq).padStart(4, '0')}`;
 
-    const newCustomer = {
-      ...data,
-      id,
-      customerNumber: id,
+    const payload = {
       name: data.name || data.companyName || "New Customer",
       companyName: data.companyName || data.name || "New Customer",
-      contactPerson: data.contactPerson || "Primary Contact",
+      contactPerson: data.contactPerson || "",
       email: data.email || "",
       telephone: data.telephone || data.phone || "",
       phone: data.telephone || data.phone || "",
@@ -134,22 +90,44 @@ export const customerService = {
       accountType: data.accountType || "Commercial Importer",
       creditTerms: data.creditTerms || "Net 30",
       notes: data.notes || "",
-      createdDate: data.createdDate || new Date().toISOString().split('T')[0],
       status: data.status || "Active"
     };
 
-    const updated = [newCustomer, ...list];
+    let createdCustomer = null;
+    try {
+      const res = await apiClient.post('customers', payload);
+      if (res && res.data) {
+        createdCustomer = {
+          ...res.data,
+          customerNumber: res.data.customerNumber || res.data.id || id,
+          telephone: res.data.telephone || res.data.phone || payload.telephone || '',
+        };
+      }
+    } catch (err) {
+      console.warn('Backend createCustomer notice:', err?.message || err);
+    }
+
+    if (!createdCustomer) {
+      createdCustomer = {
+        ...payload,
+        id,
+        customerNumber: id,
+        createdDate: data.createdDate || new Date().toISOString().split('T')[0],
+      };
+    }
+
+    const updated = [createdCustomer, ...list.filter(c => c.id !== createdCustomer.id && c.customerNumber !== createdCustomer.customerNumber)];
     setStored(KEYS.CUSTOMERS, updated);
 
     await auditService.logAction(
       currentUser,
       "Customer",
       "Created Customer Profile",
-      id,
-      `Created Customer Profile ${id} for ${newCustomer.name} (${newCustomer.destinationPort}).`
+      createdCustomer.customerNumber || createdCustomer.id,
+      `Registered customer ${createdCustomer.name} (${createdCustomer.customerNumber}, ${createdCustomer.destinationPort}).`
     );
 
-    return newCustomer;
+    return createdCustomer;
   },
 
   async updateCustomer(id, updates, currentUser = "Warehouse Staff") {
@@ -172,10 +150,9 @@ export const customerService = {
         status: updates.status,
       };
 
-      // Clean undefined keys
       Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
-      const res = await apiClient.patch(`customers/${id}`, payload);
+      const res = await apiClient.patch(`customers/${encodeURIComponent(id)}`, payload);
       if (res && res.data) {
         apiUpdated = {
           ...res.data,
@@ -183,17 +160,19 @@ export const customerService = {
           telephone: res.data.telephone || res.data.phone || updates.telephone || '',
         };
       }
-    } catch (e) {
-      console.warn('[customerService] API updateCustomer failed, using fallback:', e.message);
+    } catch (err) {
+      console.warn(`Backend updateCustomer ${id} failed:`, err?.message || err);
     }
 
-    const list = getStored(KEYS.CUSTOMERS);
+    const list = getStored(KEYS.CUSTOMERS, []);
     const index = list.findIndex(item => item.id === id || item.customerNumber === id);
     if (index !== -1) {
       const merged = {
         ...list[index],
         ...updates,
-        ...(apiUpdated || {})
+        ...(apiUpdated || {}),
+        telephone: updates.telephone || updates.phone || list[index].telephone || '',
+        phone: updates.telephone || updates.phone || list[index].phone || ''
       };
       list[index] = merged;
       setStored(KEYS.CUSTOMERS, list);
@@ -217,12 +196,12 @@ export const customerService = {
 
   async deleteCustomer(id, currentUser = "Super Admin") {
     try {
-      await apiClient.delete(`customers/${id}`);
-    } catch (e) {
-      console.warn('[customerService] API deleteCustomer failed, using fallback:', e.message);
+      await apiClient.delete(`customers/${encodeURIComponent(id)}`);
+    } catch (err) {
+      console.warn(`Backend deleteCustomer ${id} failed:`, err?.message || err);
     }
 
-    const list = getStored(KEYS.CUSTOMERS);
+    const list = getStored(KEYS.CUSTOMERS, []);
     const existing = list.find(item => item.id === id || item.customerNumber === id);
     const filtered = list.filter(item => item.id !== id && item.customerNumber !== id);
     setStored(KEYS.CUSTOMERS, filtered);

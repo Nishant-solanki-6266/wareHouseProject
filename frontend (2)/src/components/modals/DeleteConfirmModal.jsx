@@ -1,5 +1,5 @@
-import React from 'react';
-import { AlertTriangle, Trash2, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { AlertTriangle, Trash2, X, Loader2 } from 'lucide-react';
 
 export const DeleteConfirmModal = ({
   isOpen,
@@ -10,10 +10,26 @@ export const DeleteConfirmModal = ({
   itemType = "record",
   warningMessage = "This action cannot be undone. It will permanently remove this record and update the audit log."
 }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+
   if (!isOpen) return null;
 
+  const handleConfirm = async () => {
+    setIsDeleting(true);
+    try {
+      if (onConfirm) {
+        await onConfirm();
+      }
+      onClose();
+    } catch (err) {
+      console.error('Delete error:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div
         className="modal-dialog"
         style={{ maxWidth: '460px' }}
@@ -25,7 +41,9 @@ export const DeleteConfirmModal = ({
             <span>{title}</span>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            disabled={isDeleting}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}
           >
             <X size={18} />
@@ -53,20 +71,19 @@ export const DeleteConfirmModal = ({
           <button
             type="button"
             onClick={onClose}
+            disabled={isDeleting}
             className="btn btn-outline btn-sm"
           >
             Cancel
           </button>
           <button
             type="button"
-            onClick={() => {
-              onConfirm();
-              onClose();
-            }}
+            onClick={handleConfirm}
+            disabled={isDeleting}
             className="btn btn-danger btn-sm"
           >
-            <Trash2 size={14} />
-            <span>Delete Permanently</span>
+            {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            <span>{isDeleting ? 'Deleting...' : 'Delete Permanently'}</span>
           </button>
         </div>
       </div>

@@ -65,8 +65,15 @@ export const CustomerModal = ({ isOpen, onClose, customer, isEdit = false, onSav
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-dialog modal-md" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="modal-dialog modal-md" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div style={{ background: '#EFF6FF', color: '#0284C7', padding: '0.4rem', borderRadius: '6px' }}>
@@ -79,12 +86,19 @@ export const CustomerModal = ({ isOpen, onClose, customer, isEdit = false, onSav
               </div>
             </div>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '70vh', overflowY: 'auto' }}>
             <div className="form-group">
               <label className="form-label">Company / Customer Name <span className="required">*</span></label>

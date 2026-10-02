@@ -16,8 +16,13 @@ export const CargoDetail = ({ cargoId, onNavigate }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const cargo = cargoItems.find(c => c.id === cargoId);
-  const wr = warehouseReceipts.find(r => r.id === cargo?.warehouseReceiptId || r.receiptNumber === cargo?.receiptNumber);
+  const cargo = cargoItems.find(c => String(c.id) === String(cargoId) || c.id === cargoId);
+  const wr = warehouseReceipts.find(r => 
+    String(r.id) === String(cargo?.warehouseReceiptId) || 
+    String(r.receiptNumber) === String(cargo?.receiptNumber) ||
+    r.id === cargo?.warehouseReceiptId || 
+    r.receiptNumber === cargo?.receiptNumber
+  );
 
   if (!cargo) {
     return (

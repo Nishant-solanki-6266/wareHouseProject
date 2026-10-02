@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, FileText, Check } from 'lucide-react';
 
 export const HouseBillModal = ({
@@ -7,6 +7,7 @@ export const HouseBillModal = ({
   hbl = null,
   onSave
 }) => {
+  const hasInitializedRef = useRef(false);
   const [formData, setFormData] = useState({
     cargoDescription: '',
     freightTerms: 'Freight Prepaid',
@@ -24,6 +25,13 @@ export const HouseBillModal = ({
   });
 
   useEffect(() => {
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      return;
+    }
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
     if (hbl) {
       setFormData({
         cargoDescription: hbl.cargoDescription || '',
@@ -94,7 +102,7 @@ export const HouseBillModal = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div className="modal-dialog modal-md" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
@@ -106,12 +114,19 @@ export const HouseBillModal = ({
               </div>
             </div>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '70vh', overflowY: 'auto' }}>
             <div className="form-group">
               <label className="form-label">Cargo Description</label>

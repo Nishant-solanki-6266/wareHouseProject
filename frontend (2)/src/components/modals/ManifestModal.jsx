@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FileSpreadsheet, X, Save, Plus, Anchor, Sparkles } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
 
@@ -10,6 +10,11 @@ export const ManifestModal = ({
   isEdit = false
 }) => {
   const { billsOfLading, ports, vessels, houseBills } = useAppData();
+  const hasInitializedRef = useRef(false);
+
+  const getPortCode = (p) => p?.portCode || p?.code || 'NAS';
+  const nasPort = ports.find(p => getPortCode(p) === 'NAS') || ports[0];
+  const defaultPod = nasPort ? `${getPortCode(nasPort)} - ${nasPort.name}` : 'NAS - Nassau Container Port';
 
   const [selectedMasterBLId, setSelectedMasterBLId] = useState('');
   const [formData, setFormData] = useState({
@@ -20,7 +25,7 @@ export const ManifestModal = ({
     vesselName: '',
     voyageNumber: '',
     portOfLoading: 'Port of Miami (USMIA), FL',
-    portOfDischarge: ports[0] ? `${ports[0].code} - ${ports[0].name}` : 'NAS - Nassau Container Port',
+    portOfDischarge: defaultPod,
     departureDate: new Date().toISOString().split('T')[0],
     arrivalDate: '',
     masterName: '',
@@ -35,6 +40,13 @@ export const ManifestModal = ({
   });
 
   useEffect(() => {
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      return;
+    }
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+    const curPod = nasPort ? `${getPortCode(nasPort)} - ${nasPort.name}` : 'NAS - Nassau Container Port';
     if (manifest && isEdit) {
       setFormData({
         manifestNumber: manifest.manifestNumber || '',
@@ -44,7 +56,7 @@ export const ManifestModal = ({
         vesselName: manifest.vesselName || '',
         voyageNumber: manifest.voyageNumber || '',
         portOfLoading: manifest.portOfLoading || 'Port of Miami (USMIA), FL',
-        portOfDischarge: manifest.portOfDischarge || '',
+        portOfDischarge: manifest.portOfDischarge || curPod,
         departureDate: manifest.departureDate || '',
         arrivalDate: manifest.arrivalDate || '',
         masterName: manifest.masterName || '',
@@ -67,7 +79,7 @@ export const ManifestModal = ({
         vesselName: '',
         voyageNumber: '',
         portOfLoading: 'Port of Miami (USMIA), FL',
-        portOfDischarge: ports[0] ? `${ports[0].code} - ${ports[0].name}` : 'NAS - Nassau Container Port',
+        portOfDischarge: curPod,
         departureDate: new Date().toISOString().split('T')[0],
         arrivalDate: '',
         masterName: '',
@@ -82,7 +94,7 @@ export const ManifestModal = ({
       });
       setSelectedMasterBLId('');
     }
-  }, [manifest, isEdit, isOpen, ports]);
+  }, [manifest, isEdit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -189,19 +201,26 @@ export const ManifestModal = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div className="modal-dialog modal-lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">
             <FileSpreadsheet size={20} style={{ color: '#059669' }} />
             <span>{isEdit ? `Edit Manifest ${formData.manifestNumber}` : 'Create Customs Shipping Manifest'}</span>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '72vh', overflowY: 'auto' }}>
             
             {/* Option A: Select Saved Master B/L Bar */}
@@ -302,11 +321,14 @@ export const ManifestModal = ({
                   value={formData.portOfLoading}
                   onChange={(e) => setFormData({ ...formData, portOfLoading: e.target.value })}
                 >
-                  {ports.map(p => (
-                    <option key={`mnf-pol-${p.id || p.code}`} value={`${p.code} - ${p.name}`}>
-                      {p.code} — {p.name} ({p.island || p.country})
-                    </option>
-                  ))}
+                  {ports.map(p => {
+                    const pCode = getPortCode(p);
+                    return (
+                      <option key={`mnf-pol-${p.id || pCode}`} value={`${pCode} - ${p.name}`}>
+                        {pCode} — {p.name} ({p.island || p.country})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -317,11 +339,14 @@ export const ManifestModal = ({
                   value={formData.portOfDischarge}
                   onChange={(e) => setFormData({ ...formData, portOfDischarge: e.target.value })}
                 >
-                  {ports.map(p => (
-                    <option key={`mnf-pod-${p.id || p.code}`} value={`${p.code} - ${p.name}`}>
-                      {p.code} — {p.name} ({p.island || p.country})
-                    </option>
-                  ))}
+                  {ports.map(p => {
+                    const pCode = getPortCode(p);
+                    return (
+                      <option key={`mnf-pod-${p.id || pCode}`} value={`${pCode} - ${p.name}`}>
+                        {pCode} — {p.name} ({p.island || p.country})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>

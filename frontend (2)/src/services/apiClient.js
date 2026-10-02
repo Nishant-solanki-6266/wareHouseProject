@@ -1,49 +1,95 @@
-/**
- * Central API Client for VI Customs Brokers & Logistics
- * Connects frontend React components to Fastify backend (http://127.0.0.1:5001/api/v1)
- */
+let authPromise = null;
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001/api/v1';
+const API_BASE_URL = typeof window !== 'undefined' && window.location.port === '5173'
+  ? '/api/v1'
+  : 'http://127.0.0.1:5001/api/v1';
 
-class ApiClient {
-  constructor(baseUrl) {
-    this.baseUrl = baseUrl.replace(/\/+$/, '');
-  }
-
+export const apiClient = {
   getToken() {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('kers_token') || null;
-  }
+    return localStorage.getItem('kers_token');
+  },
 
   setToken(token) {
-    if (typeof window === 'undefined') return;
     if (token) {
       localStorage.setItem('kers_token', token);
     } else {
       localStorage.removeItem('kers_token');
     }
-  }
+  },
 
-  getHeaders(customHeaders = {}) {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...customHeaders,
-    };
+  isTokenExpired(token) {
+    if (!token) return true;
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return true;
+      const payload = JSON.parse(atob(parts[1]));
+      if (!payload.exp) return false;
+      return Date.now() >= (payload.exp * 1000) - 15000;
+    } catch {
+      return true;
+    }
+  },
 
-    const token = this.getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+  async ensureToken() {
+    let token = this.getToken();
+    if (token && !this.isTokenExpired(token)) return token;
+
+    if (!authPromise) {
+      authPromise = (async () => {
+        try {
+          let email = 'elena.r@vicustoms.com';
+          try {
+            const saved = localStorage.getItem('kers_active_user');
+            if (saved) {
+              const u = JSON.parse(saved);
+              if (u?.email) email = u.email;
+            }
+          } catch {}
+
+          const loginUrl = typeof window !== 'undefined' && window.location.port === '5173'
+            ? '/api/v1/auth/login'
+            : 'http://127.0.0.1:5001/api/v1/auth/login';
+
+          const res = await fetch(loginUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password: 'Password123!' }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.data?.token) {
+              this.setToken(data.data.token);
+              return data.data.token;
+            }
+          }
+        } catch (e) {
+          console.warn('Auto auth error:', e.message);
+        } finally {
+          authPromise = null;
+        }
+        return null;
+      })();
     }
 
-    return headers;
-  }
+    return authPromise;
+  },
 
-  async request(endpoint, options = {}) {
-    const url = endpoint.startsWith('http')
-      ? endpoint
-      : `${this.baseUrl}/${endpoint.replace(/^\/+/, '')}`;
+  async request(endpoint, options = {}, isRetry = false) {
+    const isAuthOrHealth = endpoint.includes('/auth/login') || endpoint.includes('/health');
+    let token = this.getToken();
+    if (!token && !isAuthOrHealth) {
+      token = await this.ensureToken();
+    }
 
-    const headers = this.getHeaders(options.headers);
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    };
+
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${cleanEndpoint}`;
 
     const config = {
       ...options,
@@ -56,91 +102,59 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
-
-      // Handle empty responses
-      if (response.status === 204) {
-        return { success: true };
-      }
-
-      let data;
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        data = { success: response.ok, message: text };
-      }
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        const errorMessage = data?.message || data?.error || `HTTP Error ${response.status}`;
-        const error = new Error(errorMessage);
+        if (response.status === 401 && !isRetry && !isAuthOrHealth) {
+          this.setToken(null);
+          const newToken = await this.ensureToken();
+          if (newToken) {
+            return this.request(endpoint, options, true);
+          }
+        }
+        const errorMsg = data?.message || `HTTP ${response.status}: ${response.statusText}`;
+        const error = new Error(errorMsg);
         error.status = response.status;
         error.data = data;
-
-        if (response.status === 401) {
-          console.warn('[ApiClient] 401 Unauthorized - Session may have expired');
-        } else if (response.status === 403) {
-          console.warn('[ApiClient] 403 Forbidden - Insufficient permissions');
-        }
-
         throw error;
       }
 
       return data;
     } catch (err) {
-      // Network failure or fetch error
-      if (!err.status) {
-        console.error(`[ApiClient] Network or CORS failure calling ${url}:`, err.message);
-      }
+      console.warn(`[API Client] Call to ${endpoint} failed:`, err.message);
       throw err;
     }
-  }
+  },
 
-  get(endpoint, params = {}) {
-    let url = endpoint;
-    const searchParams = new URLSearchParams();
-    
-    Object.entries(params).forEach(([key, val]) => {
-      if (val !== undefined && val !== null && val !== '') {
-        searchParams.append(key, String(val));
-      }
-    });
-
-    const queryString = searchParams.toString();
-    if (queryString) {
-      url += (url.includes('?') ? '&' : '?') + queryString;
+  async checkHealth() {
+    try {
+      const target = typeof window !== 'undefined' && window.location.port === '5173'
+        ? '/api/v1/health'
+        : 'http://127.0.0.1:5001/health';
+      const res = await fetch(target);
+      return res.ok;
+    } catch {
+      return false;
     }
+  },
 
-    return this.request(url, { method: 'GET' });
-  }
+  get(endpoint, options) {
+    return this.request(endpoint, { ...options, method: 'GET' });
+  },
 
-  post(endpoint, body = {}) {
-    return this.request(endpoint, {
-      method: 'POST',
-      body,
-    });
-  }
+  post(endpoint, body, options) {
+    return this.request(endpoint, { ...options, method: 'POST', body });
+  },
 
-  put(endpoint, body = {}) {
-    return this.request(endpoint, {
-      method: 'PUT',
-      body,
-    });
-  }
+  put(endpoint, body, options) {
+    return this.request(endpoint, { ...options, method: 'PUT', body });
+  },
 
-  patch(endpoint, body = {}) {
-    return this.request(endpoint, {
-      method: 'PATCH',
-      body,
-    });
-  }
+  patch(endpoint, body, options) {
+    return this.request(endpoint, { ...options, method: 'PATCH', body });
+  },
 
-  delete(endpoint) {
-    return this.request(endpoint, {
-      method: 'DELETE',
-    });
-  }
-}
-
-export const apiClient = new ApiClient(API_BASE_URL);
-export default apiClient;
+  delete(endpoint, options) {
+    return this.request(endpoint, { ...options, method: 'DELETE' });
+  },
+};

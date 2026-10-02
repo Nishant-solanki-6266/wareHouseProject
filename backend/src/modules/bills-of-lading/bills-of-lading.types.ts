@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { createBillOfLadingSchema, updateBillOfLadingSchema } from './bills-of-lading.schema.js';
+
 export interface BillOfLadingFilterParams {
   search?: string;
   status?: string;
@@ -5,3 +8,6 @@ export interface BillOfLadingFilterParams {
   limit: number;
   offset: number;
 }
+
+export type CreateBillOfLadingInput = z.infer<typeof createBillOfLadingSchema>;
+export type UpdateBillOfLadingInput = z.infer<typeof updateBillOfLadingSchema>;

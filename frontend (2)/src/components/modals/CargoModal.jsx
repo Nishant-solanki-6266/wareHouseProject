@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, X, Save, Plus } from 'lucide-react';
 
 export const CargoModal = ({
@@ -8,6 +8,7 @@ export const CargoModal = ({
   cargo = null,
   isEdit = false
 }) => {
+  const hasInitializedRef = useRef(false);
   const [formData, setFormData] = useState({
     id: '',
     receiptNumber: '',
@@ -24,6 +25,13 @@ export const CargoModal = ({
   });
 
   useEffect(() => {
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      return;
+    }
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
     if (cargo && isEdit) {
       setFormData({
         id: cargo.id || '',
@@ -77,19 +85,26 @@ export const CargoModal = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div className="modal-dialog modal-lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">
             <Box size={20} style={{ color: '#0284C7' }} />
             <span>{isEdit ? `Edit Cargo Unit ${formData.id}` : 'Intake New Cargo Unit'}</span>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '72vh', overflowY: 'auto' }}>
             <div className="grid grid-cols-2 gap-4">
               <div className="form-group">

@@ -65,28 +65,31 @@ export const initializeStorage = () => {
   }
 
   if (!localStorage.getItem(KEYS.CUSTOMERS)) {
-    localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify(initialCustomers));
+    localStorage.setItem(KEYS.CUSTOMERS, JSON.stringify([]));
   }
   if (!localStorage.getItem(KEYS.WAREHOUSE_RECEIPTS)) {
-    localStorage.setItem(KEYS.WAREHOUSE_RECEIPTS, JSON.stringify(initialWarehouseReceipts));
+    localStorage.setItem(KEYS.WAREHOUSE_RECEIPTS, JSON.stringify([]));
   }
   if (!localStorage.getItem(KEYS.CARGO)) {
-    localStorage.setItem(KEYS.CARGO, JSON.stringify(initialCargoItems));
+    localStorage.setItem(KEYS.CARGO, JSON.stringify([]));
   }
   if (!localStorage.getItem(KEYS.HOUSE_BILLS)) {
-    localStorage.setItem(KEYS.HOUSE_BILLS, JSON.stringify(initialHouseBills));
+    localStorage.setItem(KEYS.HOUSE_BILLS, JSON.stringify([]));
   }
   if (!localStorage.getItem(KEYS.CONSOLIDATIONS)) {
-    localStorage.setItem(KEYS.CONSOLIDATIONS, JSON.stringify(initialConsolidations));
+    localStorage.setItem(KEYS.CONSOLIDATIONS, JSON.stringify([]));
   }
   if (!localStorage.getItem(KEYS.SHIPMENTS)) {
-    localStorage.setItem(KEYS.SHIPMENTS, JSON.stringify(initialShipments));
+    localStorage.setItem(KEYS.SHIPMENTS, JSON.stringify([]));
   }
   if (!localStorage.getItem(KEYS.BILLS_OF_LADING)) {
-    localStorage.setItem(KEYS.BILLS_OF_LADING, JSON.stringify(initialBillsOfLading));
+    localStorage.setItem(KEYS.BILLS_OF_LADING, JSON.stringify([]));
   }
   if (!localStorage.getItem(KEYS.MANIFESTS)) {
-    localStorage.setItem(KEYS.MANIFESTS, JSON.stringify(initialManifests));
+    localStorage.setItem(KEYS.MANIFESTS, JSON.stringify([]));
+  }
+  if (!localStorage.getItem(KEYS.DOCUMENTS)) {
+    localStorage.setItem(KEYS.DOCUMENTS, JSON.stringify([]));
   }
   if (!localStorage.getItem(KEYS.CONTAINERS)) {
     localStorage.setItem(KEYS.CONTAINERS, JSON.stringify(initialContainers));

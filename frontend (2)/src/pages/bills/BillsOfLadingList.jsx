@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -19,13 +19,17 @@ import {
   Plus,
   Ship,
   HelpCircle,
-  FileCheck
+  FileCheck,
+  RefreshCw,
+  Lock
 } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
 export const BillsOfLadingList = ({ onNavigate }) => {
-  const { billsOfLading, clearBLHold, placeBLHold, createBillOfLading, updateBillOfLading, deleteBillOfLading, houseBills } = useAppData();
+  const { billsOfLading, clearBLHold, placeBLHold, createBillOfLading, updateBillOfLading, deleteBillOfLading, houseBills, refreshAll } = useAppData();
+  const { isAgent, currentUser } = useAuth();
   const { showToast } = useToast();
 
   const [activeBLForClear, setActiveBLForClear] = useState(null);
@@ -33,6 +37,36 @@ export const BillsOfLadingList = ({ onNavigate }) => {
   const [editingBL, setEditingBL] = useState(null);
   const [deletingBL, setDeletingBL] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (refreshAll) refreshAll();
+  }, []);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    if (refreshAll) await refreshAll();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
+  const visibleBLs = isAgent
+    ? billsOfLading.filter(b => {
+        if (!currentUser?.agentId && !currentUser?.destinationPortCode) return true;
+        const bPort = (b.portOfDischarge || '').toUpperCase();
+        const bAgentId = b.agentId;
+        const userPort = (currentUser?.destinationPortCode || 'NAS').toUpperCase();
+        const userAgentId = currentUser?.agentId;
+        const userName = (currentUser?.name || '').toLowerCase();
+        const bAgentName = (b.agentName || '').toLowerCase();
+
+        if (userAgentId && bAgentId === userAgentId) return true;
+        if (b.destinationPortCode && b.destinationPortCode === currentUser?.destinationPortCode) return true;
+        if (userPort && (bPort.includes(userPort) || bPort.includes('NASSAU') || bPort.includes('BAHAMAS'))) return true;
+        if (userName && bAgentName.includes(userName)) return true;
+        if (bAgentName.includes('caribbean')) return true;
+        return true;
+      })
+    : billsOfLading;
 
   // Table Columns with Contextual Actions per Status
   const columns = [
@@ -116,8 +150,8 @@ export const BillsOfLadingList = ({ onNavigate }) => {
 
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'flex-end' }}>
-            {/* CONTEXTUAL ACTION 1: Draft -> Review / Place Hold */}
-            {isDraft && (
+            {/* CONTEXTUAL ACTION 1: Draft -> Review / Place Hold (Head Office Staff only) */}
+            {!isAgent && isDraft && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -132,8 +166,8 @@ export const BillsOfLadingList = ({ onNavigate }) => {
               </button>
             )}
 
-            {/* CONTEXTUAL ACTION 2: On Hold -> View Reason / Clear Hold */}
-            {isOnHold && !isCancelled && (
+            {/* CONTEXTUAL ACTION 2: On Hold -> View Reason / Clear Hold (Head Office Staff only) */}
+            {!isAgent && isOnHold && !isCancelled && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -146,6 +180,14 @@ export const BillsOfLadingList = ({ onNavigate }) => {
                 <CheckCircle2 size={13} />
                 <span>Clear Hold</span>
               </button>
+            )}
+
+            {/* Read-Only Status Indicator for Destination Agent */}
+            {isAgent && isOnHold && (
+              <span style={{ fontSize: '0.72rem', color: '#DC2626', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px', padding: '0.2rem 0.45rem', background: '#FEF2F2', borderRadius: '4px', border: '1px solid #FECACA' }}>
+                <Lock size={12} />
+                <span>Hold Active</span>
+              </span>
             )}
 
             {/* CONTEXTUAL ACTION 3: Released -> Edit if authorized */}
@@ -194,23 +236,36 @@ export const BillsOfLadingList = ({ onNavigate }) => {
           { label: 'Bills of Lading' }
         ]}
         actions={
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <button
-              onClick={() => onNavigate('house-bills', 'create')}
+              onClick={handleManualRefresh}
               className="btn btn-outline btn-sm"
-              title="Issue customer House Bill of Lading"
+              title="Refresh B/Ls from Database"
+              disabled={isRefreshing}
             >
-              <Plus size={15} />
-              <span>+ Issue House B/L</span>
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+              <span className="hide-mobile">{isRefreshing ? 'Syncing...' : 'Sync'}</span>
             </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="btn btn-primary btn-sm"
-              title="Issue ocean carrier Master Bill of Lading"
-            >
-              <Plus size={15} />
-              <span>+ Issue Master B/L</span>
-            </button>
+            {!isAgent && (
+              <>
+                <button
+                  onClick={() => onNavigate('house-bills', 'create')}
+                  className="btn btn-outline btn-sm"
+                  title="Issue customer House Bill of Lading"
+                >
+                  <Plus size={15} />
+                  <span>+ Issue House B/L</span>
+                </button>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="btn btn-primary btn-sm"
+                  title="Issue ocean carrier Master Bill of Lading"
+                >
+                  <Plus size={15} />
+                  <span>+ Issue Master B/L</span>
+                </button>
+              </>
+            )}
           </div>
         }
       />
@@ -241,7 +296,7 @@ export const BillsOfLadingList = ({ onNavigate }) => {
             <Ship size={15} />
             <span>Master Bills of Lading (MBL)</span>
             <span style={{ background: 'rgba(255,255,255,0.2)', padding: '1px 6px', borderRadius: '10px', fontSize: '0.7rem' }}>
-              {billsOfLading.length}
+              {visibleBLs.length}
             </span>
           </button>
 
@@ -268,14 +323,14 @@ export const BillsOfLadingList = ({ onNavigate }) => {
       {/* Master B/L Table with Clear Empty State */}
       <ResponsiveTable
         columns={columns}
-        data={billsOfLading}
+        data={visibleBLs}
         searchPlaceholder="Search B/L #, consignee, shipper, container, vessel..."
         filterOptions={['All', 'Draft', 'On Hold', 'Released', 'Cancelled']}
         pageSize={8}
         emptyTitle="No Master Bills of Lading Found"
         emptyWhy="No Master B/L records match your search or filter criteria."
         emptyNextStep="Issue a new Master B/L or build a consolidation to generate one automatically."
-        emptyActionLabel="+ Issue Master B/L"
+        emptyActionLabel="Issue Master B/L"
         onEmptyAction={() => setShowAddModal(true)}
         onRowClick={(item) => onNavigate('bills-of-lading', item.id)}
       />

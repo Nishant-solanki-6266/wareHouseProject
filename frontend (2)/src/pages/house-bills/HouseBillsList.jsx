@@ -271,7 +271,7 @@ export const HouseBillsList = ({ onNavigate }) => {
         emptyTitle="No House Bills of Lading Found"
         emptyWhy="No customer House B/L records match your search or filter criteria."
         emptyNextStep="Create a House B/L by grouping staged Warehouse Receipts."
-        emptyActionLabel="+ Create House B/L"
+        emptyActionLabel="Create House B/L"
         onEmptyAction={() => onNavigate('house-bills', 'create')}
         onRowClick={(item) => onNavigate('house-bills', item.id)}
       />

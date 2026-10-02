@@ -144,7 +144,7 @@ export const ContainersList = ({ onNavigate }) => {
             className="btn btn-primary btn-sm"
           >
             <Plus size={15} />
-            <span>+ Add Container Unit</span>
+            <span>Add Container Unit</span>
           </button>
         }
       />

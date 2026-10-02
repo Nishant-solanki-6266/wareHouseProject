@@ -444,14 +444,14 @@ export const OperationsDashboard = ({ onNavigate }) => {
           className="btn btn-outline btn-sm"
         >
           <Package size={15} />
-          <span>+ Warehouse Receipt</span>
+          <span>Warehouse Receipt</span>
         </button>
         <button
           onClick={() => onNavigate('consolidations', 'create')}
           className="btn btn-primary btn-sm"
         >
           <Layers size={15} />
-          <span>+ Build Consolidation</span>
+          <span>Build Consolidation</span>
         </button>
       </div>
     );
@@ -543,7 +543,7 @@ export const OperationsDashboard = ({ onNavigate }) => {
             </button>
           </div>
           <div style={{ padding: '0.75rem' }}>
-            <div className="grid grid-cols-2 gap-3" className="grid-cols-2-mobile">
+            <div className="grid grid-cols-2 gap-3 grid-cols-2-mobile">
               {warehouseReceipts.slice(0, 4).map(wr => (
                 <div
                   key={wr.id}

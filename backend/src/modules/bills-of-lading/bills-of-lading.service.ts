@@ -1,7 +1,10 @@
 import { BillsOfLadingRepository, billsOfLadingRepository } from './bills-of-lading.repository.js';
-import { BillOfLadingFilterParams } from './bills-of-lading.types.js';
+import { BillOfLadingFilterParams, CreateBillOfLadingInput, UpdateBillOfLadingInput } from './bills-of-lading.types.js';
 import { NotFoundError } from '../../common/errors/not-found-error.js';
 import { BL_STATUSES } from '../../common/constants/statuses.js';
+import { convertLbsToKg } from '../../common/utils/calculations.js';
+
+const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 export class BillsOfLadingService {
   constructor(private readonly repo: BillsOfLadingRepository = billsOfLadingRepository) {}
@@ -14,6 +17,114 @@ export class BillsOfLadingService {
     const item = await this.repo.findByIdOrNumber(idOrNumber);
     if (!item) throw new NotFoundError('Bill of Lading');
     return item;
+  }
+
+  async createBill(input: CreateBillOfLadingInput) {
+    const totalCount = await this.repo.countTotal();
+    const seq = String(totalCount + 1).padStart(4, '0');
+    const blNumber = input.blNumber && input.blNumber.trim()
+      ? input.blNumber.trim()
+      : `BL-VI-2026-${seq}`;
+
+    const createdDate = input.createdDate || new Date().toISOString().split('T')[0];
+    const issueDate = input.issueDate || createdDate;
+
+    const validAgentId = input.agentId && UUID_REGEX.test(input.agentId) ? input.agentId : null;
+    const validConsolId = input.consolidationId && UUID_REGEX.test(input.consolidationId) ? input.consolidationId : null;
+
+    const shipperObj = typeof input.shipper === 'object' && input.shipper !== null
+      ? input.shipper
+      : { name: String(input.shipper || 'KERS Global Freight Forwarding Inc.'), address: '8200 NW 33rd Street, Miami, FL 33122 USA' };
+
+    const consigneeObj = typeof input.consignee === 'object' && input.consignee !== null
+      ? input.consignee
+      : { name: String(input.consignee || 'General Consignee'), address: '' };
+
+    const notifyObj = typeof input.notifyParty === 'object' && input.notifyParty !== null
+      ? input.notifyParty
+      : { name: 'Same as Consignee', address: '' };
+
+    const weightLbs = Number(input.grossWeightLbs) || 0;
+    const weightKg = input.grossWeightKg ? Number(input.grossWeightKg) : convertLbsToKg(weightLbs);
+    const cbm = Number(input.cbm) || 0;
+    const cft = input.cft ? Number(input.cft) : Number((cbm * 35.3147).toFixed(2));
+
+    return this.repo.create({
+      blNumber,
+      type: input.type || 'Master Ocean Bill of Lading',
+      status: input.status || 'Draft',
+      shipmentId: input.shipmentId || null,
+      shipmentNumber: input.shipmentNumber || null,
+      consolidationId: validConsolId,
+      houseBillIds: input.houseBillIds || [],
+      createdDate,
+      issueDate,
+      shipper: shipperObj,
+      consignee: consigneeObj,
+      notifyParty: notifyObj,
+      agentId: validAgentId,
+      agentName: input.agentName || null,
+      preCarriageBy: input.preCarriageBy || null,
+      placeOfReceipt: input.placeOfReceipt || null,
+      oceanVessel: input.oceanVessel || 'M/V Caribbean Voyager',
+      voyageNumber: input.voyageNumber || 'VOY-2026-088',
+      carrier: input.carrier || 'Tropical Shipping',
+      portOfLoading: input.portOfLoading || 'Port of Miami, USA (USMIA)',
+      portOfDischarge: input.portOfDischarge || 'Nassau Port Terminal (BSNAS)',
+      placeOfDelivery: input.placeOfDelivery || null,
+      containerNumber: input.containerNumber || null,
+      sealNumber: input.sealNumber || null,
+      containerType: input.containerType || "40' High Cube",
+      marksAndNumbers: input.marksAndNumbers || null,
+      cargoDescription: input.cargoDescription || 'General Cargo',
+      packageCount: Number(input.packageCount) || 0,
+      totalPieces: Number(input.totalPieces) || Number(input.packageCount) || 0,
+      packageType: input.packageType || 'Packages',
+      grossWeightLbs: String(weightLbs.toFixed(2)),
+      grossWeightKg: String(weightKg.toFixed(2)),
+      cbm: String(cbm.toFixed(2)),
+      cft: String(cft.toFixed(2)),
+      freightPayableAt: input.freightPayableAt || 'Miami, FL',
+      freightTerms: input.freightTerms || 'Freight Prepaid',
+      numberOfOriginals: input.numberOfOriginals || '3 (THREE)',
+      holdDetails: input.holdDetails || { isOnHold: false },
+      charges: input.charges || [],
+      totalFreightUsd: String((Number(input.totalFreightUsd) || 0).toFixed(2)),
+    });
+  }
+
+  async updateBill(id: string, input: UpdateBillOfLadingInput) {
+    await this.getBill(id);
+
+    const updatePayload: Record<string, unknown> = { ...input };
+    if (input.agentId !== undefined) {
+      updatePayload.agentId = input.agentId && UUID_REGEX.test(input.agentId) ? input.agentId : null;
+    }
+    if (input.consolidationId !== undefined) {
+      updatePayload.consolidationId = input.consolidationId && UUID_REGEX.test(input.consolidationId) ? input.consolidationId : null;
+    }
+    if (input.grossWeightLbs !== undefined) {
+      updatePayload.grossWeightLbs = String((Number(input.grossWeightLbs) || 0).toFixed(2));
+    }
+    if (input.grossWeightKg !== undefined) {
+      updatePayload.grossWeightKg = String((Number(input.grossWeightKg) || 0).toFixed(2));
+    }
+    if (input.cbm !== undefined) {
+      updatePayload.cbm = String((Number(input.cbm) || 0).toFixed(2));
+    }
+    if (input.cft !== undefined) {
+      updatePayload.cft = String((Number(input.cft) || 0).toFixed(2));
+    }
+    if (input.totalFreightUsd !== undefined) {
+      updatePayload.totalFreightUsd = String((Number(input.totalFreightUsd) || 0).toFixed(2));
+    }
+
+    return this.repo.update(id, updatePayload);
+  }
+
+  async deleteBill(id: string) {
+    await this.getBill(id);
+    return this.repo.delete(id);
   }
 
   async placeHold(
@@ -52,6 +163,22 @@ export class BillsOfLadingService {
     };
 
     return this.repo.updateHoldStatus(id, BL_STATUSES.RELEASED, holdDetails);
+  }
+
+  async createBill(data: any) {
+    return this.repo.create(data);
+  }
+
+  async updateBill(idOrNumber: string, data: any) {
+    const updated = await this.repo.update(idOrNumber, data);
+    if (!updated) throw new NotFoundError('Bill of Lading');
+    return updated;
+  }
+
+  async deleteBill(idOrNumber: string) {
+    const deleted = await this.repo.delete(idOrNumber);
+    if (!deleted) throw new NotFoundError('Bill of Lading');
+    return { deleted: true };
   }
 }
 
