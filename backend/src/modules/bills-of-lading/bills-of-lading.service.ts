@@ -93,8 +93,8 @@ export class BillsOfLadingService {
     });
   }
 
-  async updateBill(id: string, input: UpdateBillOfLadingInput) {
-    await this.getBill(id);
+  async updateBill(idOrNumber: string, input: UpdateBillOfLadingInput) {
+    await this.getBill(idOrNumber);
 
     const updatePayload: Record<string, unknown> = { ...input };
     if (input.agentId !== undefined) {
@@ -119,12 +119,12 @@ export class BillsOfLadingService {
       updatePayload.totalFreightUsd = String((Number(input.totalFreightUsd) || 0).toFixed(2));
     }
 
-    return this.repo.update(id, updatePayload);
+    return this.repo.update(idOrNumber, updatePayload);
   }
 
-  async deleteBill(id: string) {
-    await this.getBill(id);
-    return this.repo.delete(id);
+  async deleteBill(idOrNumber: string) {
+    await this.getBill(idOrNumber);
+    return this.repo.delete(idOrNumber);
   }
 
   async placeHold(
@@ -163,22 +163,6 @@ export class BillsOfLadingService {
     };
 
     return this.repo.updateHoldStatus(id, BL_STATUSES.RELEASED, holdDetails);
-  }
-
-  async createBill(data: any) {
-    return this.repo.create(data);
-  }
-
-  async updateBill(idOrNumber: string, data: any) {
-    const updated = await this.repo.update(idOrNumber, data);
-    if (!updated) throw new NotFoundError('Bill of Lading');
-    return updated;
-  }
-
-  async deleteBill(idOrNumber: string) {
-    const deleted = await this.repo.delete(idOrNumber);
-    if (!deleted) throw new NotFoundError('Bill of Lading');
-    return { deleted: true };
   }
 }
 

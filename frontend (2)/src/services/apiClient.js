@@ -1,8 +1,16 @@
 let authPromise = null;
 
-const API_BASE_URL = typeof window !== 'undefined' && window.location.port === '5173'
-  ? '/api/v1'
-  : 'http://127.0.0.1:5001/api/v1';
+const ENV_API_URL = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.trim().replace(/\/+$/, '')
+  : null;
+
+const isRemoteUrl = ENV_API_URL && !ENV_API_URL.includes('127.0.0.1') && !ENV_API_URL.includes('localhost');
+
+const API_BASE_URL = isRemoteUrl
+  ? ENV_API_URL
+  : (typeof window !== 'undefined' && window.location.port === '5173'
+      ? '/api/v1'
+      : (ENV_API_URL || 'http://127.0.0.1:5001/api/v1'));
 
 export const apiClient = {
   getToken() {
@@ -46,9 +54,7 @@ export const apiClient = {
             }
           } catch {}
 
-          const loginUrl = typeof window !== 'undefined' && window.location.port === '5173'
-            ? '/api/v1/auth/login'
-            : 'http://127.0.0.1:5001/api/v1/auth/login';
+          const loginUrl = `${API_BASE_URL}/auth/login`;
 
           const res = await fetch(loginUrl, {
             method: 'POST',
@@ -128,9 +134,7 @@ export const apiClient = {
 
   async checkHealth() {
     try {
-      const target = typeof window !== 'undefined' && window.location.port === '5173'
-        ? '/api/v1/health'
-        : 'http://127.0.0.1:5001/health';
+      const target = `${API_BASE_URL}/health`;
       const res = await fetch(target);
       return res.ok;
     } catch {

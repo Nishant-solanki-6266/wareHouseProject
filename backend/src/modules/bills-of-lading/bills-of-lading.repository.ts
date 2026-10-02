@@ -63,33 +63,6 @@ export class BillsOfLadingRepository {
     return Number(total);
   }
 
-  async create(data: NewBillOfLading) {
-    const [created] = await db
-      .insert(billsOfLading)
-      .values(data)
-      .returning();
-
-    return created;
-  }
-
-  async update(id: string, data: Partial<NewBillOfLading>) {
-    const [updated] = await db
-      .update(billsOfLading)
-      .set({ ...data, updatedAt: new Date() })
-      .where(or(eq(billsOfLading.id, id), eq(billsOfLading.blNumber, id)))
-      .returning();
-
-    return updated || null;
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const [deleted] = await db
-      .delete(billsOfLading)
-      .where(or(eq(billsOfLading.id, id), eq(billsOfLading.blNumber, id)))
-      .returning();
-
-    return !!deleted;
-  }
 
   async updateHoldStatus(id: string, status: string, holdDetails: HoldDetails) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
