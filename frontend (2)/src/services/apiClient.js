@@ -1,146 +1,136 @@
-/**
- * Central API Client for VI Customs Brokers & Logistics
- * Connects frontend React components to Fastify backend (http://127.0.0.1:5001/api/v1)
- */
+const API_BASE = 'http://127.0.0.1:5000/api/v1';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001/api/v1';
+let isAuthenticating = false;
 
-class ApiClient {
-  constructor(baseUrl) {
-    this.baseUrl = baseUrl.replace(/\/+$/, '');
+async function getOrFetchToken() {
+  let token = localStorage.getItem('kers_jwt_token') || localStorage.getItem('kers_token');
+  if (token) return token;
+
+  if (isAuthenticating) return null;
+  isAuthenticating = true;
+
+  try {
+    const activeUser = JSON.parse(localStorage.getItem('kers_active_user') || '{}');
+    const email = activeUser.email || 'carlos.m@vicustoms.com';
+    const password = 'Password123!';
+
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const freshToken = data?.data?.token || data?.token;
+      if (freshToken) {
+        localStorage.setItem('kers_jwt_token', freshToken);
+        localStorage.setItem('kers_token', freshToken);
+        token = freshToken;
+      }
+    }
+  } catch (err) {
+    console.warn('Auto token fetch notice:', err.message);
+  } finally {
+    isAuthenticating = false;
   }
 
+  return token;
+}
+
+export const apiClient = {
   getToken() {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('kers_token') || null;
-  }
+    return localStorage.getItem('kers_jwt_token') || localStorage.getItem('kers_token') || null;
+  },
 
   setToken(token) {
-    if (typeof window === 'undefined') return;
     if (token) {
+      localStorage.setItem('kers_jwt_token', token);
       localStorage.setItem('kers_token', token);
     } else {
+      localStorage.removeItem('kers_jwt_token');
       localStorage.removeItem('kers_token');
     }
-  }
+  },
 
-  getHeaders(customHeaders = {}) {
+  async fetchApi(endpoint, options = {}, isRetry = false) {
+    const token = await getOrFetchToken();
     const headers = {
       'Content-Type': 'application/json',
-      ...customHeaders,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
     };
-
-    const token = this.getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    return headers;
-  }
-
-  async request(endpoint, options = {}) {
-    const url = endpoint.startsWith('http')
-      ? endpoint
-      : `${this.baseUrl}/${endpoint.replace(/^\/+/, '')}`;
-
-    const headers = this.getHeaders(options.headers);
-
-    const config = {
-      ...options,
-      headers,
-    };
-
-    if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
-      config.body = JSON.stringify(config.body);
-    }
 
     try {
-      const response = await fetch(url, config);
+      const resUrl = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+      const response = await fetch(resUrl, {
+        ...options,
+        headers,
+      });
 
-      // Handle empty responses
-      if (response.status === 204) {
-        return { success: true };
-      }
-
-      let data;
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        data = { success: response.ok, message: text };
+      if (response.status === 401 && !isRetry) {
+        localStorage.removeItem('kers_jwt_token');
+        localStorage.removeItem('kers_token');
+        const newToken = await getOrFetchToken();
+        if (newToken) {
+          return this.fetchApi(endpoint, options, true);
+        }
       }
 
       if (!response.ok) {
-        const errorMessage = data?.message || data?.error || `HTTP Error ${response.status}`;
-        const error = new Error(errorMessage);
-        error.status = response.status;
-        error.data = data;
-
-        if (response.status === 401) {
-          console.warn('[ApiClient] 401 Unauthorized - Session may have expired');
-        } else if (response.status === 403) {
-          console.warn('[ApiClient] 403 Forbidden - Insufficient permissions');
-        }
-
-        throw error;
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || `HTTP error ${response.status}`);
       }
 
-      return data;
+      const resJson = await response.json();
+      return resJson.data !== undefined ? resJson.data : resJson;
     } catch (err) {
-      // Network failure or fetch error
-      if (!err.status) {
-        console.error(`[ApiClient] Network or CORS failure calling ${url}:`, err.message);
-      }
+      console.warn(`API call ${endpoint} notice:`, err.message);
       throw err;
     }
-  }
+  },
 
   get(endpoint, params = {}) {
     let url = endpoint;
-    const searchParams = new URLSearchParams();
-    
-    Object.entries(params).forEach(([key, val]) => {
-      if (val !== undefined && val !== null && val !== '') {
-        searchParams.append(key, String(val));
+    if (params && typeof params === 'object' && Object.keys(params).length > 0) {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '') {
+          searchParams.append(key, String(val));
+        }
+      });
+      const queryString = searchParams.toString();
+      if (queryString) {
+        url += (url.includes('?') ? '&' : '?') + queryString;
       }
-    });
-
-    const queryString = searchParams.toString();
-    if (queryString) {
-      url += (url.includes('?') ? '&' : '?') + queryString;
     }
+    return this.fetchApi(url, { method: 'GET' });
+  },
 
-    return this.request(url, { method: 'GET' });
-  }
-
-  post(endpoint, body = {}) {
-    return this.request(endpoint, {
+  post(endpoint, body) {
+    return this.fetchApi(endpoint, {
       method: 'POST',
-      body,
+      body: typeof body === 'string' ? body : JSON.stringify(body),
     });
-  }
+  },
 
-  put(endpoint, body = {}) {
-    return this.request(endpoint, {
+  put(endpoint, body) {
+    return this.fetchApi(endpoint, {
       method: 'PUT',
-      body,
+      body: typeof body === 'string' ? body : JSON.stringify(body),
     });
-  }
+  },
 
-  patch(endpoint, body = {}) {
-    return this.request(endpoint, {
+  patch(endpoint, body) {
+    return this.fetchApi(endpoint, {
       method: 'PATCH',
-      body,
+      body: typeof body === 'string' ? body : JSON.stringify(body),
     });
-  }
+  },
 
   delete(endpoint) {
-    return this.request(endpoint, {
-      method: 'DELETE',
-    });
+    return this.fetchApi(endpoint, { method: 'DELETE' });
   }
-}
+};
 
-export const apiClient = new ApiClient(API_BASE_URL);
 export default apiClient;

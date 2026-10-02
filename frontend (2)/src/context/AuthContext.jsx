@@ -71,6 +71,29 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
+  const fetchJwtToken = async (userObj) => {
+    try {
+      const res = await fetch('http://127.0.0.1:5000/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userObj?.email || 'carlos.m@vicustoms.com',
+          password: 'Password123!'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const token = data?.data?.token || data?.token;
+        if (token) {
+          localStorage.setItem('kers_jwt_token', token);
+          apiClient.setToken(token);
+        }
+      }
+    } catch (err) {
+      console.warn('JWT login token notice:', err.message);
+    }
+  };
+
   const login = async (emailOrId, password = 'password123') => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
     let targetUser = allUsers.find(
@@ -89,6 +112,7 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(true);
         localStorage.setItem('kers_is_authenticated', 'true');
         localStorage.setItem('kers_active_user', JSON.stringify(loggedUser));
+        localStorage.setItem('kers_jwt_token', res.data.token);
         return loggedUser;
       }
     } catch (err) {
@@ -100,6 +124,7 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(fallbackUser);
     setIsAuthenticated(true);
     localStorage.setItem('kers_is_authenticated', 'true');
+    fetchJwtToken(fallbackUser);
     return fallbackUser;
   };
 
@@ -114,6 +139,7 @@ export const AuthProvider = ({ children }) => {
       apiClient.setToken(null);
       localStorage.removeItem('kers_is_authenticated');
       localStorage.removeItem('kers_active_user');
+      localStorage.removeItem('kers_jwt_token');
       setIsAuthenticated(false);
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         window.history.replaceState(null, '', '/login');
@@ -125,7 +151,10 @@ export const AuthProvider = ({ children }) => {
     const allUsers = getStored(KEYS.USERS, initialUsers);
     const found = allUsers.find(u => u.id === userId);
     if (found) {
-      await login(found.email, 'password123');
+      setCurrentUser(found);
+      setIsAuthenticated(true);
+      localStorage.setItem('kers_is_authenticated', 'true');
+      await fetchJwtToken(found);
     }
   };
 

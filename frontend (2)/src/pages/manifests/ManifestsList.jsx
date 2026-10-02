@@ -188,7 +188,7 @@ export const ManifestsList = ({ onNavigate }) => {
         emptyTitle="No shipping manifests created yet"
         emptyWhy="Manifests compile loaded shipment bills of lading for port authority and customs declaration."
         emptyNextStep="Create a manifest for an outgoing shipment or export destination manifests."
-        emptyActionLabel="+ Create Manifest"
+        emptyActionLabel="Create Manifest"
         onEmptyAction={() => setShowAddModal(true)}
       />
 

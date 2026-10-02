@@ -70,14 +70,14 @@ export const CustomerDetail = ({ customerId, onNavigate }) => {
               className="btn btn-primary btn-sm"
             >
               <Package size={15} />
-              <span>+ Intake Warehouse Receipt</span>
+              <span>Intake Warehouse Receipt</span>
             </button>
             <button
               onClick={() => onNavigate('house-bills', 'create')}
               className="btn btn-outline btn-sm"
             >
               <FileText size={15} />
-              <span>+ Create House B/L</span>
+              <span>Create House B/L</span>
             </button>
             <button onClick={() => setShowEditModal(true)} className="btn btn-secondary btn-sm">
               <Edit2 size={15} />

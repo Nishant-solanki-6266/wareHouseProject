@@ -5,28 +5,18 @@ import { apiClient } from './apiClient';
 export const customerService = {
   async getCustomers(filters = {}) {
     try {
-      const res = await apiClient.get('customers', {
-        search: filters.search || '',
-        destinationCode: filters.destination && filters.destination !== 'All' ? filters.destination : '',
-        status: filters.status && filters.status !== 'All' ? filters.status : '',
-        limit: 100,
-      });
-
-      if (res && res.data) {
-        const customers = Array.isArray(res.data) ? res.data : (res.data.items || res.data.customers || []);
-        if (customers.length > 0) {
-          const mapped = customers.map(c => ({
-            ...c,
-            customerNumber: c.customerNumber || c.id,
-            telephone: c.telephone || c.phone || '',
-          }));
-          setStored(KEYS.CUSTOMERS, mapped);
-          return mapped;
-        }
+      const apiData = await apiClient.get('/customers');
+      if (Array.isArray(apiData) && apiData.length > 0) {
+        const mapped = apiData.map(c => ({
+          ...c,
+          customerNumber: c.customerNumber || c.id,
+          telephone: c.telephone || c.phone || '',
+        }));
+        setStored(KEYS.CUSTOMERS, mapped);
+        return mapped;
       }
-
     } catch (e) {
-      console.warn('[customerService] API getCustomers failed, using fallback:', e.message);
+      console.warn('Backend customers API notice:', e.message);
     }
 
     const list = getStored(KEYS.CUSTOMERS);
@@ -55,15 +45,15 @@ export const customerService = {
 
   async getCustomerById(id) {
     try {
-      const res = await apiClient.get(`customers/${id}`);
-      if (res && res.data) {
+      const apiData = await apiClient.get(`/customers/${id}`);
+      if (apiData) {
         return {
-          ...res.data,
-          customerNumber: res.data.customerNumber || res.data.id,
-          telephone: res.data.telephone || res.data.phone || '',
+          ...apiData,
+          customerNumber: apiData.customerNumber || apiData.id,
+          telephone: apiData.telephone || apiData.phone || '',
         };
       }
-    } catch {
+    } catch (e) {
       // fallback
     }
     const list = getStored(KEYS.CUSTOMERS);
@@ -87,7 +77,7 @@ export const customerService = {
         creditTerms: data.creditTerms || "Net 30",
         notes: data.notes || "",
       };
-      const res = await apiClient.post('customers', payload);
+      const res = await apiClient.post('/customers', payload);
       if (res && res.data) {
         return {
           ...res.data,
@@ -123,6 +113,13 @@ export const customerService = {
       status: data.status || "Active"
     };
 
+    try {
+      const createdApi = await apiClient.post('/customers', newCustomer);
+      if (createdApi) Object.assign(newCustomer, createdApi);
+    } catch (e) {
+      console.warn('Backend customer post notice:', e.message);
+    }
+
     const updated = [newCustomer, ...list];
     setStored(KEYS.CUSTOMERS, updated);
 
@@ -139,15 +136,9 @@ export const customerService = {
 
   async updateCustomer(id, updates, currentUser = "Warehouse Staff") {
     try {
-      const res = await apiClient.patch(`customers/${id}`, updates);
-      if (res && res.data) {
-        return {
-          ...res.data,
-          customerNumber: res.data.customerNumber || res.data.id,
-        };
-      }
+      await apiClient.patch(`/customers/${id}`, updates);
     } catch (e) {
-      console.warn('[customerService] API updateCustomer failed, using fallback:', e.message);
+      console.warn('[customerService] API updateCustomer note:', e.message);
     }
 
     const list = getStored(KEYS.CUSTOMERS);
@@ -174,10 +165,9 @@ export const customerService = {
 
   async deleteCustomer(id, currentUser = "Super Admin") {
     try {
-      await apiClient.delete(`customers/${id}`);
-      return true;
+      await apiClient.delete(`/customers/${id}`);
     } catch (e) {
-      console.warn('[customerService] API deleteCustomer failed, using fallback:', e.message);
+      console.warn('[customerService] API deleteCustomer note:', e.message);
     }
 
     const list = getStored(KEYS.CUSTOMERS);

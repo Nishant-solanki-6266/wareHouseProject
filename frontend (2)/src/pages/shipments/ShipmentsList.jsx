@@ -174,7 +174,7 @@ export const ShipmentsList = ({ onNavigate }) => {
         emptyTitle="No Shipments Found"
         emptyWhy="No ocean freight shipments match your search or filter."
         emptyNextStep="Create a shipment or build a consolidation from staged warehouse cargo."
-        emptyActionLabel="+ Create Shipment"
+        emptyActionLabel="Create Shipment"
         onEmptyAction={() => setShowAddModal(true)}
         onRowClick={(item) => onNavigate('shipments', item.id)}
       />

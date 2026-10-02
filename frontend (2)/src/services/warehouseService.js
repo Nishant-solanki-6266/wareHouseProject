@@ -5,15 +5,30 @@ import { apiClient } from './apiClient';
 export const warehouseService = {
   async getReceipts(filters = {}) {
     try {
-      const res = await apiClient.get('warehouse-receipts', filters);
-      if (res && Array.isArray(res.data)) {
-        setStored(KEYS.WAREHOUSE_RECEIPTS, res.data);
-        return res.data;
+      const queryParams = new URLSearchParams();
+      if (filters.search) queryParams.append('search', filters.search);
+      if (filters.status && filters.status !== 'All') queryParams.append('status', filters.status);
+      if (filters.destination && filters.destination !== 'All') queryParams.append('destinationCode', filters.destination);
+      if (filters.customerId && filters.customerId !== 'All') queryParams.append('customerId', filters.customerId);
+
+      const qs = queryParams.toString();
+      const apiData = await apiClient.get(`/warehouse-receipts${qs ? '?' + qs : ''}`);
+      if (Array.isArray(apiData) && apiData.length > 0) {
+        const localList = getStored(KEYS.WAREHOUSE_RECEIPTS);
+        const mergedMap = new Map();
+        [...localList, ...apiData].forEach(item => {
+          const key = item.id || item.receiptNumber;
+          if (key) mergedMap.set(key, { ...mergedMap.get(key), ...item });
+        });
+        const merged = Array.from(mergedMap.values());
+        setStored(KEYS.WAREHOUSE_RECEIPTS, merged);
+        return merged;
       }
-    } catch (err) {
-      console.warn('API error fetching warehouse receipts, falling back to local cache:', err);
+    } catch (e) {
+      console.warn('Backend warehouse-receipts fetch note:', e.message);
     }
 
+    // Local fallback
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
     let filtered = [...list];
 
@@ -46,12 +61,11 @@ export const warehouseService = {
 
   async getReceiptById(id) {
     try {
-      const res = await apiClient.get(`warehouse-receipts/${id}`);
-      if (res && res.data) return res.data;
-    } catch (err) {
-      console.warn('API error fetching warehouse receipt by id:', err);
+      const apiData = await apiClient.get(`/warehouse-receipts/${id}`);
+      if (apiData) return apiData;
+    } catch (e) {
+      // fallback
     }
-
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
     return list.find(item => item.id === id || item.receiptNumber === id) || null;
   },
@@ -162,6 +176,16 @@ export const warehouseService = {
       assignedShipmentId: null
     };
 
+    // Try posting to backend API
+    try {
+      const createdApi = await apiClient.post('/warehouse-receipts', newReceipt);
+      if (createdApi) {
+        Object.assign(newReceipt, createdApi);
+      }
+    } catch (e) {
+      console.warn('Backend warehouse-receipt post note:', e.message);
+    }
+
     const updated = [newReceipt, ...list];
     setStored(KEYS.WAREHOUSE_RECEIPTS, updated);
 
@@ -202,9 +226,9 @@ export const warehouseService = {
 
   async updateReceipt(id, updates, currentUser = "Warehouse Staff") {
     try {
-      await apiClient.patch(`warehouse-receipts/${id}`, updates);
-    } catch (err) {
-      console.warn('API error updating receipt, falling back to local store:', err);
+      await apiClient.patch(`/warehouse-receipts/${id}`, updates);
+    } catch (e) {
+      console.warn('API error updating receipt:', e.message);
     }
 
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS);
@@ -283,9 +307,9 @@ export const warehouseService = {
 
   async deleteReceipt(id, currentUser = "Warehouse Staff") {
     try {
-      await apiClient.delete(`warehouse-receipts/${id}`);
-    } catch (err) {
-      console.warn('API error deleting receipt, falling back to local store:', err);
+      await apiClient.delete(`/warehouse-receipts/${id}`);
+    } catch (e) {
+      console.warn('API error deleting receipt:', e.message);
     }
 
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS);

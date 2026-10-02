@@ -15,7 +15,12 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const receipt = warehouseReceipts.find(r => r.id === receiptId || r.receiptNumber === receiptId);
+  const receipt = warehouseReceipts.find(r => 
+    String(r.id) === String(receiptId) || 
+    String(r.receiptNumber) === String(receiptId) ||
+    r.id === receiptId ||
+    r.receiptNumber === receiptId
+  );
 
   if (!receipt) {
     return (
@@ -61,7 +66,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
                 style={{ borderColor: '#2563EB', color: '#2563EB' }}
               >
                 <FileText size={15} />
-                <span>+ Create House B/L</span>
+                <span>Create House B/L</span>
               </button>
             )}
             <button

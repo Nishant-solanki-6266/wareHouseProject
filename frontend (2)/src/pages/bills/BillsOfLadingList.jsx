@@ -201,7 +201,7 @@ export const BillsOfLadingList = ({ onNavigate }) => {
               title="Issue customer House Bill of Lading"
             >
               <Plus size={15} />
-              <span>+ Issue House B/L</span>
+              <span>Issue House B/L</span>
             </button>
             <button
               onClick={() => setShowAddModal(true)}
@@ -209,7 +209,7 @@ export const BillsOfLadingList = ({ onNavigate }) => {
               title="Issue ocean carrier Master Bill of Lading"
             >
               <Plus size={15} />
-              <span>+ Issue Master B/L</span>
+              <span>Issue Master B/L</span>
             </button>
           </div>
         }
@@ -275,7 +275,7 @@ export const BillsOfLadingList = ({ onNavigate }) => {
         emptyTitle="No Master Bills of Lading Found"
         emptyWhy="No Master B/L records match your search or filter criteria."
         emptyNextStep="Issue a new Master B/L or build a consolidation to generate one automatically."
-        emptyActionLabel="+ Issue Master B/L"
+        emptyActionLabel="Issue Master B/L"
         onEmptyAction={() => setShowAddModal(true)}
         onRowClick={(item) => onNavigate('bills-of-lading', item.id)}
       />

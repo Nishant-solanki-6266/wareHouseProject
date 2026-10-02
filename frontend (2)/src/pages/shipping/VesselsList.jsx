@@ -118,14 +118,14 @@ export const VesselsList = ({ onNavigate }) => {
               className="btn btn-outline btn-sm"
             >
               <Calendar size={15} />
-              <span>+ Schedule Voyage</span>
+              <span>Schedule Voyage</span>
             </button>
             <button
               onClick={() => setShowAddVessel(true)}
               className="btn btn-primary btn-sm"
             >
               <Plus size={15} />
-              <span>+ Register Vessel</span>
+              <span>Register Vessel</span>
             </button>
           </div>
         }

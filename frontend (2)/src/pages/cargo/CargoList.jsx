@@ -154,14 +154,14 @@ export const CargoList = ({ onNavigate }) => {
               className="btn btn-primary btn-sm"
             >
               <Plus size={15} />
-              <span>+ Intake Warehouse Receipt</span>
+              <span>Intake Warehouse Receipt</span>
             </button>
             <button
               onClick={() => setShowAddModal(true)}
               className="btn btn-outline btn-sm"
             >
               <Package size={15} />
-              <span>+ Quick Cargo Unit</span>
+              <span>Quick Cargo Unit</span>
             </button>
           </div>
         }
@@ -178,7 +178,7 @@ export const CargoList = ({ onNavigate }) => {
         emptyTitle="No Staged Cargo Yet"
         emptyWhy="No cargo units match your filter. Staged cargo appears here once received at CFS."
         emptyNextStep="Create a Warehouse Receipt to add cargo to the consolidation queue."
-        emptyActionLabel="+ Create Warehouse Receipt"
+        emptyActionLabel="Create Warehouse Receipt"
         onEmptyAction={() => onNavigate('warehouse-receipts', 'create')}
         onRowClick={(item) => onNavigate('cargo', item.id)}
       />
