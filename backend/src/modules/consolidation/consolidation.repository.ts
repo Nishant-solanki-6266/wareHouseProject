@@ -51,6 +51,31 @@ export class ConsolidationRepository {
 
     return result[0] || null;
   }
+
+  async create(data: Record<string, unknown>) {
+    const [created] = await db.insert(consolidations).values(data as any).returning();
+    return created;
+  }
+
+  async update(id: string, data: Record<string, unknown>) {
+    const [updated] = await db
+      .update(consolidations)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      } as any)
+      .where(or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id)))
+      .returning();
+    return updated || null;
+  }
+
+  async delete(id: string) {
+    const [deleted] = await db
+      .delete(consolidations)
+      .where(or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id)))
+      .returning();
+    return !!deleted;
+  }
 }
 
 export const consolidationRepository = new ConsolidationRepository();

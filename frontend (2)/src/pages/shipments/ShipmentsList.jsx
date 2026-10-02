@@ -1,24 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { ShipmentModal } from '../../components/modals/ShipmentModal';
 import { DeleteConfirmModal } from '../../components/modals/DeleteConfirmModal';
 import { WorkflowIndicator } from '../../components/common/WorkflowIndicator';
-import { Ship, Plus, Eye, Edit2, Trash2, Search, ArrowRight, Anchor, FileText } from 'lucide-react';
+import { Ship, Plus, Eye, Edit2, Trash2, Search, ArrowRight, Anchor, FileText, RefreshCw } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 
 export const ShipmentsList = ({ onNavigate }) => {
-  const { shipments, createShipment, updateShipment, deleteShipment } = useAppData();
+  const { shipments, createShipment, updateShipment, deleteShipment, refreshAll } = useAppData();
   const { isAgent, currentUser } = useAuth();
   const [editingShipment, setEditingShipment] = useState(null);
   const [deletingShipment, setDeletingShipment] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (refreshAll) refreshAll();
+  }, []);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    if (refreshAll) await refreshAll();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   // Filter if Agent
   const visibleShipments = isAgent 
-    ? shipments.filter(s => s.agentId === currentUser?.agentId || s.destinationCode === 'NAS' || s.destinationPort?.includes('Nassau'))
+    ? shipments.filter(s => !currentUser?.agentId || s.agentId === currentUser?.agentId || s.destinationCode === currentUser?.destinationPortCode || s.destinationCode === 'NAS' || s.destinationPort?.includes('Nassau'))
     : shipments;
 
   const columns = [
@@ -151,15 +162,26 @@ export const ShipmentsList = ({ onNavigate }) => {
           { label: 'Shipments' }
         ]}
         actions={
-          !isAgent && (
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <button
-              onClick={() => setShowAddModal(true)}
-              className="btn btn-primary btn-sm"
+              onClick={handleManualRefresh}
+              className="btn btn-outline btn-sm"
+              title="Refresh Shipments from Database"
+              disabled={isRefreshing}
             >
-              <Plus size={15} />
-              <span>Create Shipment</span>
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+              <span className="hide-mobile">{isRefreshing ? 'Syncing...' : 'Sync'}</span>
             </button>
-          )
+            {!isAgent && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="btn btn-primary btn-sm"
+              >
+                <Plus size={15} />
+                <span>Create Shipment</span>
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -207,7 +229,13 @@ export const ShipmentsList = ({ onNavigate }) => {
         itemName={deletingShipment?.shipmentNumber}
         itemType="Shipment"
         onConfirm={async () => {
-          await deleteShipment(deletingShipment.id);
+          const target = deletingShipment;
+          if (target) {
+            await deleteShipment(target.id || target.shipmentNumber);
+            if (refreshAll) {
+              await refreshAll();
+            }
+          }
         }}
       />
     </div>

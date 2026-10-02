@@ -2,7 +2,7 @@ import React from 'react';
 import { BrandLogo } from '../common/BrandLogo';
 import { StatusBadge } from '../common/StatusBadge';
 import { BarcodeVisual, QrVisual } from '../common/BarcodeVisual';
-import { Printer, Download, Building2, FileText, Layers, ExternalLink } from 'lucide-react';
+import { Printer, Download, Building2, FileText, Layers } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 
 export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
@@ -15,20 +15,34 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
     showToast(`Print layout loaded for Warehouse Receipt ${receipt.receiptNumber}.`, 'info', 'Printing Receipt');
   };
 
+  const handleDownloadPDF = () => {
+    window.print();
+    showToast(`Opening Print dialog for Warehouse Receipt ${receipt.receiptNumber}. Choose "Save as PDF" to download.`, 'success', 'Download PDF');
+  };
+
+  const customerDisplayName = receipt.customerName || receipt.customer || receipt.consignee || 'General Cargo Customer';
+  const shipperDisplayName = receipt.shipper || receipt.customerName || receipt.customer || 'Miami Industrial Supplier';
+  const consigneeDisplayName = receipt.consignee || receipt.customerName || receipt.customer || 'Destination Importer';
+
   const pkgs = receipt.packages && receipt.packages.length > 0
     ? receipt.packages
     : [{
-        id: `PKG-${receipt.receiptNumber}-01`,
+        id: `PKG-${receipt.receiptNumber || '01'}-01`,
         packageType: receipt.packageType || "Carton",
         description: receipt.cargoDescription || "General Cargo",
-        lengthInches: receipt.lengthInches || 0,
-        widthInches: receipt.widthInches || 0,
-        heightInches: receipt.heightInches || 0,
-        weightLbs: receipt.weightLbs || 0,
+        lengthInches: receipt.lengthInches || 24,
+        widthInches: receipt.widthInches || 20,
+        heightInches: receipt.heightInches || 18,
+        weightLbs: receipt.weightLbs || 150,
         pieces: receipt.totalPieces || receipt.packageCount || 1,
         cft: receipt.cft || 0,
         cbm: receipt.cbm || 0
       }];
+
+  const totalCft = Number(receipt.cft || receipt.totalCft || 0).toFixed(2);
+  const totalCbm = Number(receipt.cbm || receipt.totalCbm || 0).toFixed(2);
+  const totalWeight = Number(receipt.weightLbs || 0).toLocaleString();
+  const totalPieces = receipt.totalPieces || receipt.packageCount || 1;
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
@@ -37,16 +51,16 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <StatusBadge status={receipt.status} size="lg" />
           <span style={{ fontSize: '0.85rem', color: '#64748B' }}>
-            Date Received: <strong>{receipt.date} ({receipt.time || 'CFS Miami'})</strong>
+            Date Received: <strong>{receipt.date || new Date().toISOString().slice(0, 10)} ({receipt.time || 'CFS Miami'})</strong>
           </span>
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-outline btn-sm" onClick={handlePrint}>
+          <button className="btn btn-outline btn-sm" onClick={handlePrint} id="btn-print-receipt">
             <Printer size={15} />
             <span>Print Receipt</span>
           </button>
-          <button className="btn btn-primary btn-sm" onClick={() => showToast(`Warehouse Receipt ${receipt.receiptNumber}.pdf prepared.`, 'success', 'PDF Ready')}>
+          <button className="btn btn-primary btn-sm" onClick={handleDownloadPDF} id="btn-download-receipt-pdf">
             <Download size={15} />
             <span>Download PDF</span>
           </button>
@@ -57,17 +71,17 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC', padding: '0.65rem 1rem', borderRadius: '6px', border: '1px solid #E2E8F0', marginBottom: '1rem', fontSize: '0.8rem', flexWrap: 'wrap', gap: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ color: '#64748B', fontWeight: 600 }}>Linked Customer:</span>
-          {receipt.customerId && onNavigate ? (
+          {receipt.customerId && !receipt.customerId.startsWith('978a37a0') && onNavigate ? (
             <button
               onClick={() => onNavigate('customers', receipt.customerId)}
               className="btn btn-ghost btn-sm"
               style={{ padding: '0.15rem 0.4rem', color: '#0284C7', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
             >
               <Building2 size={13} />
-              <span>{receipt.customer} ({receipt.customerId})</span>
+              <span>{customerDisplayName}</span>
             </button>
           ) : (
-            <strong style={{ color: '#0A192F' }}>{receipt.customer}</strong>
+            <strong style={{ color: '#0A192F' }}>{customerDisplayName}</strong>
           )}
         </div>
 
@@ -108,7 +122,7 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
 
       {/* Printable Receipt Layout */}
       <div
-        className="card"
+        className="card print-document-card"
         style={{
           background: '#FFFFFF',
           border: '2px solid #0A192F',
@@ -135,7 +149,7 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
               {receipt.receiptNumber}
             </div>
             <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
-              Destination Port: <strong style={{ color: '#0284C7' }}>{receipt.destinationPort}</strong>
+              Destination Port: <strong style={{ color: '#0284C7' }}>{receipt.destinationPort || 'NAS - Nassau, Bahamas'}</strong>
             </div>
           </div>
         </div>
@@ -144,12 +158,12 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid #0A192F', marginBottom: '0.85rem' }}>
           <div style={{ padding: '0.65rem', borderRight: '1px solid #0A192F' }}>
             <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B' }}>SHIPPER / SUPPLIER ORIGIN</div>
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, marginTop: '2px' }}>{receipt.shipper || 'Miami Industrial Supplier'}</div>
-            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '4px' }}>Customer Account: <strong>{receipt.customer}</strong></div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, marginTop: '2px' }}>{shipperDisplayName}</div>
+            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '4px' }}>Customer Account: <strong>{customerDisplayName}</strong></div>
           </div>
           <div style={{ padding: '0.65rem' }}>
             <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B' }}>CONSIGNEE &amp; DESTINATION AGENT</div>
-            <div style={{ fontSize: '0.85rem', fontWeight: 700, marginTop: '2px' }}>{receipt.consignee || receipt.customer}</div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, marginTop: '2px' }}>{consigneeDisplayName}</div>
             <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '4px' }}>Assigned Port Agent: <strong>{receipt.agentName || 'Caribbean Express Freight Ltd.'}</strong></div>
           </div>
         </div>
@@ -157,7 +171,7 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
         {/* Individual Package-Level Items Table */}
         <div style={{ border: '1px solid #0A192F', marginBottom: '0.85rem' }}>
           <div style={{ background: '#0A192F', color: '#FFFFFF', padding: '0.4rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-            Package-Level Inventory Breakdown ({pkgs.length} Line Items • {receipt.totalPieces || receipt.packageCount} Pieces Total)
+            Package-Level Inventory Breakdown ({pkgs.length} Line Items • {totalPieces} Pieces Total)
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
             <thead>
@@ -181,7 +195,7 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
                     <span style={{ fontWeight: 600 }}>{p.packageType || 'Carton'}</span>
                   </td>
                   <td style={{ padding: '0.5rem' }}>
-                    <div>{p.description || receipt.cargoDescription}</div>
+                    <div>{p.description || receipt.cargoDescription || 'General Cargo'}</div>
                   </td>
                   <td style={{ padding: '0.5rem', color: '#475569' }}>
                     {p.lengthInches || receipt.lengthInches || 0}" × {p.widthInches || receipt.widthInches || 0}" × {p.heightInches || receipt.heightInches || 0}"
@@ -193,8 +207,8 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
                     {p.weightLbs} lbs
                   </td>
                   <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700, color: '#0284C7' }}>
-                    {p.cbm} CBM<br />
-                    <span style={{ fontSize: '0.68rem', color: '#64748B', fontWeight: 400 }}>({p.cft} CFT)</span>
+                    {Number(p.cbm || 0).toFixed(2)} CBM<br />
+                    <span style={{ fontSize: '0.68rem', color: '#64748B', fontWeight: 400 }}>({Number(p.cft || 0).toFixed(2)} CFT)</span>
                   </td>
                 </tr>
               ))}
@@ -202,9 +216,9 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
             <tfoot>
               <tr style={{ background: '#F8FAFC', fontWeight: 800, borderTop: '2px solid #0A192F' }}>
                 <td colSpan={4} style={{ padding: '0.5rem', textAlign: 'right' }}>RECEIPT TOTALS:</td>
-                <td style={{ padding: '0.5rem', textAlign: 'center', color: '#0284C7' }}>{receipt.totalPieces || receipt.packageCount} PCS</td>
-                <td style={{ padding: '0.5rem', textAlign: 'right' }}>{receipt.weightLbs?.toLocaleString()} LBS</td>
-                <td style={{ padding: '0.5rem', textAlign: 'right', color: '#D97706', fontWeight: 800 }}>{receipt.cft} CFT <span style={{ color: '#0284C7', fontWeight: 600 }}>({receipt.cbm} CBM)</span></td>
+                <td style={{ padding: '0.5rem', textAlign: 'center', color: '#0284C7' }}>{totalPieces} PCS</td>
+                <td style={{ padding: '0.5rem', textAlign: 'right' }}>{totalWeight} LBS</td>
+                <td style={{ padding: '0.5rem', textAlign: 'right', color: '#D97706', fontWeight: 800 }}>{totalCft} CFT <span style={{ color: '#0284C7', fontWeight: 600 }}>({totalCbm} CBM)</span></td>
               </tr>
             </tfoot>
           </table>

@@ -8,7 +8,7 @@ export default defineConfig({
   schema: './src/db/schema/index.ts',
   out: './drizzle/migrations',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgresql://postgres:123456@localhost:5432/wereHouseDb',
+    url: process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/Warehousedb',
   },
   verbose: true,
   strict: true,

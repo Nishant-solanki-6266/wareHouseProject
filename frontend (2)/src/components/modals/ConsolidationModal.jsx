@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Layers, X, Save } from 'lucide-react';
 
 export const ConsolidationModal = ({
@@ -7,6 +7,7 @@ export const ConsolidationModal = ({
   onSave,
   consolidation = null
 }) => {
+  const hasInitializedRef = useRef(false);
   const [formData, setFormData] = useState({
     title: '',
     containerNumber: '',
@@ -20,6 +21,13 @@ export const ConsolidationModal = ({
   });
 
   useEffect(() => {
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      return;
+    }
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
     if (consolidation) {
       setFormData({
         title: consolidation.title || '',
@@ -44,19 +52,26 @@ export const ConsolidationModal = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div className="modal-dialog modal-lg" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">
             <Layers size={20} style={{ color: '#1E4D8C' }} />
             <span>Edit Consolidation {consolidation?.consolidationNumber}</span>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '72vh', overflowY: 'auto' }}>
             <div className="form-group">
               <label className="form-label">Consolidation Title <span className="required">*</span></label>

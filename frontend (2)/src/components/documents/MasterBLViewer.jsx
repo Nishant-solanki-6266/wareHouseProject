@@ -23,7 +23,8 @@ export const MasterBLViewer = ({ bl, linkedHbls = [], onNavigate }) => {
       showToast(`Cannot download document: Master B/L is currently ON HOLD.`, 'danger', 'Download Restricted');
       return;
     }
-    showToast(`Master Bill of Lading ${bl.blNumber}.pdf prepared for download.`, 'success', 'PDF Ready');
+    window.print();
+    showToast(`Opening Print dialog for Master Bill of Lading ${bl.blNumber}. Choose "Save as PDF" to download.`, 'success', 'Download PDF');
   };
 
   return (

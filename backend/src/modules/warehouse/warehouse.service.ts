@@ -18,9 +18,17 @@ export class WarehouseService {
     return receipt;
   }
 
-  async createReceipt(input: CreateWarehouseReceiptInput) {
-    const nextSeq = await this.repo.getNextSequenceNumber();
-    const receiptNumber = String(nextSeq);
+  async createReceipt(input: CreateWarehouseReceiptInput & { receiptNumber?: string; sequenceNumber?: number; totalPieces?: number; customer?: string }) {
+    let nextSeq: number;
+    if (input.sequenceNumber && !isNaN(Number(input.sequenceNumber))) {
+      nextSeq = Number(input.sequenceNumber);
+    } else if (input.receiptNumber && !isNaN(Number(input.receiptNumber))) {
+      nextSeq = Number(input.receiptNumber);
+    } else {
+      nextSeq = await this.repo.getNextSequenceNumber();
+    }
+
+    const receiptNumber = input.receiptNumber || String(nextSeq);
 
     let packages = input.packages ?? [];
     if (packages.length === 0) {
@@ -58,7 +66,13 @@ export class WarehouseService {
       totalCbm += Number(pkg.cbm) || 0;
     }
 
+    if (totalPieces === 0 && input.totalPieces) {
+      totalPieces = Number(input.totalPieces);
+    }
+
     const totalWeightKg = convertLbsToKg(totalWeightLbs);
+    const destPort = input.destinationPort || 'NAS - Nassau Container Port';
+    const destCode = input.destinationCode || (destPort.includes(' - ') ? destPort.split(' - ')[0].trim() : 'NAS');
 
     return this.repo.create({
       receiptNumber,
@@ -66,17 +80,17 @@ export class WarehouseService {
       date: input.date || new Date().toISOString().split('T')[0],
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       customerId: input.customerId,
-      customerName: input.customerName,
-      shipper: input.shipper,
-      consignee: input.consignee,
+      customerName: input.customerName || input.customer || 'General Cargo Consignee',
+      shipper: input.shipper || '',
+      consignee: input.consignee || '',
       agentId: input.agentId,
-      agentName: input.agentName,
-      destinationPort: input.destinationPort,
-      destinationCode: input.destinationCode,
-      cargoDescription: input.cargoDescription,
+      agentName: input.agentName || 'Caribbean Express Freight Ltd.',
+      destinationPort: destPort,
+      destinationCode: destCode,
+      cargoDescription: input.cargoDescription || 'General Cargo Merchandise',
       packageCount: packages.length,
-      totalPieces,
-      packageType: input.packageType || packages[0]?.packageType || 'Cartons',
+      totalPieces: totalPieces || 1,
+      packageType: input.packageType || packages[0]?.packageType || 'Carton',
       packages,
       lengthInches: input.lengthInches ? String(input.lengthInches) : null,
       widthInches: input.widthInches ? String(input.widthInches) : null,
@@ -85,13 +99,13 @@ export class WarehouseService {
       weightKg: String(totalWeightKg),
       totalCft: String(totalCft.toFixed(2)),
       totalCbm: String(totalCbm.toFixed(2)),
-      warehouseLocation: input.warehouseLocation || 'CFS Miami',
+      warehouseLocation: input.warehouseLocation || 'Bay A-1 (CFS Staging)',
       status: input.status || 'Ready for Consolidation',
       hazardous: input.hazardous ?? false,
       fragile: input.fragile ?? false,
-      notes: input.notes,
+      notes: input.notes || '',
       barcode: `WR${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      qrCode: `VI-${receiptNumber}-${input.destinationCode}-${totalPieces}PK`,
+      qrCode: `VI-${receiptNumber}-${destCode}-${totalPieces}PK`,
     });
   }
 

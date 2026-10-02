@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { HoldAlertBanner } from '../../components/common/HoldAlertBanner';
@@ -23,28 +23,48 @@ export const ShipmentTrackingPortal = ({ initialQuery = '', onNavigate }) => {
   const [searchQuery, setSearchQuery] = useState(initialQuery || '');
   const [searchResult, setSearchResult] = useState(null);
   const [searched, setSearched] = useState(Boolean(initialQuery));
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialQuery) {
+      setSearchQuery(initialQuery);
+      setIsLoading(true);
+      trackingService.track(initialQuery).then(res => {
+        if (res && res.data) {
+          setSearchResult(res.data);
+        } else {
+          setSearchResult(null);
+        }
+        setSearched(true);
+        setIsLoading(false);
+      });
+    }
+  }, [initialQuery]);
 
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
     if (!searchQuery.trim()) return;
 
-    const res = await trackingService.track(searchQuery);
-    if (res && res.type === 'shipment') {
-      setSearchResult(res.data);
-    } else if (res && res.type === 'warehouse_receipt') {
-      // Find parent shipment or display receipt tracking
-      const parent = shipments.find(s => s.warehouseReceiptIds?.includes(res.data.id));
-      setSearchResult(parent || null);
-    } else if (res && res.type === 'bill_of_lading') {
-      setSearchResult(res.shipment || null);
-    } else {
-      const matched = shipments.find(s =>
-        s.trackingNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.shipmentNumber?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setSearchResult(matched || null);
+    setIsLoading(true);
+    try {
+      const res = await trackingService.track(searchQuery);
+      if (res && res.data) {
+        setSearchResult(res.data);
+      } else {
+        const matched = (shipments || []).find(s =>
+          s.trackingNumber?.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+          s.shipmentNumber?.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+          s.containerNumber?.toLowerCase().includes(searchQuery.toLowerCase().trim())
+        );
+        setSearchResult(matched || null);
+      }
+    } catch (err) {
+      console.warn('Tracking query error:', err.message);
+      setSearchResult(null);
+    } finally {
+      setSearched(true);
+      setIsLoading(false);
     }
-    setSearched(true);
   };
 
   const sampleTrackings = (shipments || []).slice(0, 4).map(s => ({

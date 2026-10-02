@@ -1,9 +1,29 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiFetch } from './apiConfig';
 
 export const customerService = {
   async getCustomers(filters = {}) {
-    const list = getStored(KEYS.CUSTOMERS);
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters.search) queryParams.set('search', filters.search);
+      if (filters.destination && filters.destination !== 'All') queryParams.set('destinationCode', filters.destination);
+      if (filters.status && filters.status !== 'All') queryParams.set('status', filters.status);
+
+      const qs = queryParams.toString();
+      const endpoint = qs ? `/customers?${qs}&limit=100` : '/customers?limit=100';
+      const res = await apiFetch(endpoint);
+
+      if (res && res.data) {
+        const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
+        setStored(KEYS.CUSTOMERS, liveList);
+        return liveList;
+      }
+    } catch (err) {
+      console.warn('Backend API /customers fetch failed, using local store:', err.message);
+    }
+
+    const list = getStored(KEYS.CUSTOMERS, []);
     let filtered = [...list];
 
     if (filters.search) {
@@ -28,18 +48,27 @@ export const customerService = {
   },
 
   async getCustomerById(id) {
-    const list = getStored(KEYS.CUSTOMERS);
+    if (!id) return null;
+    try {
+      const res = await apiFetch(`/customers/${encodeURIComponent(id)}`);
+      if (res && res.data) {
+        return res.data;
+      }
+    } catch (err) {
+      console.warn(`Backend API fetch for customer ${id} failed:`, err.message);
+    }
+
+    const list = getStored(KEYS.CUSTOMERS, []);
     return list.find(item => item.id === id || item.customerNumber === id || item.name === id) || null;
   },
 
   async createCustomer(data, currentUser = "Warehouse Staff") {
-    const list = getStored(KEYS.CUSTOMERS);
+    const list = getStored(KEYS.CUSTOMERS, []);
     const nextSeq = list.length + 1;
-    const id = `CUS-2026-${String(nextSeq).padStart(4, '0')}`;
+    const id = data.customerNumber || `CUS-2026-${String(nextSeq).padStart(4, '0')}`;
 
-    const newCustomer = {
+    const payload = {
       ...data,
-      id,
       customerNumber: id,
       name: data.name || data.companyName || "New Customer",
       companyName: data.companyName || data.name || "New Customer",
@@ -58,27 +87,60 @@ export const customerService = {
       status: data.status || "Active"
     };
 
-    const updated = [newCustomer, ...list];
+    let createdCustomer = null;
+    try {
+      const res = await apiFetch('/customers', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      if (res && res.data) {
+        createdCustomer = res.data;
+      }
+    } catch (err) {
+      console.warn('Backend createCustomer failed, saving locally:', err.message);
+    }
+
+    if (!createdCustomer) {
+      createdCustomer = {
+        ...payload,
+        id
+      };
+    }
+
+    const updated = [createdCustomer, ...list.filter(c => c.id !== createdCustomer.id && c.customerNumber !== createdCustomer.customerNumber)];
     setStored(KEYS.CUSTOMERS, updated);
 
     await auditService.logAction(
       currentUser,
       "Customer",
       "Created Customer Profile",
-      id,
-      `Created Customer Profile ${id} for ${newCustomer.name} (${newCustomer.destinationPort}).`
+      createdCustomer.customerNumber || createdCustomer.id,
+      `Created Customer Profile ${createdCustomer.customerNumber || createdCustomer.id} for ${createdCustomer.name} (${createdCustomer.destinationPort}).`
     );
 
-    return newCustomer;
+    return createdCustomer;
   },
 
   async updateCustomer(id, updates, currentUser = "Warehouse Staff") {
-    const list = getStored(KEYS.CUSTOMERS);
+    let updatedCustomer = null;
+    try {
+      const res = await apiFetch(`/customers/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+      if (res && res.data) {
+        updatedCustomer = res.data;
+      }
+    } catch (err) {
+      console.warn(`Backend updateCustomer ${id} failed:`, err.message);
+    }
+
+    const list = getStored(KEYS.CUSTOMERS, []);
     const index = list.findIndex(item => item.id === id || item.customerNumber === id);
     if (index !== -1) {
       list[index] = {
         ...list[index],
-        ...updates
+        ...(updatedCustomer || updates)
       };
       setStored(KEYS.CUSTOMERS, list);
 
@@ -92,14 +154,20 @@ export const customerService = {
 
       return list[index];
     }
-    return null;
+    return updatedCustomer;
   },
 
   async deleteCustomer(id, currentUser = "Super Admin") {
-    const list = getStored(KEYS.CUSTOMERS);
-    const existing = list.find(item => item.id === id || item.customerNumber === id);
-    if (!existing) return false;
+    try {
+      await apiFetch(`/customers/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.warn(`Backend deleteCustomer ${id} failed:`, err.message);
+    }
 
+    const list = getStored(KEYS.CUSTOMERS, []);
+    const existing = list.find(item => item.id === id || item.customerNumber === id);
     const filtered = list.filter(item => item.id !== id && item.customerNumber !== id);
     setStored(KEYS.CUSTOMERS, filtered);
 
@@ -108,7 +176,7 @@ export const customerService = {
       "Customer",
       "Deleted Customer Profile",
       id,
-      `Deleted customer profile ${existing.name} (${id}).`
+      `Deleted customer profile ${existing?.name || 'Customer'} (${id}).`
     );
 
     return true;

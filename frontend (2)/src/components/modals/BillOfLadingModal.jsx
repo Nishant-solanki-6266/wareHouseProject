@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FileText, X, Save, Plus } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const BillOfLadingModal = ({
   isOpen,
@@ -10,8 +11,21 @@ export const BillOfLadingModal = ({
   isEdit = false
 }) => {
   const { ports } = useAppData();
-  const defaultPol = ports.find(p => p.code === 'MIA') ? 'MIA - Port of Miami' : (ports[0] ? `${ports[0].code} - ${ports[0].name}` : 'MIA - Port of Miami');
-  const defaultPod = ports[0] ? `${ports[0].code} - ${ports[0].name}` : 'NAS - Nassau Container Port';
+  const { currentUser, isAgent } = useAuth();
+  const hasInitializedRef = useRef(false);
+
+  const getPortCode = (p) => p?.portCode || p?.code || 'NAS';
+
+  const getPolDefault = () => {
+    const p = ports.find(pt => getPortCode(pt) === 'MIA' || getPortCode(pt) === 'USMIA');
+    return p ? `${getPortCode(p)} - ${p.name}` : (ports[0] ? `${getPortCode(ports[0])} - ${ports[0].name}` : 'MIA - Port of Miami');
+  };
+
+  const getPodDefault = () => {
+    const targetCode = isAgent ? (currentUser?.destinationPortCode || 'NAS') : 'NAS';
+    const p = ports.find(pt => getPortCode(pt) === targetCode || getPortCode(pt) === 'NAS' || getPortCode(pt) === 'BSNAS');
+    return p ? `${getPortCode(p)} - ${p.name}` : (ports[0] ? `${getPortCode(ports[0])} - ${ports[0].name}` : 'NAS - Nassau Container Port');
+  };
 
   const [formData, setFormData] = useState({
     blNumber: '',
@@ -25,8 +39,8 @@ export const BillOfLadingModal = ({
     oceanVessel: 'M/V Caribbean Voyager',
     voyageNumber: 'VOY-2026-088',
     carrier: 'Tropical Shipping',
-    portOfLoading: defaultPol,
-    portOfDischarge: defaultPod,
+    portOfLoading: '',
+    portOfDischarge: '',
     containerNumber: '',
     sealNumber: 'BOLT-99281',
     cargoDescription: 'General Consignment: Commercial goods, packaged merchandise and freight.',
@@ -39,6 +53,16 @@ export const BillOfLadingModal = ({
   });
 
   useEffect(() => {
+    if (!isOpen) {
+      hasInitializedRef.current = false;
+      return;
+    }
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
+    const pol = getPolDefault();
+    const pod = getPodDefault();
+
     if (bl && isEdit) {
       setFormData({
         blNumber: bl.blNumber || '',
@@ -52,8 +76,8 @@ export const BillOfLadingModal = ({
         oceanVessel: bl.oceanVessel || 'M/V Caribbean Voyager',
         voyageNumber: bl.voyageNumber || 'VOY-2026-088',
         carrier: bl.carrier || 'Tropical Shipping',
-        portOfLoading: bl.portOfLoading || 'Port of Miami, USA (USMIA)',
-        portOfDischarge: bl.portOfDischarge || 'Nassau Port Terminal (BSNAS)',
+        portOfLoading: bl.portOfLoading || pol,
+        portOfDischarge: bl.portOfDischarge || pod,
         containerNumber: bl.containerNumber || '',
         sealNumber: bl.sealNumber || 'BOLT-99281',
         cargoDescription: bl.cargoDescription || 'General Consignment',
@@ -77,8 +101,8 @@ export const BillOfLadingModal = ({
         oceanVessel: 'M/V Caribbean Voyager',
         voyageNumber: 'VOY-2026-088',
         carrier: 'Tropical Shipping',
-        portOfLoading: 'Port of Miami, USA (USMIA)',
-        portOfDischarge: 'Nassau Port Terminal (BSNAS)',
+        portOfLoading: pol,
+        portOfDischarge: pod,
         containerNumber: `MEDU${Math.floor(1000000 + Math.random() * 9000000)}`,
         sealNumber: `BOLT-${Math.floor(10000 + Math.random() * 90000)}`,
         cargoDescription: 'General Consignment: Commercial goods, packaged merchandise and freight.',
@@ -90,7 +114,7 @@ export const BillOfLadingModal = ({
         status: 'Draft'
       });
     }
-  }, [bl, isEdit, isOpen]);
+  }, [isOpen, bl, isEdit]);
 
   if (!isOpen) return null;
 
@@ -99,6 +123,9 @@ export const BillOfLadingModal = ({
     onSave({
       blNumber: formData.blNumber,
       issueDate: formData.issueDate,
+      agentId: currentUser?.agentId || null,
+      agentName: currentUser?.roleKey === 'agent' ? currentUser.name : 'Caribbean Express Freight Ltd.',
+      destinationPortCode: formData.portOfDischarge?.split(' - ')[0]?.trim() || 'NAS',
       shipper: {
         name: formData.shipperName,
         address: formData.shipperAddress
@@ -132,19 +159,26 @@ export const BillOfLadingModal = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div className="modal-dialog modal-xl" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">
             <FileText size={20} style={{ color: '#0A192F' }} />
             <span>{isEdit ? `Edit Master Bill of Lading ${formData.blNumber}` : 'Create Master Bill of Lading (B/L)'}</span>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+        >
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '72vh', overflowY: 'auto' }}>
             <div className="grid grid-cols-2 gap-4">
               <div className="form-group">
@@ -263,11 +297,14 @@ export const BillOfLadingModal = ({
                   value={formData.portOfLoading}
                   onChange={(e) => setFormData({ ...formData, portOfLoading: e.target.value })}
                 >
-                  {ports.map(p => (
-                    <option key={`pol-${p.id || p.code}`} value={`${p.code} - ${p.name}`}>
-                      {p.code} — {p.name} ({p.island || p.country})
-                    </option>
-                  ))}
+                  {ports.map(p => {
+                    const pCode = getPortCode(p);
+                    return (
+                      <option key={`pol-${p.id || pCode}`} value={`${pCode} - ${p.name}`}>
+                        {pCode} — {p.name} ({p.island || p.country || 'Caribbean'})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -279,11 +316,14 @@ export const BillOfLadingModal = ({
                   onChange={(e) => setFormData({ ...formData, portOfDischarge: e.target.value })}
                   required
                 >
-                  {ports.map(p => (
-                    <option key={`pod-${p.id || p.code}`} value={`${p.code} - ${p.name}`}>
-                      {p.code} — {p.name} ({p.island || p.country})
-                    </option>
-                  ))}
+                  {ports.map(p => {
+                    const pCode = getPortCode(p);
+                    return (
+                      <option key={`pod-${p.id || pCode}`} value={`${pCode} - ${p.name}`}>
+                        {pCode} — {p.name} ({p.island || p.country || 'Caribbean'})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>

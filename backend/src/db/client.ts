@@ -14,18 +14,32 @@ pool.on('error', (err) => {
   console.error('Unexpected PostgreSQL pool error:', err);
 });
 
-export async function testDbConnection(): Promise<boolean> {
+export interface DbConnectionStatus {
+  connected: boolean;
+  databaseName?: string;
+  error?: string;
+}
+
+export async function testDbConnection(): Promise<DbConnectionStatus> {
   let client: pg.PoolClient | null = null;
   try {
     client = await pool.connect();
-    await client.query('SELECT 1');
-    return true;
+    const result = await client.query('SELECT current_database() AS db_name');
+    return {
+      connected: true,
+      databaseName: result.rows[0]?.db_name,
+    };
   } catch (error) {
-    console.error('PostgreSQL connection check failed:', (error as Error).message);
-    return false;
+    const errorMsg = (error as Error).message;
+    console.error('PostgreSQL connection check failed:', errorMsg);
+    return {
+      connected: false,
+      error: errorMsg,
+    };
   } finally {
     if (client) {
       client.release();
     }
   }
 }
+

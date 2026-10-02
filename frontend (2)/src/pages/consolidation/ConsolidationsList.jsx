@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -6,19 +6,30 @@ import { WorkflowIndicator } from '../../components/common/WorkflowIndicator';
 import { ContainerFillBar } from '../../components/common/ContainerFillBar';
 import { ConsolidationModal } from '../../components/modals/ConsolidationModal';
 import { DeleteConfirmModal } from '../../components/modals/DeleteConfirmModal';
-import { Layers, Plus, Eye, Edit2, Trash2, Ship, Box, ArrowRight } from 'lucide-react';
+import { Layers, Plus, Eye, Edit2, Trash2, Ship, Box, ArrowRight, RefreshCw } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 
 export const ConsolidationsList = ({ onNavigate }) => {
-  const { consolidations, updateConsolidation, deleteConsolidation } = useAppData();
+  const { consolidations, updateConsolidation, deleteConsolidation, refreshAll } = useAppData();
   const { isAgent, currentUser } = useAuth();
   const [editingConsolidation, setEditingConsolidation] = useState(null);
   const [deletingConsolidation, setDeletingConsolidation] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (refreshAll) refreshAll();
+  }, []);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    if (refreshAll) await refreshAll();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   // Filter if Agent
   const visibleConsolidations = isAgent 
-    ? consolidations.filter(c => c.agentId === currentUser?.agentId || c.destinationPort?.includes('NAS')) 
+    ? consolidations.filter(c => !currentUser?.agentId || c.agentId === currentUser?.agentId || c.destinationPort?.includes('NAS') || c.destinationPort?.includes('Nassau')) 
     : consolidations;
 
   const columns = [
@@ -167,15 +178,26 @@ export const ConsolidationsList = ({ onNavigate }) => {
           { label: 'Consolidations' }
         ]}
         actions={
-          !isAgent && (
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <button
-              onClick={() => onNavigate('consolidations', 'create')}
-              className="btn btn-primary btn-sm"
+              onClick={handleManualRefresh}
+              className="btn btn-outline btn-sm"
+              title="Refresh Consolidations from Database"
+              disabled={isRefreshing}
             >
-              <Plus size={15} />
-              <span>Build Consolidation</span>
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+              <span className="hide-mobile">{isRefreshing ? 'Syncing...' : 'Sync'}</span>
             </button>
-          )
+            {!isAgent && (
+              <button
+                onClick={() => onNavigate('consolidations', 'create')}
+                className="btn btn-primary btn-sm"
+              >
+                <Plus size={15} />
+                <span>Build Consolidation</span>
+              </button>
+            )}
+          </div>
         }
       />
 

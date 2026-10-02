@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { initialUsers, initialRolesPermissions } from '../data/mock/usersData';
 import { getStored, setStored, KEYS, initializeStorage } from '../services/storageService';
+import { apiFetch, setAuthToken } from '../services/apiConfig';
 
 const AuthContext = createContext(null);
 
@@ -26,6 +27,17 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     localStorage.setItem('kers_active_user', JSON.stringify(currentUser));
+    if (currentUser?.email) {
+      apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: currentUser.email, password: 'Password123!' })
+      })
+        .then(res => {
+          const token = res?.data?.token || res?.data?.accessToken;
+          if (token) setAuthToken(token);
+        })
+        .catch(err => console.warn('Backend JWT fetch deferred:', err.message));
+    }
   }, [currentUser]);
 
   const login = (emailOrId, password = '') => {
@@ -37,11 +49,24 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(found);
     setIsAuthenticated(true);
     localStorage.setItem('kers_is_authenticated', 'true');
+
+    // Asynchronously authenticate with backend to cache JWT token
+    const emailToAuth = found.email || 'operations@caribbeanexpressbahamas.com';
+    apiFetch('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: emailToAuth, password: password || 'Password123!' })
+    })
+      .then(res => {
+        if (res?.data?.token) setAuthToken(res.data.token);
+      })
+      .catch(err => console.warn('Backend JWT fetch deferred:', err.message));
+
     return found;
   };
 
   const logout = () => {
     localStorage.removeItem('kers_is_authenticated');
+    setAuthToken(null);
     setIsAuthenticated(false);
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
       window.history.replaceState(null, '', '/login');
@@ -55,6 +80,15 @@ export const AuthProvider = ({ children }) => {
       setCurrentUser(found);
       setIsAuthenticated(true);
       localStorage.setItem('kers_is_authenticated', 'true');
+
+      apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: found.email, password: 'Password123!' })
+      })
+        .then(res => {
+          if (res?.data?.token) setAuthToken(res.data.token);
+        })
+        .catch(err => console.warn('Backend JWT switch deferred:', err.message));
     }
   };
 

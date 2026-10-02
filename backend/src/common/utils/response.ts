@@ -21,6 +21,14 @@ export function successResponse<T>(data: T, message?: string): ApiResponse<T> {
   };
 }
 
+export function createdResponse<T>(data: T, message?: string): ApiResponse<T> {
+  return {
+    success: true,
+    ...(message ? { message } : {}),
+    data,
+  };
+}
+
 export function paginatedResponse<T>(
   data: T[],
   pagination: PaginationMeta,

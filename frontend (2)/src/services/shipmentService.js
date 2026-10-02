@@ -1,17 +1,39 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
+import { apiFetch } from './apiConfig';
 
 export const shipmentService = {
   async getShipments(filters = {}) {
-    const list = getStored(KEYS.SHIPMENTS);
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters.search) queryParams.set('search', filters.search);
+      if (filters.status && filters.status !== 'All') queryParams.set('status', filters.status);
+      if (filters.destination && filters.destination !== 'All') queryParams.set('destinationCode', filters.destination);
+      if (filters.agentId && filters.agentId !== 'All') queryParams.set('agentId', filters.agentId);
+
+      const qs = queryParams.toString();
+      const endpoint = qs ? `/shipments?${qs}&limit=100` : '/shipments?limit=100';
+      const res = await apiFetch(endpoint);
+
+      if (res && res.data) {
+        const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
+        setStored(KEYS.SHIPMENTS, liveList);
+        return liveList;
+      }
+    } catch (err) {
+      console.warn('Backend API /shipments fetch failed, using cached store:', err.message);
+    }
+
+    // Fallback to local cache
+    const list = getStored(KEYS.SHIPMENTS, []);
     let filtered = [...list];
 
     if (filters.search) {
       const q = filters.search.toLowerCase();
       filtered = filtered.filter(item =>
-        item.shipmentNumber.toLowerCase().includes(q) ||
-        item.trackingNumber.toLowerCase().includes(q) ||
-        item.destinationPort.toLowerCase().includes(q) ||
+        item.shipmentNumber?.toLowerCase().includes(q) ||
+        item.trackingNumber?.toLowerCase().includes(q) ||
+        item.destinationPort?.toLowerCase().includes(q) ||
         item.containerNumber?.toLowerCase().includes(q) ||
         item.vesselName?.toLowerCase().includes(q) ||
         item.agentName?.toLowerCase().includes(q)
@@ -34,96 +56,143 @@ export const shipmentService = {
   },
 
   async getShipmentById(id) {
-    const list = getStored(KEYS.SHIPMENTS);
+    if (!id) return null;
+    try {
+      const res = await apiFetch(`/shipments/${encodeURIComponent(id)}`);
+      if (res && res.data) {
+        return res.data;
+      }
+    } catch (err) {
+      console.warn(`Backend API fetch for shipment ${id} failed:`, err.message);
+    }
+
+    const list = getStored(KEYS.SHIPMENTS, []);
     return list.find(item => item.id === id || item.shipmentNumber === id || item.trackingNumber === id) || null;
   },
 
   async createShipment(data, currentUser = "Operations Staff") {
-    const list = getStored(KEYS.SHIPMENTS);
-    const id = `SHP-2026-${292 + list.length}`;
-    const newShipment = {
-      ...data,
-      id,
-      shipmentNumber: id,
-      trackingNumber: `TRK-VI-${Math.floor(100000 + Math.random() * 900000)}`,
-      createdDate: new Date().toISOString().split('T')[0],
-      status: data.status || "Cargo Received",
-      blStatus: data.blStatus || "Draft",
-      trackingCheckpoints: [
-        {
-          id: `chk-${Date.now()}-1`,
-          stage: "Cargo Received",
-          status: "Completed",
-          date: new Date().toISOString().split('T')[0],
-          time: "08:30 AM",
-          location: data.origin || "Miami CFS Warehouse",
-          notes: "Shipment registered in system."
-        },
-        {
-          id: `chk-${Date.now()}-2`,
-          stage: "Consolidated",
-          status: "Active",
-          date: new Date().toISOString().split('T')[0],
-          time: "10:00 AM",
-          location: "Consolidation Hub",
-          notes: "Cargo staging underway."
-        },
-        { id: `chk-${Date.now()}-3`, stage: "Loaded & Sealed", status: "Pending", date: data.etd || "2026-09-02", notes: "Container loading pending." },
-        { id: `chk-${Date.now()}-4`, stage: "In Transit", status: "Pending", date: data.etd || "2026-09-03", notes: "Vessel transit." },
-        { id: `chk-${Date.now()}-5`, stage: "Arrived at Port", status: "Pending", date: data.eta || "2026-09-08", notes: "Port arrival." },
-        { id: `chk-${Date.now()}-6`, stage: "Delivered / Released", status: "Pending", date: "2026-09-09", notes: "Final clearance." }
-      ]
-    };
+    let createdShipment = null;
+    try {
+      const res = await apiFetch('/shipments', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      if (res && res.data) {
+        createdShipment = res.data;
+      }
+    } catch (err) {
+      console.warn('Backend createShipment failed, storing locally:', err.message);
+    }
 
-    const updated = [newShipment, ...list];
+    if (!createdShipment) {
+      const list = getStored(KEYS.SHIPMENTS, []);
+      const id = `SHP-2026-${292 + list.length}`;
+      createdShipment = {
+        ...data,
+        id,
+        shipmentNumber: id,
+        trackingNumber: `TRK-VI-${Math.floor(100000 + Math.random() * 900000)}`,
+        createdDate: new Date().toISOString().split('T')[0],
+        status: data.status || "Cargo Received",
+        blStatus: data.blStatus || "Draft",
+        trackingCheckpoints: [
+          {
+            id: `chk-${Date.now()}-1`,
+            stage: "Cargo Received",
+            status: "Completed",
+            date: new Date().toISOString().split('T')[0],
+            time: "08:30 AM",
+            location: data.origin || "Miami CFS Warehouse",
+            notes: "Shipment registered in system."
+          },
+          {
+            id: `chk-${Date.now()}-2`,
+            stage: "Consolidated",
+            status: "Active",
+            date: new Date().toISOString().split('T')[0],
+            time: "10:00 AM",
+            location: "Consolidation Hub",
+            notes: "Cargo staging underway."
+          },
+          { id: `chk-${Date.now()}-3`, stage: "Loaded & Sealed", status: "Pending", date: data.etd || "2026-09-02", notes: "Container loading pending." },
+          { id: `chk-${Date.now()}-4`, stage: "In Transit", status: "Pending", date: data.etd || "2026-09-03", notes: "Vessel transit." },
+          { id: `chk-${Date.now()}-5`, stage: "Arrived at Port", status: "Pending", date: data.eta || "2026-09-08", notes: "Port arrival." },
+          { id: `chk-${Date.now()}-6`, stage: "Delivered / Released", status: "Pending", date: "2026-09-09", notes: "Final clearance." }
+        ]
+      };
+    }
+
+    const list = getStored(KEYS.SHIPMENTS, []);
+    const updated = [createdShipment, ...list.filter(s => s.id !== createdShipment.id)];
     setStored(KEYS.SHIPMENTS, updated);
 
     await auditService.logAction(
       currentUser,
       "Shipments",
       "Created Shipment",
-      id,
-      `Created Master Shipment ${id} (${data.origin} → ${data.destinationPort}).`
+      createdShipment.id,
+      `Created Master Shipment ${createdShipment.shipmentNumber} (${createdShipment.origin} → ${createdShipment.destinationPort}).`
     );
 
-    return newShipment;
+    return createdShipment;
   },
 
   async updateShipment(id, updates, currentUser = "Operations Staff") {
-    const list = getStored(KEYS.SHIPMENTS);
+    let updatedShipment = null;
+    try {
+      const res = await apiFetch(`/shipments/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+      if (res && res.data) {
+        updatedShipment = res.data;
+      }
+    } catch (err) {
+      console.warn(`Backend updateShipment ${id} failed:`, err.message);
+    }
+
+    const list = getStored(KEYS.SHIPMENTS, []);
     const index = list.findIndex(item => item.id === id || item.shipmentNumber === id);
     if (index !== -1) {
-      list[index] = { ...list[index], ...updates };
+      list[index] = { ...list[index], ...(updatedShipment || updates) };
       setStored(KEYS.SHIPMENTS, list);
-
-      await auditService.logAction(
-        currentUser,
-        "Shipments",
-        "Updated Shipment",
-        id,
-        `Updated shipment details for ${id}.`
-      );
-
-      return list[index];
+      updatedShipment = list[index];
     }
-    return null;
-  },
-
-  async deleteShipment(id, currentUser = "Operations Staff") {
-    const list = getStored(KEYS.SHIPMENTS);
-    const existing = list.find(item => item.id === id || item.shipmentNumber === id);
-    if (!existing) return false;
-
-    const filtered = list.filter(item => item.id !== id && item.shipmentNumber !== id);
-    setStored(KEYS.SHIPMENTS, filtered);
 
     await auditService.logAction(
       currentUser,
       "Shipments",
-      "Deleted Shipment",
+      "Updated Shipment",
       id,
-      `Deleted shipment ${id} (${existing.shipmentNumber}).`
+      `Updated shipment details for ${id}.`
     );
+
+    return updatedShipment;
+  },
+
+  async deleteShipment(id, currentUser = "Operations Staff") {
+    try {
+      await apiFetch(`/shipments/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      });
+    } catch (err) {
+      console.warn(`Backend deleteShipment ${id} failed:`, err.message);
+    }
+
+    const list = getStored(KEYS.SHIPMENTS, []);
+    const existing = list.find(item => item.id === id || item.shipmentNumber === id);
+    const filtered = list.filter(item => item.id !== id && item.shipmentNumber !== id);
+    setStored(KEYS.SHIPMENTS, filtered);
+
+    if (existing) {
+      await auditService.logAction(
+        currentUser,
+        "Shipments",
+        "Deleted Shipment",
+        id,
+        `Deleted shipment ${id} (${existing.shipmentNumber}).`
+      );
+    }
 
     return true;
   }

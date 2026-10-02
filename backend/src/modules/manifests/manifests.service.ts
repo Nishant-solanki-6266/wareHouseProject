@@ -14,6 +14,22 @@ export class ManifestsService {
     if (!item) throw new NotFoundError('Shipping Manifest');
     return item;
   }
+
+  async createManifest(data: any) {
+    return this.repo.create(data);
+  }
+
+  async updateManifest(idOrNumber: string, data: any) {
+    const updated = await this.repo.update(idOrNumber, data);
+    if (!updated) throw new NotFoundError('Shipping Manifest');
+    return updated;
+  }
+
+  async deleteManifest(idOrNumber: string) {
+    const deleted = await this.repo.delete(idOrNumber);
+    if (!deleted) throw new NotFoundError('Shipping Manifest');
+    return { deleted: true };
+  }
 }
 
 export const manifestsService = new ManifestsService();

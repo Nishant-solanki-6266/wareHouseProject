@@ -40,13 +40,55 @@ export class ManifestsRepository {
   }
 
   async findByIdOrNumber(idOrNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(manifests.id, idOrNumber), eq(manifests.manifestNumber, idOrNumber))
+      : eq(manifests.manifestNumber, idOrNumber);
+
     const result = await db
       .select()
       .from(manifests)
-      .where(or(eq(manifests.id, idOrNumber), eq(manifests.manifestNumber, idOrNumber)))
+      .where(whereCondition)
       .limit(1);
 
     return result[0] || null;
+  }
+
+  async create(data: Partial<typeof manifests.$inferInsert>) {
+    const [created] = await db
+      .insert(manifests)
+      .values(data as any)
+      .returning();
+    return created;
+  }
+
+  async update(idOrNumber: string, data: Partial<typeof manifests.$inferInsert>) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(manifests.id, idOrNumber), eq(manifests.manifestNumber, idOrNumber))
+      : eq(manifests.manifestNumber, idOrNumber);
+
+    const [updated] = await db
+      .update(manifests)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(whereCondition)
+      .returning();
+
+    return updated || null;
+  }
+
+  async delete(idOrNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(manifests.id, idOrNumber), eq(manifests.manifestNumber, idOrNumber))
+      : eq(manifests.manifestNumber, idOrNumber);
+
+    const [deleted] = await db
+      .delete(manifests)
+      .where(whereCondition)
+      .returning();
+
+    return !!deleted;
   }
 }
 

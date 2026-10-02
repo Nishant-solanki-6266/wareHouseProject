@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -6,15 +6,32 @@ import { CargoLabelModal } from '../../components/modals/CargoLabelModal';
 import { WorkflowIndicator } from '../../components/common/WorkflowIndicator';
 import { CargoModal } from '../../components/modals/CargoModal';
 import { DeleteConfirmModal } from '../../components/modals/DeleteConfirmModal';
-import { Box, Printer, Eye, Edit2, Trash2, Plus, Package } from 'lucide-react';
+import { Box, Printer, Eye, Edit2, Trash2, Plus, Package, RefreshCw } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const CargoList = ({ onNavigate }) => {
-  const { cargoItems, createCargo, updateCargo, deleteCargo } = useAppData();
+  const { cargoItems, createCargo, updateCargo, deleteCargo, refreshAll } = useAppData();
+  const { isAgent, currentUser } = useAuth();
   const [selectedCargo, setSelectedCargo] = useState(null);
   const [editingCargo, setEditingCargo] = useState(null);
   const [deletingCargo, setDeletingCargo] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (refreshAll) refreshAll();
+  }, []);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    if (refreshAll) await refreshAll();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
+  const visibleCargo = isAgent
+    ? cargoItems.filter(c => !currentUser?.agentId || c.agentId === currentUser?.agentId || c.destinationPortCode === currentUser?.destinationPortCode || c.destination?.includes('NAS') || c.destination?.includes('Nassau'))
+    : cargoItems;
 
   const columns = [
     {
@@ -148,7 +165,16 @@ export const CargoList = ({ onNavigate }) => {
           { label: 'Cargo Inventory' }
         ]}
         actions={
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              onClick={handleManualRefresh}
+              className="btn btn-outline btn-sm"
+              title="Refresh Cargo Inventory from Database"
+              disabled={isRefreshing}
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+              <span className="hide-mobile">{isRefreshing ? 'Syncing...' : 'Sync'}</span>
+            </button>
             <button
               onClick={() => onNavigate('warehouse-receipts', 'create')}
               className="btn btn-primary btn-sm"
@@ -171,7 +197,7 @@ export const CargoList = ({ onNavigate }) => {
 
       <ResponsiveTable
         columns={columns}
-        data={cargoItems}
+        data={visibleCargo}
         searchPlaceholder="Search by Cargo ID, WR #, customer, description..."
         filterOptions={['All', 'Ready for Consolidation', 'Consolidated']}
         pageSize={8}

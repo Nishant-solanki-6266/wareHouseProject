@@ -3,6 +3,7 @@ import { auditService } from './auditService';
 import { customerService } from './customerService';
 import { houseBillService } from './houseBillService';
 import { portService } from './portService';
+import { apiFetch } from './apiConfig';
 
 export { customerService, houseBillService, portService };
 
@@ -489,7 +490,23 @@ export const trackingService = {
     if (!query) return null;
     const clean = query.trim().toUpperCase();
 
-    // 1. Search in shipments
+    // 1. Live Backend API Query
+    try {
+      const res = await apiFetch(`/tracking/${encodeURIComponent(clean)}`);
+      if (res?.data) {
+        return {
+          type: res.data.type || 'shipment',
+          data: {
+            ...res.data,
+            trackingCheckpoints: res.data.events || res.data.trackingCheckpoints || []
+          }
+        };
+      }
+    } catch (err) {
+      // If 404 or backend lookup failed, continue to fallback search
+    }
+
+    // 2. Fallback Search in shipments
     const shipments = getStored(KEYS.SHIPMENTS);
     const matchedShipment = shipments.find(s =>
       s.trackingNumber?.toUpperCase() === clean ||
@@ -499,7 +516,7 @@ export const trackingService = {
     );
     if (matchedShipment) return { type: 'shipment', data: matchedShipment };
 
-    // 2. Search in House Bills of Lading
+    // 3. Fallback Search in House Bills of Lading
     const houseBills = getStored(KEYS.HOUSE_BILLS);
     const matchedHBL = houseBills.find(h => h.hblNumber?.toUpperCase() === clean);
     if (matchedHBL) {
@@ -507,7 +524,7 @@ export const trackingService = {
       return { type: 'house_bill', data: matchedHBL, shipment: parentShipment };
     }
 
-    // 3. Search in warehouse receipts
+    // 4. Fallback Search in warehouse receipts
     const receipts = getStored(KEYS.WAREHOUSE_RECEIPTS);
     const matchedWR = receipts.find(w =>
       w.receiptNumber?.toUpperCase() === clean ||
@@ -515,7 +532,7 @@ export const trackingService = {
     );
     if (matchedWR) return { type: 'warehouse_receipt', data: matchedWR };
 
-    // 4. Search in Master Bills of Lading
+    // 5. Fallback Search in Master Bills of Lading
     const bls = getStored(KEYS.BILLS_OF_LADING);
     const matchedBL = bls.find(b => b.blNumber?.toUpperCase() === clean);
     if (matchedBL) {

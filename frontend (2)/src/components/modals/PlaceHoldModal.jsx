@@ -35,14 +35,14 @@ export const PlaceHoldModal = ({ isOpen, onClose, bl, onConfirm }) => {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header" style={{ background: '#FFFBEB', borderBottomColor: '#FDE68A' }}>
           <div className="modal-title" style={{ color: '#92400E' }}>
             <ShieldAlert size={22} style={{ color: '#D97706' }} />
             <span>Place Bill of Lading ON HOLD — {bl.blNumber}</span>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close modal">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close modal">
             <X size={18} />
           </button>
         </div>

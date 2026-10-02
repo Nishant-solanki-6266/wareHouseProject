@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { WarehouseReceiptViewer } from '../../components/documents/WarehouseReceiptViewer';
 import { CargoLabelModal } from '../../components/modals/CargoLabelModal';
@@ -6,21 +6,47 @@ import { WarehouseReceiptModal } from '../../components/modals/WarehouseReceiptM
 import { DeleteConfirmModal } from '../../components/modals/DeleteConfirmModal';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { WorkflowIndicator } from '../../components/common/WorkflowIndicator';
-import { Package, ArrowLeft, Printer, Layers, Edit2, Trash2, FileText } from 'lucide-react';
+import { Package, ArrowLeft, Printer, Layers, Edit2, Trash2, FileText, Loader } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
+import { warehouseService } from '../../services/warehouseService';
 
 export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
-  const { warehouseReceipts, updateWarehouseReceipt, deleteWarehouseReceipt } = useAppData();
+  const { warehouseReceipts, updateWarehouseReceipt, deleteWarehouseReceipt, refreshAll } = useAppData();
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [fetchedReceipt, setFetchedReceipt] = useState(null);
+  const [isFetching, setIsFetching] = useState(false);
 
-  const receipt = warehouseReceipts.find(r => r.id === receiptId || r.receiptNumber === receiptId);
+  const contextReceipt = warehouseReceipts.find(r => r.id === receiptId || r.receiptNumber === receiptId);
+  const receipt = contextReceipt || fetchedReceipt;
+
+  useEffect(() => {
+    if (!contextReceipt && receiptId) {
+      setIsFetching(true);
+      warehouseService.getReceiptById(receiptId)
+        .then(res => {
+          if (res) setFetchedReceipt(res);
+          if (refreshAll) refreshAll();
+        })
+        .finally(() => setIsFetching(false));
+    }
+  }, [contextReceipt, receiptId, refreshAll]);
+
+  if (isFetching && !receipt) {
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+        <Loader size={30} className="animate-spin" style={{ margin: '0 auto 1rem', color: '#0284C7' }} />
+        <p style={{ color: '#64748B' }}>Loading Warehouse Receipt {receiptId}...</p>
+      </div>
+    );
+  }
 
   if (!receipt) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
         <h3>Warehouse Receipt Not Found</h3>
+        <p style={{ color: '#64748B', marginTop: '0.5rem' }}>The requested receipt {receiptId} does not exist in the database.</p>
         <button onClick={() => onNavigate('warehouse-receipts')} className="btn btn-primary btn-sm mt-4">
           Back to Receipts List
         </button>
@@ -32,7 +58,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '1100px', margin: '0 auto' }}>
       <PageHeader
         title={`Warehouse Receipt ${receipt.receiptNumber}`}
-        subtitle={`Intake on ${receipt.date} for ${receipt.customer} (${receipt.destinationPort})`}
+        subtitle={`Intake on ${receipt.date || new Date().toISOString().slice(0, 10)} for ${receipt.customerName || receipt.customer || receipt.consignee || 'General Cargo'} (${receipt.destinationPort || 'NAS'})`}
         icon={Package}
         breadcrumbs={[
           { label: 'Warehouse Receipts', href: '#' },
@@ -43,6 +69,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
             <button
               onClick={() => onNavigate('warehouse-receipts')}
               className="btn btn-outline btn-sm"
+              id="btn-back-wr"
             >
               <ArrowLeft size={15} />
               <span>Back</span>
@@ -50,6 +77,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
             <button
               onClick={() => setShowLabelModal(true)}
               className="btn btn-outline btn-sm"
+              id="btn-preview-label-wr"
             >
               <Printer size={15} />
               <span>Preview 4x6 Label</span>
@@ -59,6 +87,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
                 onClick={() => onNavigate('house-bills', 'create')}
                 className="btn btn-outline btn-sm"
                 style={{ borderColor: '#2563EB', color: '#2563EB' }}
+                id="btn-create-hbl-wr"
               >
                 <FileText size={15} />
                 <span>+ Create House B/L</span>
@@ -67,6 +96,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
             <button
               onClick={() => setShowEditModal(true)}
               className="btn btn-secondary btn-sm"
+              id="btn-edit-wr"
             >
               <Edit2 size={15} />
               <span>Edit Receipt</span>
@@ -74,6 +104,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
             <button
               onClick={() => setShowDeleteModal(true)}
               className="btn btn-danger btn-sm"
+              id="btn-delete-wr"
             >
               <Trash2 size={15} />
               <span>Delete Receipt</span>
@@ -82,6 +113,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
               <button
                 onClick={() => onNavigate('consolidations', 'create')}
                 className="btn btn-primary btn-sm"
+                id="btn-consolidate-wr"
               >
                 <Layers size={15} />
                 <span>Consolidate Cargo</span>
@@ -138,6 +170,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
           <button
             onClick={() => onNavigate('cargo')}
             className="btn btn-outline btn-sm"
+            id="btn-view-cargo-inv"
           >
             <span>View in Cargo Inventory</span>
           </button>
@@ -145,6 +178,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
             <button
               onClick={() => onNavigate('consolidations', 'create')}
               className="btn btn-primary btn-sm"
+              id="btn-build-consolidation"
             >
               <span>Build Consolidation</span>
             </button>
@@ -168,7 +202,14 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
         receipt={receipt}
         onClose={() => setShowEditModal(false)}
         onSave={async (updates) => {
-          await updateWarehouseReceipt(receipt.id, updates);
+          const res = await updateWarehouseReceipt(receipt.id || receipt.receiptNumber, updates);
+          if (res) {
+            setFetchedReceipt(res);
+          }
+          if (refreshAll) {
+            await refreshAll();
+          }
+          setShowEditModal(false);
         }}
       />
 
@@ -179,7 +220,7 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
         itemName={receipt.receiptNumber}
         itemType="Warehouse Receipt"
         onConfirm={async () => {
-          await deleteWarehouseReceipt(receipt.id);
+          await deleteWarehouseReceipt(receipt.id || receipt.receiptNumber);
           onNavigate('warehouse-receipts');
         }}
       />

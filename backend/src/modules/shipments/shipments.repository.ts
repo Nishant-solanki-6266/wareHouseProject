@@ -1,6 +1,6 @@
 import { eq, ilike, or, count, and, desc } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { shipments } from '../../db/schema/index.js';
+import { shipments, trackingEvents } from '../../db/schema/index.js';
 import { ShipmentFilterParams } from './shipments.types.js';
 
 export class ShipmentsRepository {
@@ -48,14 +48,71 @@ export class ShipmentsRepository {
   }
 
   async findByIdOrNumber(idOrNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(shipments.id, idOrNumber), eq(shipments.shipmentNumber, idOrNumber))
+      : eq(shipments.shipmentNumber, idOrNumber);
+
     const result = await db
       .select()
       .from(shipments)
-      .where(or(eq(shipments.id, idOrNumber), eq(shipments.shipmentNumber, idOrNumber)))
+      .where(whereCondition)
       .limit(1);
 
     return result[0] || null;
   }
+
+  async create(data: Partial<typeof shipments.$inferInsert>) {
+    const [created] = await db
+      .insert(shipments)
+      .values(data as any)
+      .returning();
+    return created;
+  }
+
+  async update(idOrNumber: string, data: Partial<typeof shipments.$inferInsert>) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(shipments.id, idOrNumber), eq(shipments.shipmentNumber, idOrNumber))
+      : eq(shipments.shipmentNumber, idOrNumber);
+
+    const [updated] = await db
+      .update(shipments)
+      .set({ ...data, updatedAt: new Date() } as any)
+      .where(whereCondition)
+      .returning();
+
+    return updated || null;
+  }
+
+  async delete(idOrNumber: string) {
+    const item = await this.findByIdOrNumber(idOrNumber);
+    if (item) {
+      try {
+        await db.delete(trackingEvents).where(eq(trackingEvents.shipmentId, item.id));
+      } catch (e) {
+        // trackingEvents delete optional
+      }
+      const [deleted] = await db
+        .delete(shipments)
+        .where(eq(shipments.id, item.id))
+        .returning();
+      return !!deleted;
+    }
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(shipments.id, idOrNumber), eq(shipments.shipmentNumber, idOrNumber))
+      : eq(shipments.shipmentNumber, idOrNumber);
+
+    const [deleted] = await db
+      .delete(shipments)
+      .where(whereCondition)
+      .returning();
+
+    return !!deleted;
+  }
 }
 
 export const shipmentsRepository = new ShipmentsRepository();
+

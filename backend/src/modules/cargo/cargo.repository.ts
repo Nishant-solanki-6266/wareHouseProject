@@ -42,8 +42,37 @@ export class CargoRepository {
   }
 
   async findById(id: string) {
-    const result = await db.select().from(cargo).where(eq(cargo.id, id)).limit(1);
+    const result = await db
+      .select()
+      .from(cargo)
+      .where(or(eq(cargo.id, id), eq(cargo.cargoNumber, id)))
+      .limit(1);
     return result[0] || null;
+  }
+
+  async create(data: Record<string, unknown>) {
+    const [created] = await db.insert(cargo).values(data as any).returning();
+    return created;
+  }
+
+  async update(id: string, data: Record<string, unknown>) {
+    const [updated] = await db
+      .update(cargo)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      } as any)
+      .where(or(eq(cargo.id, id), eq(cargo.cargoNumber, id)))
+      .returning();
+    return updated || null;
+  }
+
+  async delete(id: string) {
+    const [deleted] = await db
+      .delete(cargo)
+      .where(or(eq(cargo.id, id), eq(cargo.cargoNumber, id)))
+      .returning();
+    return !!deleted;
   }
 }
 

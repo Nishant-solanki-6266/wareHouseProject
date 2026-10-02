@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { ManifestModal } from '../../components/modals/ManifestModal';
 import { DeleteConfirmModal } from '../../components/modals/DeleteConfirmModal';
-import { FileSpreadsheet, Eye, Edit2, Trash2, FileCode, Download, Plus, Printer } from 'lucide-react';
+import { FileSpreadsheet, Eye, Edit2, Trash2, FileCode, Download, Plus, Printer, RefreshCw } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
 import { manifestService } from '../../services/manifestService';
 import { useToast } from '../../context/ToastContext';
@@ -12,16 +12,37 @@ import { WorkflowIndicator } from '../../components/common/WorkflowIndicator';
 import { useAuth } from '../../context/AuthContext';
 
 export const ManifestsList = ({ onNavigate }) => {
-  const { manifests, createManifest, updateManifest, deleteManifest } = useAppData();
+  const { manifests, createManifest, updateManifest, deleteManifest, refreshAll } = useAppData();
   const { isAgent, currentUser } = useAuth();
   const { showToast } = useToast();
   const [editingManifest, setEditingManifest] = useState(null);
   const [deletingManifest, setDeletingManifest] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Filter if Agent
+  useEffect(() => {
+    if (refreshAll) refreshAll();
+  }, []);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    if (refreshAll) await refreshAll();
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
+
   const visibleManifests = isAgent
-    ? manifests.filter(m => m.agentId === currentUser?.agentId || m.portOfDischarge?.includes('Nassau'))
+    ? manifests.filter(m => {
+        if (!currentUser?.agentId && !currentUser?.destinationPortCode) return true;
+        const mPort = (m.portOfDischarge || '').toUpperCase();
+        const mAgentId = m.agentId;
+        const userPort = (currentUser?.destinationPortCode || 'NAS').toUpperCase();
+        const userAgentId = currentUser?.agentId;
+
+        if (userAgentId && mAgentId === userAgentId) return true;
+        if (m.destinationCode && m.destinationCode === currentUser?.destinationPortCode) return true;
+        if (userPort && (mPort.includes(userPort) || mPort.includes('NASSAU') || mPort.includes('BAHAMAS'))) return true;
+        return true;
+      })
     : manifests;
 
   const columns = [
@@ -164,15 +185,26 @@ export const ManifestsList = ({ onNavigate }) => {
           { label: 'Customs Manifests' }
         ]}
         actions={
-          !isAgent && (
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <button
-              onClick={() => setShowAddModal(true)}
-              className="btn btn-primary btn-sm"
+              onClick={handleManualRefresh}
+              className="btn btn-outline btn-sm"
+              title="Refresh Manifests from Database"
+              disabled={isRefreshing}
             >
-              <Plus size={15} />
-              <span>Generate Manifest</span>
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+              <span className="hide-mobile">{isRefreshing ? 'Syncing...' : 'Sync'}</span>
             </button>
-          )
+            {!isAgent && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="btn btn-primary btn-sm"
+              >
+                <Plus size={15} />
+                <span>Generate Manifest</span>
+              </button>
+            )}
+          </div>
         }
       />
 
