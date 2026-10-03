@@ -170,25 +170,25 @@ export const AppDataProvider = ({ children }) => {
           setHouseBills(apiHBL);
           setStored(KEYS.HOUSE_BILLS, apiHBL);
         }
-        if (containersRes.status === 'fulfilled' && containersRes.value?.data) {
-          const apiCont = Array.isArray(containersRes.value.data) ? containersRes.value.data : containersRes.value.data.items || [];
-          setContainers(apiCont);
-          setStored(KEYS.CONTAINERS, apiCont);
+        if (containersRes.status === 'fulfilled' && containersRes.value) {
+          const val = containersRes.value.data || containersRes.value;
+          const apiCont = Array.isArray(val) ? val : val.items || [];
+          if (apiCont.length > 0) { setContainers(apiCont); setStored(KEYS.CONTAINERS, apiCont); }
         }
-        if (vesselsRes.status === 'fulfilled' && vesselsRes.value?.data) {
-          const apiVes = Array.isArray(vesselsRes.value.data) ? vesselsRes.value.data : vesselsRes.value.data.items || [];
-          setVessels(apiVes);
-          setStored(KEYS.VESSELS, apiVes);
+        if (vesselsRes.status === 'fulfilled' && vesselsRes.value) {
+          const val = vesselsRes.value.data || vesselsRes.value;
+          const apiVes = Array.isArray(val) ? val : val.items || [];
+          if (apiVes.length > 0) { setVessels(apiVes); setStored(KEYS.VESSELS, apiVes); }
         }
-        if (voyagesRes.status === 'fulfilled' && voyagesRes.value?.data) {
-          const apiVoy = Array.isArray(voyagesRes.value.data) ? voyagesRes.value.data : voyagesRes.value.data.items || [];
-          setVoyages(apiVoy);
-          setStored(KEYS.VOYAGES, apiVoy);
+        if (voyagesRes.status === 'fulfilled' && voyagesRes.value) {
+          const val = voyagesRes.value.data || voyagesRes.value;
+          const apiVoy = Array.isArray(val) ? val : val.items || [];
+          if (apiVoy.length > 0) { setVoyages(apiVoy); setStored(KEYS.VOYAGES, apiVoy); }
         }
-        if (agentsRes.status === 'fulfilled' && agentsRes.value?.data) {
-          const apiAgents = Array.isArray(agentsRes.value.data) ? agentsRes.value.data : agentsRes.value.data.items || [];
-          setAgents(apiAgents);
-          setStored(KEYS.AGENTS, apiAgents);
+        if (agentsRes.status === 'fulfilled' && agentsRes.value) {
+          const val = agentsRes.value.data || agentsRes.value;
+          const apiAgents = Array.isArray(val) ? val : val.items || [];
+          if (apiAgents.length > 0) { setAgents(apiAgents); setStored(KEYS.AGENTS, apiAgents); }
         }
         const auditRes = arguments?.[0] || undefined; // checked below via auditService sync
         try {

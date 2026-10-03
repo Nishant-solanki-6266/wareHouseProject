@@ -15,9 +15,10 @@ export { customerService, houseBillService, portService, settingsService, adminS
 export const containerService = {
   async getContainers(filters = {}) {
     try {
-      const res = await apiClient.get('containers', { params: filters });
-      if (res && res.data) {
-        const items = Array.isArray(res.data) ? res.data : (res.data.items || res.data.containers || []);
+      const res = await apiClient.get('/containers', { params: filters });
+      if (res) {
+        const val = res.data || res;
+        const items = Array.isArray(val) ? val : (val.items || val.containers || []);
         if (items.length > 0) {
           setStored(KEYS.CONTAINERS, items);
           return items;
@@ -78,9 +79,9 @@ export const containerService = {
         dischargePort: data.dischargePort || "BSNAS",
         temperatureControlled: Boolean(data.temperatureControlled)
       };
-      const res = await apiClient.post('containers', payload);
-      if (res && res.data) {
-        created = res.data;
+      const res = await apiClient.post('/containers', payload);
+      if (res) {
+        created = res.data || res;
       }
     } catch (e) {
       console.warn('[containerService] API createContainer failed, using local fallback:', e.message);
