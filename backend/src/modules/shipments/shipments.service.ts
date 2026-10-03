@@ -1,3 +1,6 @@
+import { eq, or } from 'drizzle-orm';
+import { db } from '../../db/index.js';
+import { warehouseReceipts, trackingEvents, TrackingCheckpoint } from '../../db/schema/index.js';
 import { ShipmentsRepository, shipmentsRepository } from './shipments.repository.js';
 import { ShipmentFilterParams, CreateShipmentInput, UpdateShipmentInput } from './shipments.types.js';
 import { NotFoundError } from '../../common/errors/not-found-error.js';
@@ -21,9 +24,15 @@ export class ShipmentsService {
   async createShipment(input: CreateShipmentInput) {
     const totalCount = await this.repo.countTotal();
     const seq = String(totalCount + 1).padStart(4, '0');
-    const shipmentNumber = input.shipmentNumber && input.shipmentNumber.trim()
+    let shipmentNumber = input.shipmentNumber && input.shipmentNumber.trim()
       ? input.shipmentNumber.trim()
       : `SHP-2026-${seq}`;
+
+    // Verify uniqueness
+    const existing = await this.repo.findByIdOrNumber(shipmentNumber);
+    if (existing) {
+      shipmentNumber = `SHP-2026-${Math.floor(100 + Math.random() * 900)}`;
+    }
 
     const trackingNumber = input.trackingNumber && input.trackingNumber.trim()
       ? input.trackingNumber.trim()
@@ -39,21 +48,66 @@ export class ShipmentsService {
     const totalWeightLbsNum = Number(input.totalWeightLbs) || 0;
     const totalWeightKgNum = input.totalWeightKg ? Number(input.totalWeightKg) : convertLbsToKg(totalWeightLbsNum);
 
-    const checkpoints = (input.trackingCheckpoints && input.trackingCheckpoints.length > 0)
+    const checkpoints: TrackingCheckpoint[] = (input.trackingCheckpoints && input.trackingCheckpoints.length > 0)
       ? input.trackingCheckpoints
       : [
           {
-            id: 'CHK-01',
-            stage: input.status || 'Cargo Received',
-            status: 'Completed' as const,
+            id: `CHK-${Date.now()}-1`,
+            stage: 'Cargo Received',
+            status: 'Completed',
             date: createdDate,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            time: '08:30 AM',
             location: origin,
-            notes: 'Shipment created and staged in CFS warehouse',
+            notes: 'Consolidated cargo received and verified at CFS origin facility.',
+          },
+          {
+            id: `CHK-${Date.now()}-2`,
+            stage: 'Consolidated',
+            status: input.status === 'Consolidated' || input.status === 'Loaded & Sealed' || input.status === 'In Transit' || input.status?.includes('Deliver') ? 'Completed' : 'Active',
+            date: createdDate,
+            time: '11:00 AM',
+            location: origin,
+            notes: 'Pallets consolidated and manifested for container load.',
+          },
+          {
+            id: `CHK-${Date.now()}-3`,
+            stage: 'Loaded & Sealed',
+            status: input.status === 'Loaded & Sealed' || input.status === 'In Transit' || input.status?.includes('Deliver') ? 'Completed' : 'Pending',
+            date: input.etd || createdDate,
+            time: '02:30 PM',
+            location: origin,
+            notes: `Container ${input.containerNumber || 'TBD'} loaded and sealed with bolt seal ${input.sealNumber || 'N/A'}.`,
+          },
+          {
+            id: `CHK-${Date.now()}-4`,
+            stage: 'In Transit',
+            status: input.status === 'In Transit' ? 'Active' : input.status?.includes('Deliver') ? 'Completed' : 'Pending',
+            date: input.etd || createdDate,
+            time: '06:00 PM',
+            location: `${input.vesselName || 'Ocean Vessel'} (Voyage ${input.voyageNumber || 'N/A'})`,
+            notes: `Ocean freight vessel en route to ${destinationPort}.`,
+          },
+          {
+            id: `CHK-${Date.now()}-5`,
+            stage: 'Arrived at Port',
+            status: input.status === 'Arrived at Port' ? 'Active' : input.status?.includes('Deliver') ? 'Completed' : 'Pending',
+            date: input.eta || createdDate,
+            time: '09:00 AM',
+            location: destinationPort,
+            notes: `Vessel docked at ${destinationPort}. Awaiting discharge and terminal handling.`,
+          },
+          {
+            id: `CHK-${Date.now()}-6`,
+            stage: 'Delivered / Released',
+            status: input.status?.includes('Deliver') ? 'Completed' : 'Pending',
+            date: input.eta || createdDate,
+            time: '04:00 PM',
+            location: destinationPort,
+            notes: 'Cargo cleared customs and released for final consignee release/delivery.',
           },
         ];
 
-    return this.repo.create({
+    const created = await this.repo.create({
       shipmentNumber,
       type: input.type || 'Ocean LCL Consolidation',
       serviceMode: input.serviceMode || 'Port-to-Port',
@@ -88,10 +142,46 @@ export class ShipmentsService {
       currentLocation: input.currentLocation || origin,
       trackingCheckpoints: checkpoints,
     });
+
+    // Link warehouse receipts in database if provided
+    if (created && input.warehouseReceiptIds && input.warehouseReceiptIds.length > 0) {
+      for (const wrId of input.warehouseReceiptIds) {
+        const isWrUuid = UUID_REGEX.test(wrId);
+        const cond = isWrUuid
+          ? or(eq(warehouseReceipts.id, wrId), eq(warehouseReceipts.receiptNumber, wrId))
+          : eq(warehouseReceipts.receiptNumber, wrId);
+
+        await db
+          .update(warehouseReceipts)
+          .set({ assignedShipmentId: created.id, status: 'In Transit', updatedAt: new Date() })
+          .where(cond)
+          .catch(() => {});
+      }
+    }
+
+    // Insert tracking events
+    if (created) {
+      for (let i = 0; i < checkpoints.length; i++) {
+        const chk = checkpoints[i];
+        await db.insert(trackingEvents).values({
+          trackingNumber: created.trackingNumber,
+          shipmentId: created.id,
+          stage: chk.stage,
+          status: chk.status || 'Pending',
+          eventDate: chk.date || createdDate,
+          eventTime: chk.time || '08:00 AM',
+          location: chk.location || origin,
+          notes: chk.notes || `Milestone: ${chk.stage}`,
+          checkpointIndex: i,
+        }).catch(() => {});
+      }
+    }
+
+    return created;
   }
 
   async updateShipment(id: string, input: UpdateShipmentInput) {
-    await this.getShipment(id);
+    const existing = await this.getShipment(id);
 
     const updatePayload: Record<string, unknown> = { ...input };
     if (input.agentId !== undefined) {
@@ -110,13 +200,79 @@ export class ShipmentsService {
       updatePayload.totalCbm = String((Number(input.totalCbm) || 0).toFixed(2));
     }
 
+    // Sync tracking checkpoints if status changed
+    if (input.status) {
+      const chks = ((existing.trackingCheckpoints as TrackingCheckpoint[]) || []).map(chk => {
+        if (chk.stage.toLowerCase() === input.status!.toLowerCase()) {
+          return { ...chk, status: 'Completed' as const, date: new Date().toISOString().split('T')[0] };
+        }
+        return chk;
+      });
+      updatePayload.trackingCheckpoints = chks;
+
+      // Update matching tracking event in database
+      await db
+        .update(trackingEvents)
+        .set({ status: 'Completed', eventDate: new Date().toISOString().split('T')[0], updatedAt: new Date() })
+        .where(
+          or(
+            eq(trackingEvents.shipmentId, existing.id),
+            eq(trackingEvents.trackingNumber, existing.trackingNumber)
+          )
+        )
+        .catch(() => {});
+    }
+
+    // Link any newly assigned warehouse receipts
+    if (input.warehouseReceiptIds && input.warehouseReceiptIds.length > 0) {
+      for (const wrId of input.warehouseReceiptIds) {
+        const isWrUuid = UUID_REGEX.test(wrId);
+        const cond = isWrUuid
+          ? or(eq(warehouseReceipts.id, wrId), eq(warehouseReceipts.receiptNumber, wrId))
+          : eq(warehouseReceipts.receiptNumber, wrId);
+
+        await db
+          .update(warehouseReceipts)
+          .set({ assignedShipmentId: existing.id, updatedAt: new Date() })
+          .where(cond)
+          .catch(() => {});
+      }
+    }
+
     return this.repo.update(id, updatePayload);
   }
 
   async deleteShipment(id: string) {
-    await this.getShipment(id);
+    const existing = await this.getShipment(id);
+
+    // Unassign linked warehouse receipts
+    if (existing) {
+      await db
+        .update(warehouseReceipts)
+        .set({ assignedShipmentId: null, updatedAt: new Date() })
+        .where(
+          or(
+            eq(warehouseReceipts.assignedShipmentId, existing.id),
+            eq(warehouseReceipts.assignedShipmentId, existing.shipmentNumber)
+          )
+        )
+        .catch(() => {});
+
+      // Clear tracking events
+      await db
+        .delete(trackingEvents)
+        .where(
+          or(
+            eq(trackingEvents.shipmentId, existing.id),
+            eq(trackingEvents.trackingNumber, existing.trackingNumber)
+          )
+        )
+        .catch(() => {});
+    }
+
     return this.repo.delete(id);
   }
 }
 
 export const shipmentsService = new ShipmentsService();
+

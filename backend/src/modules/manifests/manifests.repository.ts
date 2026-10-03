@@ -16,7 +16,10 @@ export class ManifestsRepository {
           ilike(manifests.manifestNumber, `%${filters.search}%`),
           ilike(manifests.title, `%${filters.search}%`),
           ilike(manifests.vesselName, `%${filters.search}%`),
-          ilike(manifests.voyageNumber, `%${filters.search}%`)
+          ilike(manifests.voyageNumber, `%${filters.search}%`),
+          ilike(manifests.portOfDischarge, `%${filters.search}%`),
+          ilike(manifests.portOfLoading, `%${filters.search}%`),
+          ilike(manifests.carrier, `%${filters.search}%`)
         )
       );
     }
@@ -69,19 +72,29 @@ export class ManifestsRepository {
   }
 
   async update(id: string, data: Partial<NewManifest>) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const whereCondition = isUuid
+      ? or(eq(manifests.id, id), eq(manifests.manifestNumber, id))
+      : eq(manifests.manifestNumber, id);
+
     const [updated] = await db
       .update(manifests)
       .set({ ...data, updatedAt: new Date() })
-      .where(or(eq(manifests.id, id), eq(manifests.manifestNumber, id)))
+      .where(whereCondition)
       .returning();
 
     return updated || null;
   }
 
   async delete(id: string): Promise<boolean> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const whereCondition = isUuid
+      ? or(eq(manifests.id, id), eq(manifests.manifestNumber, id))
+      : eq(manifests.manifestNumber, id);
+
     const [deleted] = await db
       .delete(manifests)
-      .where(or(eq(manifests.id, id), eq(manifests.manifestNumber, id)))
+      .where(whereCondition)
       .returning();
 
     return !!deleted;

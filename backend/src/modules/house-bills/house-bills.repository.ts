@@ -1,4 +1,4 @@
-import { eq, ilike, or, count, and, desc } from 'drizzle-orm';
+import { eq, ilike, or, count, and, desc, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { houseBills, NewHouseBill } from '../../db/schema/index.js';
 import { HouseBillFilterParams } from './house-bills.types.js';
@@ -8,21 +8,30 @@ export class HouseBillsRepository {
     const conditions = [];
 
     if (filters.status && filters.status !== 'All') {
-      conditions.push(eq(houseBills.status, filters.status));
+      conditions.push(ilike(houseBills.status, filters.status));
     }
     if (filters.destinationCode && filters.destinationCode !== 'All') {
       conditions.push(eq(houseBills.destinationCode, filters.destinationCode));
     }
     if (filters.customerId && filters.customerId !== 'All') {
-      conditions.push(eq(houseBills.customerId, filters.customerId));
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filters.customerId);
+      if (isUuid) {
+        conditions.push(eq(houseBills.customerId, filters.customerId));
+      } else {
+        conditions.push(ilike(houseBills.customerName, `%${filters.customerId}%`));
+      }
     }
     if (filters.search) {
+      const q = `%${filters.search.trim()}%`;
       conditions.push(
         or(
-          ilike(houseBills.hblNumber, `%${filters.search}%`),
-          ilike(houseBills.customerName, `%${filters.search}%`),
-          ilike(houseBills.cargoDescription, `%${filters.search}%`),
-          ilike(houseBills.destinationPort, `%${filters.search}%`)
+          ilike(houseBills.hblNumber, q),
+          ilike(houseBills.customerName, q),
+          ilike(houseBills.cargoDescription, q),
+          ilike(houseBills.destinationPort, q),
+          sql`${houseBills.shipper}::text ILIKE ${q}`,
+          sql`${houseBills.consignee}::text ILIKE ${q}`,
+          sql`${houseBills.warehouseReceiptIds}::text ILIKE ${q}`
         )
       );
     }

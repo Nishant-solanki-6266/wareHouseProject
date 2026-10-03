@@ -6,6 +6,7 @@ export const shipmentQuerySchema = z.object({
   search: z.string().optional(),
   status: z.string().optional(),
   destinationCode: z.string().optional(),
+  destination: z.string().optional(),
   agentId: z.string().optional(),
 });
 

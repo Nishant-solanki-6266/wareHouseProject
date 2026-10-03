@@ -24,19 +24,25 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
     r.id === receiptId || 
     r.receiptNumber === receiptId
   );
-  const receipt = contextReceipt || fetchedReceipt;
+  const receipt = fetchedReceipt || contextReceipt;
 
   useEffect(() => {
-    if (!contextReceipt && receiptId) {
-      setIsFetching(true);
+    let isMounted = true;
+    if (receiptId) {
+      if (!contextReceipt) setIsFetching(true);
       warehouseService.getReceiptById(receiptId)
         .then(res => {
-          if (res) setFetchedReceipt(res);
-          if (refreshAll) refreshAll();
+          if (isMounted && res) {
+            setFetchedReceipt(res);
+          }
         })
-        .finally(() => setIsFetching(false));
+        .catch(err => console.warn('[WarehouseReceiptDetail] Live fetch note:', err))
+        .finally(() => {
+          if (isMounted) setIsFetching(false);
+        });
     }
-  }, [contextReceipt, receiptId, refreshAll]);
+    return () => { isMounted = false; };
+  }, [receiptId]);
 
   if (isFetching && !receipt) {
     return (

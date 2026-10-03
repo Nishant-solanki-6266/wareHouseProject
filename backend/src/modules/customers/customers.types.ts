@@ -20,6 +20,8 @@ export interface CreateCustomerInput {
   accountType?: string;
   creditTerms?: string;
   notes?: string;
+  customerNumber?: string;
+  createdDate?: string;
 }
 
 export interface UpdateCustomerInput extends Partial<CreateCustomerInput> {

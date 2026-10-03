@@ -11,18 +11,20 @@ import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 
 export const ConsolidationsList = ({ onNavigate }) => {
-  const { consolidations, updateConsolidation, deleteConsolidation, refreshAll } = useAppData();
+  const { consolidations, updateConsolidation, deleteConsolidation, refreshAll, fetchMenuApi } = useAppData();
   const { isAgent, currentUser } = useAuth();
   const [editingConsolidation, setEditingConsolidation] = useState(null);
   const [deletingConsolidation, setDeletingConsolidation] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
+    if (fetchMenuApi) fetchMenuApi('consolidations');
     if (refreshAll) refreshAll();
   }, []);
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
+    if (fetchMenuApi) await fetchMenuApi('consolidations');
     if (refreshAll) await refreshAll();
     setTimeout(() => setIsRefreshing(false), 500);
   };
@@ -139,12 +141,41 @@ export const ConsolidationsList = ({ onNavigate }) => {
               setEditingConsolidation(item);
             }}
             className="btn btn-sm btn-outline"
-            title="View or Edit Consolidation Details"
+            title="View Consolidation Details"
             style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
           >
             <Eye size={13} />
             <span>View</span>
           </button>
+
+          {!isAgent && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingConsolidation(item);
+                }}
+                className="btn btn-sm btn-secondary"
+                title="Edit Consolidation"
+                style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+              >
+                <Edit2 size={13} />
+                <span className="hide-mobile">Edit</span>
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeletingConsolidation(item);
+                }}
+                className="btn btn-sm btn-ghost"
+                title="Delete Consolidation"
+                style={{ padding: '0.25rem 0.45rem', color: '#EF4444' }}
+              >
+                <Trash2 size={13} />
+              </button>
+            </>
+          )}
 
           <button
             onClick={(e) => {

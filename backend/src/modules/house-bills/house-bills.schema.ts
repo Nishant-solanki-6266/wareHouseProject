@@ -11,6 +11,7 @@ export const contactObjectSchema = z.union([
 ]);
 
 export const createHouseBillSchema = z.object({
+  hblNumber: z.string().optional(),
   customerId: z
     .string()
     .optional()
@@ -39,6 +40,13 @@ export const createHouseBillSchema = z.object({
   totalCft: z.coerce.number().optional().default(0),
   totalCbm: z.coerce.number().optional().default(0),
   freightTerms: z.string().optional().default('Freight Prepaid'),
+  status: z.string().optional().default('Active'),
+  issueDate: z.string().optional(),
+  createdDate: z.string().optional(),
+  assignedConsolidationId: z.string().optional(),
+  assignedMasterBLId: z.string().optional(),
+  assignedShipmentId: z.string().optional(),
+  freightCharges: z.any().optional(),
   notes: z.string().optional(),
 });
 
@@ -60,7 +68,7 @@ export const houseBillHoldSchema = z.object({
 
 export const houseBillQuerySchema = z.object({
   page: z.coerce.number().optional().default(1),
-  limit: z.coerce.number().optional().default(20),
+  limit: z.coerce.number().optional().default(100),
   search: z.string().optional(),
   status: z.string().optional(),
   destinationCode: z.string().optional(),

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { billOfLadingService } from '../../services/billOfLadingService';
 import { PageHeader } from '../../components/common/PageHeader';
 import { MasterBLViewer } from '../../components/documents/MasterBLViewer';
 import { HoldAlertBanner } from '../../components/common/HoldAlertBanner';
@@ -34,7 +35,23 @@ export const BillOfLadingDetail = ({ blId, onNavigate }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const bl = billsOfLading.find(b => b.id === blId || b.blNumber === blId);
+  const [liveBL, setLiveBL] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (blId) {
+      billOfLadingService.getBillOfLadingById(blId)
+        .then(data => {
+          if (isMounted && data) {
+            setLiveBL(data);
+          }
+        })
+        .catch(err => console.warn('Could not load live B/L details:', err));
+    }
+    return () => { isMounted = false; };
+  }, [blId]);
+
+  const bl = liveBL || billsOfLading.find(b => b.id === blId || b.blNumber === blId);
 
   if (!bl) {
     return (
@@ -49,10 +66,12 @@ export const BillOfLadingDetail = ({ blId, onNavigate }) => {
 
   const isOnHold = bl.status === 'On Hold' || bl.holdDetails?.isOnHold;
 
-  // Retrieve linked House Bills
-  const linkedHbls = houseBills.filter(
-    h => bl.houseBillIds?.includes(h.id) || bl.houseBillIds?.includes(h.hblNumber) || h.assignedMasterBLId === bl.id || h.assignedMasterBLId === bl.blNumber
-  );
+  // Retrieve linked House Bills: prefer live database relations if present
+  const linkedHbls = (bl.linkedHouseBills && bl.linkedHouseBills.length > 0)
+    ? bl.linkedHouseBills
+    : houseBills.filter(
+        h => bl.houseBillIds?.includes(h.id) || bl.houseBillIds?.includes(h.hblNumber) || h.assignedMasterBLId === bl.id || h.assignedMasterBLId === bl.blNumber
+      );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '1100px', margin: '0 auto' }}>
@@ -289,7 +308,8 @@ export const BillOfLadingDetail = ({ blId, onNavigate }) => {
         isEdit={true}
         onClose={() => setShowEditModal(false)}
         onSave={async (updates) => {
-          await updateBillOfLading(bl.id, updates);
+          const updated = await updateBillOfLading(bl.id || bl.blNumber, updates);
+          if (updated) setLiveBL(updated);
         }}
       />
 
@@ -300,7 +320,7 @@ export const BillOfLadingDetail = ({ blId, onNavigate }) => {
         itemName={bl.blNumber}
         itemType="Bill of Lading"
         onConfirm={async () => {
-          await deleteBillOfLading(bl.id);
+          await deleteBillOfLading(bl.id || bl.blNumber);
           onNavigate('bills-of-lading');
         }}
       />
@@ -311,7 +331,8 @@ export const BillOfLadingDetail = ({ blId, onNavigate }) => {
         onClose={() => setShowClearModal(false)}
         bl={bl}
         onConfirm={async (id, notes) => {
-          await clearBLHold(id, notes);
+          const updated = await clearBLHold(id || bl.id || bl.blNumber, notes);
+          if (updated) setLiveBL(updated);
         }}
       />
 
@@ -320,7 +341,8 @@ export const BillOfLadingDetail = ({ blId, onNavigate }) => {
         onClose={() => setShowPlaceModal(false)}
         bl={bl}
         onConfirm={async (id, reason, notes) => {
-          await placeBLHold(id, reason, notes);
+          const updated = await placeBLHold(id || bl.id || bl.blNumber, reason, notes);
+          if (updated) setLiveBL(updated);
         }}
       />
     </div>

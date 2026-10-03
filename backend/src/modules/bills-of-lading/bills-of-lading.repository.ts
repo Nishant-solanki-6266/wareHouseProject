@@ -1,6 +1,6 @@
-import { eq, ilike, or, count, and, desc } from 'drizzle-orm';
+import { eq, ilike, or, count, and, desc, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { billsOfLading, NewBillOfLading, HoldDetails } from '../../db/schema/index.js';
+import { billsOfLading, NewBillOfLading, HoldDetails, houseBills, shipments } from '../../db/schema/index.js';
 import { BillOfLadingFilterParams } from './bills-of-lading.types.js';
 
 export class BillsOfLadingRepository {
@@ -55,7 +55,65 @@ export class BillsOfLadingRepository {
       .where(whereCondition)
       .limit(1);
 
-    return result[0] || null;
+    const bl = result[0];
+    if (!bl) return null;
+
+    // Fetch linked house bills
+    const hblConditions = [
+      eq(houseBills.assignedMasterBLId, bl.id),
+      eq(houseBills.assignedMasterBLId, bl.blNumber),
+    ];
+    if (Array.isArray(bl.houseBillIds) && bl.houseBillIds.length > 0) {
+      const validHblUuids = bl.houseBillIds.filter((hId: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(hId));
+      if (validHblUuids.length > 0) {
+        hblConditions.push(inArray(houseBills.id, validHblUuids));
+      }
+      hblConditions.push(inArray(houseBills.hblNumber, bl.houseBillIds));
+    }
+
+    const linkedHBLs = await db
+      .select()
+      .from(houseBills)
+      .where(or(...hblConditions))
+      .catch(() => []);
+
+    // Fetch linked shipment
+    let linkedShipment: any = null;
+    const shipmentConditions = [
+      eq(shipments.billOfLadingId, bl.id),
+      eq(shipments.billOfLadingNumber, bl.blNumber),
+    ];
+    if (bl.shipmentId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bl.shipmentId)) {
+      shipmentConditions.push(eq(shipments.id, bl.shipmentId));
+    }
+    if (bl.shipmentNumber) {
+      shipmentConditions.push(eq(shipments.shipmentNumber, bl.shipmentNumber));
+    }
+
+    const shipResult = await db
+      .select()
+      .from(shipments)
+      .where(or(...shipmentConditions))
+      .limit(1)
+      .catch(() => []);
+
+    if (shipResult.length > 0) {
+      linkedShipment = shipResult[0];
+    }
+
+    return {
+      ...bl,
+      oceanVessel: bl.oceanVessel || linkedShipment?.vesselName || 'M/V Caribbean Voyager',
+      voyageNumber: bl.voyageNumber || linkedShipment?.voyageNumber || 'VOY-2026-088',
+      carrier: bl.carrier || linkedShipment?.carrier || 'Tropical Shipping',
+      containerNumber: bl.containerNumber || linkedShipment?.containerNumber || '',
+      sealNumber: bl.sealNumber || linkedShipment?.sealNumber || '',
+      containerType: bl.containerType || linkedShipment?.containerType || "40' High Cube",
+      shipmentNumber: bl.shipmentNumber || linkedShipment?.shipmentNumber || null,
+      shipmentId: bl.shipmentId || linkedShipment?.id || null,
+      linkedHouseBills: linkedHBLs || [],
+      linkedShipment: linkedShipment || null,
+    };
   }
 
   async countTotal(): Promise<number> {

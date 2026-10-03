@@ -162,7 +162,7 @@ export const NewConsolidationWizard = ({ onNavigate }) => {
     };
 
     const created = await createConsolidation(payload);
-    if (created.assignedShipmentId) {
+    if (created?.assignedShipmentId) {
       onNavigate('shipments', created.assignedShipmentId);
     } else {
       onNavigate('consolidations');

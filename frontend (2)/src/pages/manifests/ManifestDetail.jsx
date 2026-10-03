@@ -12,10 +12,21 @@ export const ManifestDetail = ({ manifestId, onNavigate }) => {
   const { manifests, updateManifest, deleteManifest } = useAppData();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [liveManifest, setLiveManifest] = useState(null);
 
   const manifest = manifests.find(m => m.id === manifestId || m.manifestNumber === manifestId);
 
-  if (!manifest) {
+  React.useEffect(() => {
+    if (!manifest && manifestId) {
+      manifestService.getManifestById(manifestId).then(res => {
+        if (res) setLiveManifest(res);
+      });
+    }
+  }, [manifest, manifestId]);
+
+  const currentManifest = manifest || liveManifest;
+
+  if (!currentManifest) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
         <h3>Shipping Manifest Not Found</h3>
@@ -29,12 +40,12 @@ export const ManifestDetail = ({ manifestId, onNavigate }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <PageHeader
-        title={`Shipping Manifest ${manifest.manifestNumber}`}
-        subtitle={`${manifest.vesselName} (${manifest.voyageNumber}) — ${manifest.portOfLoading} to ${manifest.portOfDischarge}`}
+        title={`Shipping Manifest ${currentManifest.manifestNumber}`}
+        subtitle={`${currentManifest.vesselName} (${currentManifest.voyageNumber}) — ${currentManifest.portOfLoading} to ${currentManifest.portOfDischarge}`}
         icon={FileSpreadsheet}
         breadcrumbs={[
           { label: 'Shipping Manifests', href: '#' },
-          { label: manifest.manifestNumber }
+          { label: currentManifest.manifestNumber }
         ]}
         actions={
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -88,7 +99,7 @@ export const ManifestDetail = ({ manifestId, onNavigate }) => {
             fontWeight: 700,
             letterSpacing: '0.04em'
           }}>
-            CURRENT STATUS: {manifest.status?.toUpperCase() || 'READY'}
+            CURRENT STATUS: {currentManifest.status?.toUpperCase() || 'READY'}
           </div>
           <span style={{ fontSize: '0.85rem', color: '#166534', fontWeight: 600 }}>
             Next Step: Handover manifest to Destination Agent & Customs Clearance
@@ -106,16 +117,16 @@ export const ManifestDetail = ({ manifestId, onNavigate }) => {
       </div>
 
       {/* Embedded Manifest Viewer with Portrait / Landscape Toggle */}
-      <ManifestViewer manifest={manifest} />
+      <ManifestViewer manifest={currentManifest} />
 
       {/* Edit Manifest Modal */}
       <ManifestModal
         isOpen={showEditModal}
-        manifest={manifest}
+        manifest={currentManifest}
         isEdit={true}
         onClose={() => setShowEditModal(false)}
         onSave={async (updates) => {
-          await updateManifest(manifest.id, updates);
+          await updateManifest(currentManifest.id, updates);
         }}
       />
 
@@ -123,10 +134,10 @@ export const ManifestDetail = ({ manifestId, onNavigate }) => {
       <DeleteConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        itemName={manifest.manifestNumber}
+        itemName={currentManifest.manifestNumber}
         itemType="Manifest"
         onConfirm={async () => {
-          await deleteManifest(manifest.id);
+          await deleteManifest(currentManifest.id);
           onNavigate('manifests');
         }}
       />

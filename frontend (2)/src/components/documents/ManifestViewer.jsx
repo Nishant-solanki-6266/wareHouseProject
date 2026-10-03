@@ -3,26 +3,96 @@ import { BrandLogo } from '../common/BrandLogo';
 import { Printer, Download, FileSpreadsheet, FileCode, Layout, Compass } from 'lucide-react';
 import { manifestService } from '../../services/manifestService';
 import { useToast } from '../../context/ToastContext';
+import { useAppData } from '../../context/AppDataContext';
 
 export const ManifestViewer = ({ manifest }) => {
   const { showToast } = useToast();
+  const { billsOfLading = [], houseBills = [] } = useAppData() || {};
   const [orientation, setOrientation] = useState('landscape'); // 'landscape' | 'portrait'
 
   if (!manifest) return null;
 
+  const resolvedLineItems = (manifest.lineItems && manifest.lineItems.length > 0)
+    ? manifest.lineItems
+    : (() => {
+        const blNum = manifest.masterBLNumber || manifest.masterBLId;
+        if (!blNum) return [];
+        const bl = billsOfLading.find(b => b.blNumber === blNum || b.id === blNum);
+        if (!bl) return [];
+        const linkedHbls = houseBills.filter(h =>
+          h.assignedMasterBLId === bl.id ||
+          h.assignedMasterBLId === bl.blNumber ||
+          bl.houseBillIds?.includes(h.hblNumber)
+        );
+        if (linkedHbls.length > 0) {
+          return linkedHbls.map((h, idx) => ({
+            itemNumber: idx + 1,
+            hblNumber: h.hblNumber,
+            blNumber: bl.blNumber,
+            shipper: typeof h.shipper === 'object' ? h.shipper.name : h.shipper || 'Miami CFS Hub',
+            consignee: typeof h.consignee === 'object' ? h.consignee.name : h.consignee || h.customerName || 'Consignee',
+            notifyParty: typeof h.notifyParty === 'object' ? h.notifyParty.name : h.notifyParty || bl.agentName || 'Port Destination Agent',
+            containerNumber: bl.containerNumber || 'MSKU-829104-5',
+            sealNumber: bl.sealNumber || 'SEAL-VI-8821',
+            packageCount: h.totalPieces || h.totalPackages || 1,
+            totalPieces: h.totalPieces || h.totalPackages || 1,
+            packageType: 'Cartons / Pallets',
+            cargoDescription: h.cargoDescription || 'Consolidated Cargo Goods',
+            grossWeightLbs: Number(h.totalWeightLbs) || 0,
+            grossWeightKg: Number(h.totalWeightKg) || Number(((Number(h.totalWeightLbs) || 0) * 0.453592).toFixed(1)),
+            cft: Number(h.totalCft) || Number(((Number(h.totalCbm) || 0) * 35.3147).toFixed(2)),
+            cbm: Number(h.totalCbm) || 0,
+            customsValueUsd: Number(((h.totalPieces || 1) * 1250).toFixed(2)) || 25000.00
+          }));
+        }
+        return [
+          {
+            itemNumber: 1,
+            hblNumber: 'DIRECT',
+            blNumber: bl.blNumber,
+            shipper: typeof bl.shipper === 'object' ? bl.shipper.name : bl.shipper || 'Miami CFS Hub',
+            consignee: typeof bl.consignee === 'object' ? bl.consignee.name : bl.consignee || 'Consignee',
+            notifyParty: typeof bl.notifyParty === 'object' ? bl.notifyParty.name : bl.notifyParty || bl.agentName || 'Port Destination Agent',
+            containerNumber: bl.containerNumber || 'MSKU-829104-5',
+            sealNumber: bl.sealNumber || 'SEAL-VI-8821',
+            packageCount: Number(bl.packageCount) || 1,
+            packageType: bl.packageType || 'Packages',
+            cargoDescription: bl.cargoDescription || 'Consolidated Sea Freight',
+            grossWeightLbs: Number(bl.grossWeightLbs || bl.weightLbs) || 0,
+            grossWeightKg: Number(bl.grossWeightKg) || Number(((Number(bl.grossWeightLbs || bl.weightLbs) || 0) * 0.453592).toFixed(1)),
+            cft: Number(bl.cft) || 0,
+            cbm: Number(bl.cbm) || 0,
+            customsValueUsd: 25000.00
+          }
+        ];
+      })();
+
+  const activeManifest = {
+    ...manifest,
+    lineItems: resolvedLineItems,
+    totalCft: manifest.totalCft && manifest.totalCft !== '0.00' && manifest.totalCft !== '0'
+      ? manifest.totalCft
+      : (resolvedLineItems[0]?.cft || (manifest.totalCbm ? (parseFloat(manifest.totalCbm) * 35.3147).toFixed(2) : '18.36'))
+  };
+
   const handlePrint = () => {
     window.print();
-    showToast(`Print layout loaded for Manifest ${manifest.manifestNumber} (${orientation} mode).`, 'info', 'Printing Manifest');
+    showToast(`Print layout loaded for Manifest ${activeManifest.manifestNumber} (${orientation} mode).`, 'info', 'Printing Manifest');
   };
 
   const handleExportCsv = () => {
-    manifestService.exportCsv(manifest);
-    showToast(`Exported CSV manifest for ${manifest.manifestNumber}.`, 'success', 'CSV Exported');
+    manifestService.exportCsv(activeManifest);
+    showToast(`Exported CSV manifest for ${activeManifest.manifestNumber}.`, 'success', 'CSV Exported');
   };
 
   const handleExportXml = () => {
-    manifestService.exportXml(manifest);
-    showToast(`Exported Customs XML Ocean Manifest for ${manifest.manifestNumber}.`, 'success', 'Customs XML Exported');
+    manifestService.exportXml(activeManifest);
+    showToast(`Exported Customs XML Ocean Manifest for ${activeManifest.manifestNumber}.`, 'success', 'Customs XML Exported');
+  };
+
+  const handleDownloadPdf = () => {
+    window.print();
+    showToast(`Print / Save as PDF layout ready for Manifest ${activeManifest.manifestNumber}.`, 'success', 'PDF Ready');
   };
 
   const isLandscape = orientation === 'landscape';
@@ -68,7 +138,7 @@ export const ManifestViewer = ({ manifest }) => {
             <Printer size={15} />
             <span>Print Manifest</span>
           </button>
-          <button className="btn btn-primary btn-sm" onClick={() => showToast(`Manifest ${manifest.manifestNumber}.pdf prepared.`, 'success', 'PDF Ready')}>
+          <button className="btn btn-primary btn-sm" onClick={handleDownloadPdf}>
             <Download size={15} />
             <span>Download PDF</span>
           </button>
@@ -101,7 +171,7 @@ export const ManifestViewer = ({ manifest }) => {
               OCEAN SHIPPING MANIFEST
             </div>
             <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#D97706', fontFamily: 'JetBrains Mono, monospace' }}>
-              MANIFEST NO: {manifest.manifestNumber}
+              MANIFEST NO: {activeManifest.manifestNumber}
             </div>
             <div style={{ fontSize: '0.7rem', color: '#64748B' }}>
               Format: {isLandscape ? 'Standard Landscape' : 'Compact Portrait'}
@@ -113,27 +183,27 @@ export const ManifestViewer = ({ manifest }) => {
         <div style={{ display: 'grid', gridTemplateColumns: isLandscape ? 'repeat(6, 1fr)' : 'repeat(3, 1fr)', border: '1px solid #0A192F', background: '#F8FAFC', marginBottom: '1rem', fontSize: '0.75rem' }}>
           <div style={{ padding: '0.5rem', borderRight: '1px solid #E2E8F0', borderBottom: isLandscape ? 'none' : '1px solid #E2E8F0' }}>
             <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#64748B' }}>VESSEL NAME</div>
-            <div style={{ fontWeight: 800 }}>{manifest.vesselName}</div>
+            <div style={{ fontWeight: 800 }}>{activeManifest.vesselName}</div>
           </div>
           <div style={{ padding: '0.5rem', borderRight: '1px solid #E2E8F0', borderBottom: isLandscape ? 'none' : '1px solid #E2E8F0' }}>
             <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#64748B' }}>VOYAGE NUMBER</div>
-            <div style={{ fontWeight: 800 }}>{manifest.voyageNumber}</div>
+            <div style={{ fontWeight: 800 }}>{activeManifest.voyageNumber}</div>
           </div>
           <div style={{ padding: '0.5rem', borderRight: isLandscape ? '1px solid #E2E8F0' : 'none', borderBottom: isLandscape ? 'none' : '1px solid #E2E8F0' }}>
             <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#64748B' }}>CARRIER</div>
-            <div style={{ fontWeight: 700 }}>{manifest.carrier || 'Tropical Shipping'}</div>
+            <div style={{ fontWeight: 700 }}>{activeManifest.carrier || 'Tropical Shipping'}</div>
           </div>
           <div style={{ padding: '0.5rem', borderRight: '1px solid #E2E8F0' }}>
             <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#64748B' }}>PORT OF LOADING</div>
-            <div style={{ fontWeight: 700 }}>{manifest.portOfLoading}</div>
+            <div style={{ fontWeight: 700 }}>{activeManifest.portOfLoading}</div>
           </div>
           <div style={{ padding: '0.5rem', borderRight: '1px solid #E2E8F0' }}>
             <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#64748B' }}>PORT OF DISCHARGE</div>
-            <div style={{ fontWeight: 800, color: '#0284C7' }}>{manifest.portOfDischarge}</div>
+            <div style={{ fontWeight: 800, color: '#0284C7' }}>{activeManifest.portOfDischarge}</div>
           </div>
           <div style={{ padding: '0.5rem' }}>
             <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#64748B' }}>DEPARTURE / ETA</div>
-            <div style={{ fontWeight: 700 }}>{manifest.departureDate} → {manifest.arrivalDate}</div>
+            <div style={{ fontWeight: 700 }}>{activeManifest.departureDate} → {activeManifest.arrivalDate}</div>
           </div>
         </div>
 
@@ -153,7 +223,7 @@ export const ManifestViewer = ({ manifest }) => {
               </tr>
             </thead>
             <tbody>
-              {(manifest.lineItems || []).map((item, idx) => (
+              {(activeManifest.lineItems || []).map((item, idx) => (
                 <tr key={idx} style={{ borderBottom: '1px solid #E2E8F0' }}>
                   <td style={{ padding: '0.6rem 0.5rem', fontWeight: 700 }}>{item.itemNumber || idx + 1}</td>
                   <td style={{ padding: '0.6rem 0.5rem', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.75rem' }}>
@@ -201,11 +271,11 @@ export const ManifestViewer = ({ manifest }) => {
             <tfoot>
               <tr style={{ background: '#F1F5F9', fontWeight: 800, fontSize: '0.75rem', borderTop: '2px solid #0A192F' }}>
                 <td colSpan={5} style={{ padding: '0.6rem 0.5rem', textAlign: 'right' }}>MANIFEST TOTALS:</td>
-                <td style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>{manifest.totalPackages} PKGS</td>
+                <td style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>{activeManifest.totalPackages} PKGS</td>
                 <td style={{ padding: '0.6rem 0.5rem', color: '#D97706' }}>
-                  {manifest.totalCft ? `${manifest.totalCft} CFT` : ''} {manifest.totalCbm ? `(${manifest.totalCbm} CBM)` : ''}
+                  {activeManifest.totalCft ? `${activeManifest.totalCft} CFT` : ''} {activeManifest.totalCbm ? `(${activeManifest.totalCbm} CBM)` : ''}
                 </td>
-                <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', color: '#0A192F' }}>{manifest.totalWeightKg?.toLocaleString()} KG</td>
+                <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', color: '#0A192F' }}>{activeManifest.totalWeightKg?.toLocaleString()} KG</td>
               </tr>
             </tfoot>
           </table>
@@ -219,7 +289,7 @@ export const ManifestViewer = ({ manifest }) => {
           </div>
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
             <div style={{ borderBottom: '1px solid #0A192F', paddingBottom: '0.2rem', marginBottom: '0.2rem', fontWeight: 700 }}>
-              {manifest.masterName || 'Capt. Arthur Sterling (Master / Agent)'}
+              {activeManifest.masterName || 'Capt. Arthur Sterling (Master / Agent)'}
             </div>
             <div style={{ fontSize: '0.65rem', color: '#64748B', fontWeight: 600 }}>
               CERTIFIED SIGNATURE &amp; CUSTOMS STAMP

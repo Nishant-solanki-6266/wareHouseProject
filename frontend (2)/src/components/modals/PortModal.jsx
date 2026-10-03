@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Anchor, X, Save, Plus, MapPin } from 'lucide-react';
+import { useAppData } from '../../context/AppDataContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const PortModal = ({
   isOpen,
@@ -8,6 +10,28 @@ export const PortModal = ({
   port = null,
   isEdit = false
 }) => {
+  const { users = [], agents = [] } = useAppData();
+  const { usersList = [] } = useAuth();
+
+  const agentUsers = useMemo(() => {
+    const map = new Map();
+    [...usersList, ...users].forEach((u) => {
+      if (u && (u.name || u.email)) {
+        const isAgent =
+          u.roleKey === 'agent' ||
+          u.role === 'Destination Agent' ||
+          u.role?.toLowerCase()?.includes('agent');
+        if (isAgent) {
+          const key = (u.name || u.email).trim().toLowerCase();
+          if (!map.has(key)) {
+            map.set(key, u);
+          }
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [usersList, users]);
+
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -133,13 +157,30 @@ export const PortModal = ({
 
               <div className="form-group">
                 <label className="form-label">Default Assigned Port Agent</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Abaco Maritime Agency"
-                  className="form-control"
+                <select
+                  className="form-select"
                   value={formData.defaultAgent}
                   onChange={(e) => setFormData({ ...formData, defaultAgent: e.target.value })}
-                />
+                >
+                  <option value="">-- Select Assigned Port Agent --</option>
+                  {(() => {
+                    const list = agentUsers.map((u) => ({
+                      value: u.name,
+                      label: `${u.name} (Destination Agent)`
+                    }));
+                    if (formData.defaultAgent && !list.some((item) => item.value === formData.defaultAgent)) {
+                      list.unshift({
+                        value: formData.defaultAgent,
+                        label: formData.defaultAgent
+                      });
+                    }
+                    return list.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ));
+                  })()}
+                </select>
               </div>
             </div>
 

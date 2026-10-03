@@ -103,7 +103,7 @@ export const ShipmentsList = ({ onNavigate }) => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onNavigate('shipments', item.id);
+              onNavigate('shipments', item.id || item.shipmentNumber);
             }}
             className="btn btn-sm btn-primary"
             style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem' }}
@@ -198,7 +198,7 @@ export const ShipmentsList = ({ onNavigate }) => {
         emptyNextStep="Create a shipment or build a consolidation from staged warehouse cargo."
         emptyActionLabel="Create Shipment"
         onEmptyAction={() => setShowAddModal(true)}
-        onRowClick={(item) => onNavigate('shipments', item.id)}
+        onRowClick={(item) => onNavigate('shipments', item.id || item.shipmentNumber)}
       />
 
       {/* Add Direct Shipment Modal */}
@@ -218,7 +218,7 @@ export const ShipmentsList = ({ onNavigate }) => {
         isEdit={true}
         onClose={() => setEditingShipment(null)}
         onSave={async (updates) => {
-          await updateShipment(editingShipment.id, updates);
+          await updateShipment(editingShipment.id || editingShipment.shipmentNumber, updates);
         }}
       />
 

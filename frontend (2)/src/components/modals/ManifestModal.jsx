@@ -120,35 +120,41 @@ export const ManifestModal = ({
 
       if (linkedHbls.length > 0) {
         lineItems = linkedHbls.map((h, idx) => {
-          totalPackages += Number(h.totalPieces || h.totalPackages || 1);
-          totalWeightLbs += Number(h.totalWeightLbs || 0);
-          totalCft += Number(h.totalCft || 0);
-          totalCbm += Number(h.totalCbm || 0);
+          const hWeightLbs = Number(h.totalWeightLbs || h.weightLbs || 0);
+          const hCbm = Number(h.totalCbm || h.cbm || 0);
+          const hCft = Number(h.totalCft || h.cft || (hCbm ? (hCbm * 35.3147).toFixed(2) : 0));
+          const hPackages = Number(h.totalPieces || h.totalPackages || 1);
+
+          totalPackages += hPackages;
+          totalWeightLbs += hWeightLbs;
+          totalCft += hCft;
+          totalCbm += hCbm;
 
           return {
             itemNumber: idx + 1,
             hblNumber: h.hblNumber,
             blNumber: bl.blNumber,
             shipper: typeof h.shipper === 'object' ? h.shipper.name : h.shipper || 'CFS Miami Hub',
-            consignee: typeof h.consignee === 'object' ? h.consignee.name : h.consignee || h.customerName,
-            notifyParty: typeof h.notifyParty === 'object' ? h.notifyParty.name : h.notifyParty || bl.agentName,
-            containerNumber: bl.containerNumber || 'CMAU-109482-7',
-            sealNumber: bl.sealNumber || 'SEAL-99482',
-            packageCount: h.totalPieces || h.totalPackages || 1,
+            consignee: typeof h.consignee === 'object' ? h.consignee.name : h.consignee || h.customerName || 'Consignee',
+            notifyParty: typeof h.notifyParty === 'object' ? h.notifyParty.name : h.notifyParty || bl.agentName || 'Port Destination Agent',
+            containerNumber: bl.containerNumber || 'MSKU-829104-5',
+            sealNumber: bl.sealNumber || 'SEAL-VI-8821',
+            packageCount: hPackages,
+            totalPieces: hPackages,
             packageType: 'Cartons / Packages',
             cargoDescription: h.cargoDescription || 'Consolidated Cargo Goods',
-            grossWeightLbs: h.totalWeightLbs || 0,
-            grossWeightKg: h.totalWeightKg || Number(((h.totalWeightLbs || 0) * 0.453592).toFixed(1)),
-            cft: h.totalCft || 0,
-            cbm: h.totalCbm || 0
+            grossWeightLbs: hWeightLbs,
+            grossWeightKg: Number(h.totalWeightKg) || Number((hWeightLbs * 0.453592).toFixed(1)),
+            cft: hCft,
+            cbm: hCbm
           };
         });
       } else {
         // Direct single entry from Master B/L
-        totalPackages = Number(bl.packageCount || 1);
-        totalWeightLbs = Number(bl.weightLbs || 0);
-        totalCft = Number(bl.cft || 0);
+        totalPackages = Number(bl.packageCount || bl.totalPieces || 1);
+        totalWeightLbs = Number(bl.grossWeightLbs || bl.totalWeightLbs || bl.weightLbs || 0);
         totalCbm = Number(bl.cbm || 0);
+        totalCft = Number(bl.cft || (totalCbm ? (totalCbm * 35.3147).toFixed(2) : 0));
 
         lineItems = [
           {
@@ -157,14 +163,15 @@ export const ManifestModal = ({
             blNumber: bl.blNumber,
             shipper: typeof bl.shipper === 'object' ? bl.shipper.name : bl.shipper || 'CFS Miami Hub',
             consignee: typeof bl.consignee === 'object' ? bl.consignee.name : bl.consignee || 'Consignee',
-            notifyParty: typeof bl.notifyParty === 'object' ? bl.notifyParty.name : bl.notifyParty || bl.agentName,
-            containerNumber: bl.containerNumber || 'CMAU-109482-7',
-            sealNumber: bl.sealNumber || 'SEAL-99482',
+            notifyParty: typeof bl.notifyParty === 'object' ? bl.notifyParty.name : bl.notifyParty || bl.agentName || 'Port Destination Agent',
+            containerNumber: bl.containerNumber || 'MSKU-829104-5',
+            sealNumber: bl.sealNumber || 'SEAL-VI-8821',
             packageCount: totalPackages,
+            totalPieces: totalPackages,
             packageType: bl.packageType || 'Packages',
             cargoDescription: bl.cargoDescription || 'Consolidated Sea Freight',
             grossWeightLbs: totalWeightLbs,
-            grossWeightKg: Number((totalWeightLbs * 0.453592).toFixed(1)),
+            grossWeightKg: Number(bl.grossWeightKg) || Number((totalWeightLbs * 0.453592).toFixed(1)),
             cft: totalCft,
             cbm: totalCbm
           }
