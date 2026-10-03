@@ -15,8 +15,6 @@ export const createCustomerSchema = z.object({
   taxId: z.string().optional(),
   accountType: z.string().optional(),
   creditTerms: z.string().optional(),
-  customerNumber: z.string().optional(),
-  createdDate: z.string().optional(),
   notes: z.string().optional(),
   status: z.string().optional(),
 });

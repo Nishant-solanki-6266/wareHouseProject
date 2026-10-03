@@ -98,7 +98,6 @@ export class BillsOfLadingService {
 
     const updatePayload: Record<string, unknown> = { ...input };
     delete updatePayload.id;
-<<<<<<< HEAD
     delete updatePayload.linkedHouseBills;
     delete updatePayload.linkedShipment;
     delete updatePayload.linkedWarehouseReceipts;
@@ -128,10 +127,6 @@ export class BillsOfLadingService {
       delete (updatePayload as any).notifyPartyName;
       delete (updatePayload as any).notifyPartyAddress;
     }
-=======
-    delete updatePayload.createdAt;
-    delete updatePayload.updatedAt;
->>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
 
     if (input.agentId !== undefined) {
       updatePayload.agentId = input.agentId && UUID_REGEX.test(input.agentId) ? input.agentId : null;
