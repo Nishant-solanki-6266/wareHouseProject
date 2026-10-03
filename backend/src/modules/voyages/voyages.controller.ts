@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { VoyagesService, voyagesService } from './voyages.service.js';
-import { voyageQuerySchema } from './voyages.schema.js';
+import { voyageQuerySchema, createVoyageSchema, updateVoyageSchema } from './voyages.schema.js';
 import { successResponse, paginatedResponse } from '../../common/utils/response.js';
 import { getPaginationParams, buildPaginationMeta } from '../../common/utils/pagination.js';
 
@@ -27,6 +27,26 @@ export class VoyagesController {
     const item = await this.service.getVoyage(id);
     reply.send(successResponse(item));
   };
+
+  create = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const body = createVoyageSchema.parse(request.body);
+    const created = await this.service.createVoyage(body);
+    reply.status(201).send(successResponse(created, 'Voyage scheduled successfully'));
+  };
+
+  update = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    const body = updateVoyageSchema.parse(request.body);
+    const updated = await this.service.updateVoyage(id, body);
+    reply.send(successResponse(updated, 'Voyage updated successfully'));
+  };
+
+  delete = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    await this.service.deleteVoyage(id);
+    reply.send(successResponse(null, 'Voyage deleted successfully'));
+  };
 }
 
 export const voyagesController = new VoyagesController();
+

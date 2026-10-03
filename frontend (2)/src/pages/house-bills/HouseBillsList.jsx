@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -23,11 +23,15 @@ import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 
 export const HouseBillsList = ({ onNavigate }) => {
-  const { houseBills, deleteHouseBill, updateHouseBill, placeHBLHold, clearHBLHold, billsOfLading } = useAppData();
+  const { houseBills, deleteHouseBill, updateHouseBill, placeHBLHold, clearHBLHold, billsOfLading, fetchMenuApi } = useAppData();
   const { isAgent, currentUser } = useAuth();
 
   const [editingHBL, setEditingHBL] = useState(null);
   const [deletingHBL, setDeletingHBL] = useState(null);
+
+  useEffect(() => {
+    if (fetchMenuApi) fetchMenuApi('house-bills');
+  }, [fetchMenuApi]);
 
   // Filter if Agent
   const visibleHouseBills = isAgent
@@ -183,6 +187,20 @@ export const HouseBillsList = ({ onNavigate }) => {
               <Eye size={13} />
               <span>View</span>
             </button>
+
+            {!isAgent && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeletingHBL(item);
+                }}
+                className="btn btn-sm btn-ghost"
+                title="Delete House B/L"
+                style={{ padding: '0.25rem 0.45rem', color: '#EF4444' }}
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
           </div>
         );
       }

@@ -166,7 +166,15 @@ export const AppDataProvider = ({ children }) => {
           setStored(KEYS.MANIFESTS, apiMan);
         }
         if (houseBillsRes.status === 'fulfilled' && houseBillsRes.value?.data) {
-          const apiHBL = Array.isArray(houseBillsRes.value.data) ? houseBillsRes.value.data : houseBillsRes.value.data.items || [];
+          const rawHBL = Array.isArray(houseBillsRes.value.data) ? houseBillsRes.value.data : houseBillsRes.value.data.items || [];
+          const apiHBL = rawHBL.map(item => ({
+            ...item,
+            customerName: item.customerName || (typeof item.consignee === 'object' ? item.consignee.name : item.consignee) || '',
+            totalCft: item.totalCft !== undefined ? Number(item.totalCft) : 0,
+            totalCbm: item.totalCbm !== undefined ? Number(item.totalCbm) : 0,
+            totalWeightLbs: item.totalWeightLbs !== undefined ? Number(item.totalWeightLbs) : 0,
+            warehouseReceiptIds: Array.isArray(item.warehouseReceiptIds) ? item.warehouseReceiptIds : [],
+          }));
           setHouseBills(apiHBL);
           setStored(KEYS.HOUSE_BILLS, apiHBL);
         }
@@ -190,7 +198,6 @@ export const AppDataProvider = ({ children }) => {
           const apiAgents = Array.isArray(val) ? val : val.items || [];
           if (apiAgents.length > 0) { setAgents(apiAgents); setStored(KEYS.AGENTS, apiAgents); }
         }
-        const auditRes = undefined; // checked below via auditService sync
         try {
           const liveLogs = await auditService.getLogs({ limit: 200 });
           setAuditLogs(Array.isArray(liveLogs) ? liveLogs : []);
@@ -297,10 +304,11 @@ export const AppDataProvider = ({ children }) => {
         }
 
         case 'house-bills': {
-          const hbRes = await apiClient.get('/house-bills');
-          const list = Array.isArray(hbRes) ? hbRes : (Array.isArray(hbRes?.data) ? hbRes.data : []);
-          setHouseBills(list);
-          setStored(KEYS.HOUSE_BILLS, list);
+          const hbData = await houseBillService.getHouseBills();
+          if (Array.isArray(hbData)) {
+            setHouseBills(hbData);
+            setStored(KEYS.HOUSE_BILLS, hbData);
+          }
           break;
         }
 
@@ -358,15 +366,15 @@ export const AppDataProvider = ({ children }) => {
         }
 
         case 'vessels': {
-          const vslRes = await apiClient.get('/vessels');
-          const voyRes = await apiClient.get('/voyages');
-          if (Array.isArray(vslRes) && vslRes.length > 0) {
-            setVessels(vslRes);
-            setStored(KEYS.VESSELS, vslRes);
+          const vslList = await vesselService.getVessels();
+          const voyList = await vesselService.getVoyages();
+          if (Array.isArray(vslList)) {
+            setVessels(vslList);
+            setStored(KEYS.VESSELS, vslList);
           }
-          if (Array.isArray(voyRes) && voyRes.length > 0) {
-            setVoyages(voyRes);
-            setStored(KEYS.VOYAGES, voyRes);
+          if (Array.isArray(voyList)) {
+            setVoyages(voyList);
+            setStored(KEYS.VOYAGES, voyList);
           }
           await apiClient.get('/containers-vessels').catch(() => {});
           break;
@@ -398,9 +406,10 @@ export const AppDataProvider = ({ children }) => {
 
         case 'users': {
           const usrRes = await apiClient.get('/users');
-          if (Array.isArray(usrRes) && usrRes.length > 0) {
-            setUsers(usrRes);
-            setStored(KEYS.USERS, usrRes);
+          const rawUsers = Array.isArray(usrRes) ? usrRes : (usrRes?.data || []);
+          if (Array.isArray(rawUsers) && rawUsers.length > 0) {
+            setUsers(rawUsers);
+            setStored(KEYS.USERS, rawUsers);
           }
           await apiClient.get('/users-roles').catch(() => {});
           break;
@@ -619,15 +628,9 @@ export const AppDataProvider = ({ children }) => {
 
   // 4. House Bills of Lading CRUD
   const createHouseBill = async (hblData) => {
-    let created;
-    try {
-      const res = await apiClient.post('/house-bills', hblData);
-      if (res?.data) created = res.data;
-    } catch (e) {
-      console.warn('Backend createHouseBill notice:', e.message);
-    }
-    if (!created) {
-      created = await houseBillService.createHouseBill(hblData, currentUser?.name || "Documentation Staff");
+    const created = await houseBillService.createHouseBill(hblData, currentUser?.name || "Documentation Staff");
+    if (created) {
+      setHouseBills(prev => [created, ...prev.filter(h => h.id !== created.id && h.hblNumber !== created.hblNumber)]);
     }
     if (created) {
       setHouseBills(prev => [
@@ -657,7 +660,7 @@ export const AppDataProvider = ({ children }) => {
     }
     fetchMenuApi('house-bills');
     await refreshAll();
-    showToast(`House B/L ${id} updated successfully.`, 'success', 'House B/L Updated');
+    showToast(`House B/L ${updated?.hblNumber || id} updated successfully.`, 'success', 'House B/L Updated');
     return updated;
   };
 
@@ -677,7 +680,10 @@ export const AppDataProvider = ({ children }) => {
 
   const placeHBLHold = async (hblId, reason, notes) => {
     const updated = await houseBillService.placeHold(hblId, reason, notes, currentUser?.name || "Documentation Staff");
-    fetchMenuApi('house-bills');
+    if (updated) {
+      setHouseBills(prev => prev.map(h => (h.id === hblId || h.hblNumber === hblId ? updated : h)));
+    }
+    await fetchMenuApi('house-bills');
     await refreshAll();
     showToast(`House B/L ${hblId} placed ON HOLD.`, 'warning', 'House B/L On Hold');
     return updated;
@@ -685,7 +691,10 @@ export const AppDataProvider = ({ children }) => {
 
   const clearHBLHold = async (hblId, clearNotes) => {
     const updated = await houseBillService.clearHold(hblId, currentUser?.name || "Documentation Staff", clearNotes);
-    fetchMenuApi('house-bills');
+    if (updated) {
+      setHouseBills(prev => prev.map(h => (h.id === hblId || h.hblNumber === hblId ? updated : h)));
+    }
+    await fetchMenuApi('house-bills');
     await refreshAll();
     showToast(`Hold cleared for House B/L ${hblId}.`, 'success', 'House B/L Released');
     return updated;
@@ -693,7 +702,10 @@ export const AppDataProvider = ({ children }) => {
 
   const updateHBLStatus = async (hblId, status) => {
     const updated = await houseBillService.updateStatus(hblId, status, currentUser?.name || "Documentation Staff");
-    fetchMenuApi('house-bills');
+    if (updated) {
+      setHouseBills(prev => prev.map(h => (h.id === hblId || h.hblNumber === hblId ? updated : h)));
+    }
+    await fetchMenuApi('house-bills');
     await refreshAll();
     showToast(`House B/L ${hblId} status updated to ${status}.`, 'info', 'Status Updated');
     return updated;
@@ -724,7 +736,7 @@ export const AppDataProvider = ({ children }) => {
 
   const updateConsolidation = async (id, updates) => {
     const updated = await consolidationService.updateConsolidation(id, updates, currentUser?.name || "Operations Staff");
-    fetchMenuApi('consolidations');
+    await fetchMenuApi('consolidations');
     await refreshAll();
     showToast(`Consolidation ${id} updated successfully.`, 'success', 'Consolidation Updated');
     return updated;
@@ -734,7 +746,7 @@ export const AppDataProvider = ({ children }) => {
     setConsolidations(prev => prev.filter(c => c.id !== id && c.consolidationNumber !== id));
     const success = await consolidationService.deleteConsolidation(id, currentUser?.name || "Operations Staff");
     if (success) {
-      fetchMenuApi('consolidations');
+      await fetchMenuApi('consolidations');
       await refreshAll();
       showToast(`Consolidation ${id} deleted.`, 'info', 'Consolidation Deleted');
     }
@@ -767,32 +779,46 @@ export const AppDataProvider = ({ children }) => {
   };
 
   const updateShipment = async (id, updates) => {
-    const updated = await shipmentService.updateShipment(id, updates, currentUser?.name || "Operations Staff");
-    fetchMenuApi('shipments');
-    await refreshAll();
-    showToast(`Shipment ${id} updated successfully.`, 'success', 'Shipment Updated');
-    return updated;
+    try {
+      const updated = await shipmentService.updateShipment(id, updates, currentUser?.name || "Super Admin");
+      await fetchMenuApi('shipments');
+      await refreshAll();
+      showToast(`Shipment ${updated?.shipmentNumber || id} updated successfully.`, 'success', 'Shipment Updated');
+      return updated;
+    } catch (err) {
+      showToast(err?.message || 'Failed to update shipment', 'error', 'Update Error');
+      throw err;
+    }
   };
 
   const deleteShipment = async (id) => {
-    setShipments(prev => prev.filter(s => s.id !== id && s.shipmentNumber !== id));
-    const success = await shipmentService.deleteShipment(id, currentUser?.name || "Operations Staff");
-    if (success) {
-      fetchMenuApi('shipments');
+    try {
+      setShipments(prev => prev.filter(s => s.id !== id && s.shipmentNumber !== id));
+      const success = await shipmentService.deleteShipment(id, currentUser?.name || "Super Admin");
+      if (success) {
+        await fetchMenuApi('shipments');
+        await refreshAll();
+        showToast(`Shipment ${id} deleted successfully.`, 'info', 'Shipment Deleted');
+      }
+      return success;
+    } catch (err) {
       await refreshAll();
-      showToast(`Shipment ${id} deleted.`, 'info', 'Shipment Deleted');
+      showToast(err?.message || 'Failed to delete shipment', 'error', 'Delete Error');
+      throw err;
     }
-    return success;
   };
 
   // 7. Bills of Lading CRUD (Master B/L)
   const createBillOfLading = async (blData) => {
-    let created;
     try {
-      const res = await apiClient.post('/bills-of-lading', blData);
-      if (res?.data) created = res.data;
-    } catch (e) {
-      console.warn('Backend createBillOfLading notice:', e.message);
+      const created = await billOfLadingService.createBillOfLading(blData, currentUser?.name || "Documentation Staff");
+      await fetchMenuApi('bills-of-lading');
+      await refreshAll();
+      showToast(`Master B/L ${created?.blNumber || created?.id} created successfully.`, 'success', 'Master B/L Created');
+      return created;
+    } catch (err) {
+      showToast(err?.message || 'Failed to create Master B/L', 'error', 'Creation Failed');
+      throw err;
     }
     if (!created) {
       created = await billOfLadingService.createBillOfLading(blData, currentUser?.name || "Documentation Staff");
@@ -905,12 +931,15 @@ export const AppDataProvider = ({ children }) => {
 
   // 8. Manifests CRUD
   const generateManifest = async (manifestData) => {
-    let created;
     try {
-      const res = await apiClient.post('/manifests', manifestData);
-      if (res?.data) created = res.data;
-    } catch (e) {
-      console.warn('Backend generateManifest notice:', e.message);
+      const created = await manifestService.generateManifest(manifestData, currentUser?.name || "Documentation Staff");
+      await fetchMenuApi('manifests');
+      await refreshAll();
+      showToast(`Shipping Manifest ${created.manifestNumber || created.id} generated successfully.`, 'success', 'Manifest Created');
+      return created;
+    } catch (err) {
+      showToast(err?.message || 'Failed to generate manifest', 'error', 'Creation Error');
+      throw err;
     }
     if (!created) {
       created = await manifestService.generateManifest(manifestData, currentUser?.name || "Documentation Staff");
@@ -962,57 +991,87 @@ export const AppDataProvider = ({ children }) => {
 
   // 9. Vessels & Voyages CRUD
   const createVessel = async (vesselData) => {
-    const created = await vesselService.createVessel(vesselData, currentUser?.name || "Operations Staff");
-    fetchMenuApi('vessels');
-    await refreshAll();
-    showToast(`Vessel ${created.name} added to fleet directory.`, 'success', 'Vessel Registered');
-    return created;
+    try {
+      const created = await vesselService.createVessel(vesselData, currentUser?.name || "Operations Staff");
+      await fetchMenuApi('vessels');
+      await refreshAll();
+      showToast(`Vessel ${created.name} added to fleet directory.`, 'success', 'Vessel Registered');
+      return created;
+    } catch (err) {
+      showToast(err?.message || 'Failed to create vessel', 'error', 'Creation Error');
+      throw err;
+    }
   };
 
   const updateVessel = async (id, updates) => {
-    const updated = await vesselService.updateVessel(id, updates, currentUser?.name || "Operations Staff");
-    fetchMenuApi('vessels');
-    await refreshAll();
-    showToast(`Vessel ${id} updated successfully.`, 'success', 'Vessel Updated');
-    return updated;
+    try {
+      const updated = await vesselService.updateVessel(id, updates, currentUser?.name || "Operations Staff");
+      await fetchMenuApi('vessels');
+      await refreshAll();
+      showToast(`Vessel ${id} updated successfully.`, 'success', 'Vessel Updated');
+      return updated;
+    } catch (err) {
+      showToast(err?.message || 'Failed to update vessel', 'error', 'Update Error');
+      throw err;
+    }
   };
 
   const deleteVessel = async (id) => {
-    setVessels(prev => prev.filter(v => v.id !== id && v.name !== id));
-    const success = await vesselService.deleteVessel(id, currentUser?.name || "Operations Staff");
-    if (success) {
-      fetchMenuApi('vessels');
-      await refreshAll();
-      showToast(`Vessel ${id} deleted from fleet.`, 'info', 'Vessel Removed');
+    try {
+      setVessels(prev => prev.filter(v => v.id !== id && v.name !== id));
+      const success = await vesselService.deleteVessel(id, currentUser?.name || "Operations Staff");
+      if (success) {
+        await fetchMenuApi('vessels');
+        await refreshAll();
+        showToast(`Vessel ${id} deleted from fleet.`, 'info', 'Vessel Removed');
+      }
+      return success;
+    } catch (err) {
+      showToast(err?.message || 'Failed to delete vessel', 'error', 'Delete Error');
+      throw err;
     }
-    return success;
   };
 
   const createVoyage = async (voyageData) => {
-    const created = await vesselService.createVoyage(voyageData, currentUser?.name || "Operations Staff");
-    fetchMenuApi('vessels');
-    await refreshAll();
-    showToast(`Voyage ${created.voyageNumber} scheduled successfully.`, 'success', 'Voyage Scheduled');
-    return created;
+    try {
+      const created = await vesselService.createVoyage(voyageData, currentUser?.name || "Operations Staff");
+      await fetchMenuApi('vessels');
+      await refreshAll();
+      showToast(`Voyage ${created.voyageNumber} scheduled successfully.`, 'success', 'Voyage Scheduled');
+      return created;
+    } catch (err) {
+      showToast(err?.message || 'Failed to schedule voyage', 'error', 'Schedule Error');
+      throw err;
+    }
   };
 
   const updateVoyage = async (id, updates) => {
-    const updated = await vesselService.updateVoyage(id, updates, currentUser?.name || "Operations Staff");
-    fetchMenuApi('vessels');
-    await refreshAll();
-    showToast(`Voyage ${id} updated successfully.`, 'success', 'Voyage Updated');
-    return updated;
+    try {
+      const updated = await vesselService.updateVoyage(id, updates, currentUser?.name || "Operations Staff");
+      await fetchMenuApi('vessels');
+      await refreshAll();
+      showToast(`Voyage ${id} updated successfully.`, 'success', 'Voyage Updated');
+      return updated;
+    } catch (err) {
+      showToast(err?.message || 'Failed to update voyage', 'error', 'Update Error');
+      throw err;
+    }
   };
 
   const deleteVoyage = async (id) => {
-    setVoyages(prev => prev.filter(v => v.id !== id && v.voyageNumber !== id));
-    const success = await vesselService.deleteVoyage(id, currentUser?.name || "Operations Staff");
-    if (success) {
-      fetchMenuApi('vessels');
-      await refreshAll();
-      showToast(`Voyage ${id} deleted.`, 'info', 'Voyage Deleted');
+    try {
+      setVoyages(prev => prev.filter(v => v.id !== id && v.voyageNumber !== id));
+      const success = await vesselService.deleteVoyage(id, currentUser?.name || "Operations Staff");
+      if (success) {
+        await fetchMenuApi('vessels');
+        await refreshAll();
+        showToast(`Voyage ${id} deleted.`, 'info', 'Voyage Deleted');
+      }
+      return success;
+    } catch (err) {
+      showToast(err?.message || 'Failed to delete voyage', 'error', 'Delete Error');
+      throw err;
     }
-    return success;
   };
 
   // 10. Containers CRUD

@@ -5,16 +5,25 @@ import { apiClient } from './apiClient';
 export const houseBillService = {
   async getHouseBills(filters = {}) {
     try {
-      const res = await apiClient.get('house-bills', filters);
-      if (res && Array.isArray(res.data)) {
-        setStored(KEYS.HOUSE_BILLS, res.data);
-        return res.data;
+      const res = await apiClient.get('/house-bills', { params: { ...filters, limit: filters.limit || 100 } });
+      const apiData = res?.data ? (Array.isArray(res.data) ? res.data : (res.data.items || [])) : (Array.isArray(res) ? res : []);
+      if (Array.isArray(apiData) && apiData.length > 0) {
+        const mapped = apiData.map(item => ({
+          ...item,
+          customerName: item.customerName || (typeof item.consignee === 'object' ? item.consignee.name : item.consignee) || '',
+          totalCft: item.totalCft !== undefined ? Number(item.totalCft) : 0,
+          totalCbm: item.totalCbm !== undefined ? Number(item.totalCbm) : 0,
+          totalWeightLbs: item.totalWeightLbs !== undefined ? Number(item.totalWeightLbs) : 0,
+          warehouseReceiptIds: Array.isArray(item.warehouseReceiptIds) ? item.warehouseReceiptIds : [],
+        }));
+        setStored(KEYS.HOUSE_BILLS, mapped);
+        return mapped;
       }
     } catch (err) {
       console.warn('API error fetching house bills, fallback to local:', err);
     }
 
-    const list = getStored(KEYS.HOUSE_BILLS);
+    const list = getStored(KEYS.HOUSE_BILLS, []);
     let filtered = [...list];
 
     if (filters.search) {
@@ -26,7 +35,7 @@ export const houseBillService = {
         item.shipper?.name?.toLowerCase().includes(q) ||
         item.destinationPort?.toLowerCase().includes(q) ||
         item.cargoDescription?.toLowerCase().includes(q) ||
-        item.warehouseReceiptIds?.some(wrId => wrId.toLowerCase().includes(q))
+        item.warehouseReceiptIds?.some(wrId => String(wrId).toLowerCase().includes(q))
       );
     }
     if (filters.status && filters.status !== 'All') {
@@ -44,19 +53,30 @@ export const houseBillService = {
 
   async getHouseBillById(id) {
     try {
-      const res = await apiClient.get(`house-bills/${id}`);
-      if (res && res.data) return res.data;
+      const res = await apiClient.get(`/house-bills/${id}`);
+      const item = res?.data || (res?.id ? res : null);
+      if (item) {
+        return {
+          ...item,
+          customerName: item.customerName || (typeof item.consignee === 'object' ? item.consignee.name : item.consignee) || '',
+          totalCft: item.totalCft !== undefined ? Number(item.totalCft) : 0,
+          totalCbm: item.totalCbm !== undefined ? Number(item.totalCbm) : 0,
+          totalWeightLbs: item.totalWeightLbs !== undefined ? Number(item.totalWeightLbs) : 0,
+          warehouseReceiptIds: Array.isArray(item.warehouseReceiptIds) ? item.warehouseReceiptIds : [],
+        };
+      }
     } catch (err) {
       console.warn('API error fetching house bill by id:', err);
     }
 
-    const list = getStored(KEYS.HOUSE_BILLS);
+    const list = getStored(KEYS.HOUSE_BILLS, []);
     return list.find(item => item.id === id || item.hblNumber === id) || null;
   },
 
   async createHouseBill(data, currentUser = "Documentation Staff") {
     try {
       const payload = {
+        hblNumber: data.hblNumber || undefined,
         customerId: data.customerId || undefined,
         customerName: data.customerName || data.customer || 'Valued Customer',
         shipper: typeof data.shipper === 'object' ? data.shipper : { name: data.shipper || data.customerName || 'General Shipper', address: 'Miami, FL' },
@@ -77,19 +97,51 @@ export const houseBillService = {
         totalCft: Number(data.totalCft) || 0,
         totalCbm: Number(data.totalCbm) || 0,
         freightTerms: data.freightTerms || 'Freight Prepaid',
+        status: data.status || 'Active',
         notes: data.notes || '',
       };
-      const res = await apiClient.post('house-bills', payload);
-      if (res && res.data) {
-        const list = getStored(KEYS.HOUSE_BILLS);
-        setStored(KEYS.HOUSE_BILLS, [res.data, ...list]);
-        return res.data;
+      const res = await apiClient.post('/house-bills', payload);
+      const createdItem = res?.data || (res?.id ? res : null);
+      if (createdItem) {
+        const fullItem = {
+          ...data,
+          ...createdItem,
+          customerName: createdItem.customerName || data.customerName,
+          freightCharges: data.freightCharges,
+          warehouseReceiptIds: createdItem.warehouseReceiptIds || data.warehouseReceiptIds || [],
+        };
+        const list = getStored(KEYS.HOUSE_BILLS, []);
+        const filtered = list.filter(item => item.id !== fullItem.id && item.hblNumber !== fullItem.hblNumber);
+        setStored(KEYS.HOUSE_BILLS, [fullItem, ...filtered]);
+
+        // Link assignedHouseBillId on local WRs too
+        const wrList = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
+        const linkedWrIds = data.warehouseReceiptIds || [];
+        if (linkedWrIds.length > 0) {
+          const updatedWrs = wrList.map(wr => {
+            if (linkedWrIds.includes(wr.id) || linkedWrIds.includes(wr.receiptNumber)) {
+              return { ...wr, assignedHouseBillId: fullItem.hblNumber };
+            }
+            return wr;
+          });
+          setStored(KEYS.WAREHOUSE_RECEIPTS, updatedWrs);
+        }
+
+        await auditService.logAction(
+          currentUser,
+          "House Bill of Lading",
+          "Created House Bill of Lading",
+          fullItem.hblNumber || fullItem.id,
+          `Issued House B/L ${fullItem.hblNumber} for ${fullItem.customerName} linking ${linkedWrIds.length} WR(s).`
+        );
+
+        return fullItem;
       }
     } catch (err) {
       console.warn('API error creating house bill, fallback to local:', err);
     }
 
-    const list = getStored(KEYS.HOUSE_BILLS);
+    const list = getStored(KEYS.HOUSE_BILLS, []);
     const nextSeq = list.length + 1;
     const id = data.hblNumber || `HBL-2026-${String(nextSeq).padStart(4, '0')}`;
 
@@ -216,19 +268,26 @@ export const houseBillService = {
   },
 
   async updateHouseBill(id, updates, currentUser = "Documentation Staff") {
+    let apiUpdated = null;
     try {
-      await apiClient.patch(`house-bills/${id}`, updates);
+      const res = await apiClient.patch(`/house-bills/${id}`, updates);
+      if (res?.data) apiUpdated = res.data;
     } catch (err) {
       console.warn('API error updating house bill:', err);
     }
 
-    const list = getStored(KEYS.HOUSE_BILLS);
+    const list = getStored(KEYS.HOUSE_BILLS, []);
     const index = list.findIndex(item => item.id === id || item.hblNumber === id);
     if (index !== -1) {
-      list[index] = {
+      const merged = {
         ...list[index],
-        ...updates
+        ...(apiUpdated || {}),
+        ...updates,
+        freightCharges: updates.freightCharges || list[index].freightCharges,
+        shipper: updates.shipper || apiUpdated?.shipper || list[index].shipper,
+        consignee: updates.consignee || apiUpdated?.consignee || list[index].consignee,
       };
+      list[index] = merged;
       setStored(KEYS.HOUSE_BILLS, list);
 
       await auditService.logAction(
@@ -239,19 +298,19 @@ export const houseBillService = {
         `Updated details for House B/L ${id}.`
       );
 
-      return list[index];
+      return merged;
     }
-    return null;
+    return apiUpdated;
   },
 
   async deleteHouseBill(id, currentUser = "Documentation Staff") {
     try {
-      await apiClient.delete(`house-bills/${id}`);
+      await apiClient.delete(`/house-bills/${id}`);
     } catch (err) {
       console.warn('API error deleting house bill:', err);
     }
 
-    const list = getStored(KEYS.HOUSE_BILLS);
+    const list = getStored(KEYS.HOUSE_BILLS, []);
     const existing = list.find(item => item.id === id || item.hblNumber === id);
     if (!existing) return false;
 
@@ -259,7 +318,7 @@ export const houseBillService = {
     setStored(KEYS.HOUSE_BILLS, filtered);
 
     // Unlink assignedHouseBillId from linked WRs
-    const wrList = getStored(KEYS.WAREHOUSE_RECEIPTS);
+    const wrList = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
     const updatedWrs = wrList.map(wr => {
       if (wr.assignedHouseBillId === id || wr.assignedHouseBillId === existing.hblNumber) {
         return {
@@ -283,19 +342,22 @@ export const houseBillService = {
   },
 
   async placeHold(hblId, reason, notes, currentUser = "Documentation Staff") {
+    let apiUpdated = null;
     try {
-      await apiClient.post(`house-bills/${hblId}/hold`, { reason, holdNotes: notes });
+      const res = await apiClient.post(`/house-bills/${hblId}/hold`, { reason, holdNotes: notes });
+      if (res?.data) apiUpdated = res.data;
     } catch (err) {
       console.warn('API error placing house bill on hold:', err);
     }
 
-    const list = getStored(KEYS.HOUSE_BILLS);
+    const list = getStored(KEYS.HOUSE_BILLS, []);
     const index = list.findIndex(item => item.id === hblId || item.hblNumber === hblId);
     if (index === -1) return null;
 
     const currentHBL = list[index];
     const updatedHBL = {
       ...currentHBL,
+      ...(apiUpdated || {}),
       status: "On Hold",
       holdDetails: {
         isOnHold: true,
@@ -321,19 +383,22 @@ export const houseBillService = {
   },
 
   async clearHold(hblId, currentUser = "Super Admin", clearNotes = "") {
+    let apiUpdated = null;
     try {
-      await apiClient.post(`house-bills/${hblId}/release`, {});
+      const res = await apiClient.post(`/house-bills/${hblId}/release`, {});
+      if (res?.data) apiUpdated = res.data;
     } catch (err) {
       console.warn('API error clearing house bill hold:', err);
     }
 
-    const list = getStored(KEYS.HOUSE_BILLS);
+    const list = getStored(KEYS.HOUSE_BILLS, []);
     const index = list.findIndex(item => item.id === hblId || item.hblNumber === hblId);
     if (index === -1) return null;
 
     const currentHBL = list[index];
     const updatedHBL = {
       ...currentHBL,
+      ...(apiUpdated || {}),
       status: "Active",
       holdDetails: {
         isOnHold: false,

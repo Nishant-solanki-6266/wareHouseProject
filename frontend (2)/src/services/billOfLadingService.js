@@ -9,10 +9,8 @@ export const billOfLadingService = {
       const res = await apiClient.get('bills-of-lading', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        if (liveList.length > 0) {
-          setStored(KEYS.BILLS_OF_LADING, liveList);
-          return liveList;
-        }
+        setStored(KEYS.BILLS_OF_LADING, liveList);
+        return liveList;
       }
     } catch (err) {
       console.warn('API error fetching bills of lading, fallback to local:', err?.message || err);
@@ -104,7 +102,9 @@ export const billOfLadingService = {
   async updateBillOfLading(id, updates, currentUser = "Documentation Staff") {
     let updatedBL = null;
     try {
-      const res = await apiClient.put(`bills-of-lading/${encodeURIComponent(id)}`, updates);
+      const res = await apiClient.patch(`bills-of-lading/${encodeURIComponent(id)}`, updates).catch(() =>
+        apiClient.put(`bills-of-lading/${encodeURIComponent(id)}`, updates)
+      );
       if (res && res.data) {
         updatedBL = res.data;
       }
@@ -118,6 +118,8 @@ export const billOfLadingService = {
       list[index] = { ...list[index], ...(updatedBL || updates) };
       setStored(KEYS.BILLS_OF_LADING, list);
       updatedBL = list[index];
+    } else if (updatedBL) {
+      setStored(KEYS.BILLS_OF_LADING, [updatedBL, ...list]);
     }
 
     await auditService.logAction(
@@ -129,6 +131,10 @@ export const billOfLadingService = {
     );
 
     return updatedBL;
+  },
+
+  async updateStatus(id, status, currentUser = "Documentation Staff") {
+    return this.updateBillOfLading(id, { status }, currentUser);
   },
 
   async deleteBillOfLading(id, currentUser = "Documentation Staff") {
@@ -157,15 +163,25 @@ export const billOfLadingService = {
   },
 
   async placeHold(blId, reason, notes, currentUser = "Documentation Staff") {
+    let apiUpdated = null;
     try {
-      await apiClient.post(`bills-of-lading/${encodeURIComponent(blId)}/hold`, { reason, holdNotes: notes });
+      const res = await apiClient.post(`bills-of-lading/${encodeURIComponent(blId)}/hold`, { reason, holdNotes: notes });
+      if (res && res.data) {
+        apiUpdated = res.data;
+      }
     } catch (err) {
       console.warn('API error placing bill of lading on hold:', err?.message || err);
     }
 
     const list = getStored(KEYS.BILLS_OF_LADING, []);
     const index = list.findIndex(item => item.id === blId || item.blNumber === blId);
-    if (index === -1) return null;
+    if (index === -1) {
+      if (apiUpdated) {
+        setStored(KEYS.BILLS_OF_LADING, [apiUpdated, ...list]);
+        return apiUpdated;
+      }
+      return null;
+    }
 
     const currentBL = list[index];
     const prevHoldDetails = currentBL.holdDetails || {};
@@ -174,7 +190,7 @@ export const billOfLadingService = {
       isOnHold: true,
       reason,
       notes,
-      placedBy: typeof currentUser === 'string' ? currentUser : currentUser.name,
+      placedBy: typeof currentUser === 'string' ? currentUser : currentUser?.name || 'Staff',
       placedAt: new Date().toISOString(),
       history: [
         ...(prevHoldDetails.history || []),
@@ -182,7 +198,7 @@ export const billOfLadingService = {
           action: "HOLD_PLACED",
           reason,
           notes,
-          by: typeof currentUser === 'string' ? currentUser : currentUser.name,
+          by: typeof currentUser === 'string' ? currentUser : currentUser?.name || 'Staff',
           timestamp: new Date().toISOString()
         }
       ]
@@ -190,8 +206,9 @@ export const billOfLadingService = {
 
     list[index] = {
       ...currentBL,
-      status: "Hold",
-      holdDetails: updatedHoldDetails
+      ...(apiUpdated || {}),
+      status: apiUpdated?.status || "On Hold",
+      holdDetails: apiUpdated?.holdDetails || updatedHoldDetails
     };
 
     setStored(KEYS.BILLS_OF_LADING, list);
@@ -208,8 +225,12 @@ export const billOfLadingService = {
   },
 
   async clearHold(blId, currentUser = "Super Admin", clearNotes = "") {
+    let apiUpdated = null;
     try {
-      await apiClient.post(`bills-of-lading/${encodeURIComponent(blId)}/release`, { clearNotes });
+      const res = await apiClient.post(`bills-of-lading/${encodeURIComponent(blId)}/release`, { clearNotes });
+      if (res && res.data) {
+        apiUpdated = res.data;
+      }
     } catch (err) {
       console.warn('API error clearing bill of lading hold:', err?.message || err);
     }
@@ -217,7 +238,13 @@ export const billOfLadingService = {
     const list = getStored(KEYS.BILLS_OF_LADING, []);
     const index = list.findIndex(item => item.id === blId || item.blNumber === blId);
 
-    if (index === -1) return null;
+    if (index === -1) {
+      if (apiUpdated) {
+        setStored(KEYS.BILLS_OF_LADING, [apiUpdated, ...list]);
+        return apiUpdated;
+      }
+      return null;
+    }
 
     const currentBL = list[index];
     const prevHoldDetails = currentBL.holdDetails || {};
@@ -228,7 +255,7 @@ export const billOfLadingService = {
       notes: null,
       placedBy: null,
       placedAt: null,
-      clearedBy: typeof currentUser === 'string' ? currentUser : currentUser.name,
+      clearedBy: typeof currentUser === 'string' ? currentUser : currentUser?.name || 'Staff',
       clearedAt: new Date().toISOString(),
       clearNotes,
       history: [
@@ -236,7 +263,7 @@ export const billOfLadingService = {
         {
           action: "HOLD_CLEARED",
           notes: clearNotes,
-          by: typeof currentUser === 'string' ? currentUser : currentUser.name,
+          by: typeof currentUser === 'string' ? currentUser : currentUser?.name || 'Staff',
           timestamp: new Date().toISOString()
         }
       ]
@@ -244,8 +271,9 @@ export const billOfLadingService = {
 
     list[index] = {
       ...currentBL,
-      status: "Draft",
-      holdDetails: updatedHoldDetails
+      ...(apiUpdated || {}),
+      status: apiUpdated?.status || "Released",
+      holdDetails: apiUpdated?.holdDetails || updatedHoldDetails
     };
 
     setStored(KEYS.BILLS_OF_LADING, list);
@@ -255,7 +283,7 @@ export const billOfLadingService = {
       "Bill of Lading",
       "Cleared B/L Hold",
       blId,
-      `Hold released on Master B/L ${blId} by ${typeof currentUser === 'string' ? currentUser : currentUser.name}. Notes: ${clearNotes || 'None'}`
+      `Hold released on Master B/L ${blId} by ${typeof currentUser === 'string' ? currentUser : currentUser?.name || 'Staff'}. Notes: ${clearNotes || 'None'}`
     );
 
     return list[index];

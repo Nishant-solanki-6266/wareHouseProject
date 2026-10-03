@@ -20,6 +20,7 @@ export const createVesselSchema = z.object({
   currentVoyage: z.string().optional(),
   activeRoute: z.string().optional(),
   etaNextPort: z.string().optional(),
+  lengthFeet: z.coerce.number().optional(),
 });
 
 export const updateVesselSchema = createVesselSchema.partial();

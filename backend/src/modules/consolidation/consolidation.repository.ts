@@ -1,4 +1,4 @@
-import { eq, ilike, or, count, and, desc } from 'drizzle-orm';
+import { eq, ilike, or, count, and, desc, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { consolidations, NewConsolidation } from '../../db/schema/index.js';
 import { ConsolidationFilterParams } from './consolidation.types.js';
@@ -8,18 +8,25 @@ export class ConsolidationRepository {
     const conditions = [];
 
     if (filters.status && filters.status !== 'All') {
-      conditions.push(eq(consolidations.status, filters.status));
+      conditions.push(ilike(consolidations.status, filters.status));
     }
     if (filters.destinationCode && filters.destinationCode !== 'All') {
       conditions.push(eq(consolidations.destinationCode, filters.destinationCode));
     }
     if (filters.search) {
+      const q = `%${filters.search.trim()}%`;
       conditions.push(
         or(
-          ilike(consolidations.consolidationNumber, `%${filters.search}%`),
-          ilike(consolidations.title, `%${filters.search}%`),
-          ilike(consolidations.containerNumber, `%${filters.search}%`),
-          ilike(consolidations.vesselName, `%${filters.search}%`)
+          ilike(consolidations.consolidationNumber, q),
+          ilike(consolidations.title, q),
+          ilike(consolidations.destinationPort, q),
+          ilike(consolidations.containerNumber, q),
+          ilike(consolidations.sealNumber, q),
+          ilike(consolidations.vesselName, q),
+          ilike(consolidations.voyageNumber, q),
+          ilike(consolidations.carrier, q),
+          sql`${consolidations.receiptIds}::text ILIKE ${q}`,
+          sql`${consolidations.houseBillIds}::text ILIKE ${q}`
         )
       );
     }
@@ -72,19 +79,29 @@ export class ConsolidationRepository {
   }
 
   async update(id: string, data: Partial<NewConsolidation>) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id))
+      : eq(consolidations.consolidationNumber, id);
+
     const [updated] = await db
       .update(consolidations)
       .set({ ...data, updatedAt: new Date() })
-      .where(or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id)))
+      .where(condition)
       .returning();
 
     return updated || null;
   }
 
   async delete(id: string): Promise<boolean> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id))
+      : eq(consolidations.consolidationNumber, id);
+
     const [deleted] = await db
       .delete(consolidations)
-      .where(or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id)))
+      .where(condition)
       .returning();
 
     return !!deleted;

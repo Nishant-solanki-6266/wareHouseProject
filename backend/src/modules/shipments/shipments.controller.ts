@@ -14,7 +14,7 @@ export class ShipmentsController {
     const { data, total } = await this.service.listShipments({
       search: query.search,
       status: query.status,
-      destinationCode: query.destinationCode,
+      destinationCode: query.destinationCode || query.destination,
       agentId: query.agentId,
       limit,
       offset,

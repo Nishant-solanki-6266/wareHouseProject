@@ -50,6 +50,7 @@ export class VesselsRepository {
     const isUuid = typeof data.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.id);
     const insertData: any = { ...data };
     if (!isUuid) delete insertData.id;
+    delete insertData.lengthFeet;
     if (insertData.capacityTeu !== undefined) insertData.capacityTeu = Number(insertData.capacityTeu);
     if (insertData.deadweightTonnage !== undefined) insertData.deadweightTonnage = Number(insertData.deadweightTonnage);
     if (insertData.builtYear !== undefined) insertData.builtYear = Number(insertData.builtYear);
@@ -66,6 +67,7 @@ export class VesselsRepository {
 
     const updateData: Record<string, unknown> = { ...data, updatedAt: new Date() };
     delete updateData.id;
+    delete updateData.lengthFeet;
     if (updateData.capacityTeu !== undefined) updateData.capacityTeu = Number(updateData.capacityTeu);
     if (updateData.deadweightTonnage !== undefined) updateData.deadweightTonnage = Number(updateData.deadweightTonnage);
     if (updateData.builtYear !== undefined) updateData.builtYear = Number(updateData.builtYear);

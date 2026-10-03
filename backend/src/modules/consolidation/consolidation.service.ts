@@ -2,6 +2,9 @@ import { ConsolidationRepository, consolidationRepository } from './consolidatio
 import { ConsolidationFilterParams, CreateConsolidationInput, UpdateConsolidationInput } from './consolidation.types.js';
 import { NotFoundError } from '../../common/errors/not-found-error.js';
 import { convertLbsToKg } from '../../common/utils/calculations.js';
+import { db } from '../../db/index.js';
+import { warehouseReceipts, houseBills, cargo } from '../../db/schema/index.js';
+import { eq, or, inArray } from 'drizzle-orm';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -38,7 +41,7 @@ export class ConsolidationService {
     const weightLbs = Number(input.totalWeightLbs) || 0;
     const weightKg = input.totalWeightKg ? Number(input.totalWeightKg) : convertLbsToKg(weightLbs);
 
-    return this.repo.create({
+    const created = await this.repo.create({
       consolidationNumber,
       title,
       destinationPort,
@@ -57,9 +60,9 @@ export class ConsolidationService {
       carrier: input.carrier || 'Tropical Shipping Line',
       loadingPort,
       dischargePort,
-      totalHouseBills: Number(input.totalHouseBills) || 0,
+      totalHouseBills: Number(input.totalHouseBills) || (input.houseBillIds?.length || 0),
       houseBillIds: input.houseBillIds || [],
-      totalReceipts: Number(input.totalReceipts) || 0,
+      totalReceipts: Number(input.totalReceipts) || (input.receiptIds?.length || 0),
       receiptIds: input.receiptIds || [],
       totalPackages: Number(input.totalPackages) || 0,
       totalPieces: Number(input.totalPieces) || Number(input.totalPackages) || 0,
@@ -74,10 +77,62 @@ export class ConsolidationService {
       agentName: input.agentName || null,
       notes: input.notes || null,
     });
+
+    // Relational sync: Link Warehouse Receipts in database
+    if (input.receiptIds && input.receiptIds.length > 0) {
+      try {
+        const uuidIds = input.receiptIds.filter(id => UUID_REGEX.test(id));
+        const wrConditions = [];
+        if (uuidIds.length > 0) wrConditions.push(inArray(warehouseReceipts.id, uuidIds));
+        wrConditions.push(inArray(warehouseReceipts.receiptNumber, input.receiptIds));
+
+        await db
+          .update(warehouseReceipts)
+          .set({
+            assignedConsolidationId: created.consolidationNumber,
+            status: 'Consolidated',
+            updatedAt: new Date()
+          })
+          .where(or(...wrConditions));
+
+        await db
+          .update(cargo)
+          .set({
+            status: 'Consolidated',
+            updatedAt: new Date()
+          })
+          .where(inArray(cargo.receiptNumber, input.receiptIds));
+      } catch (relErr) {
+        console.warn('Notice linking warehouse receipts to consolidation:', relErr);
+      }
+    }
+
+    // Relational sync: Link House Bills in database
+    if (input.houseBillIds && input.houseBillIds.length > 0) {
+      try {
+        const uuidIds = input.houseBillIds.filter(id => UUID_REGEX.test(id));
+        const hbConditions = [];
+        if (uuidIds.length > 0) hbConditions.push(inArray(houseBills.id, uuidIds));
+        hbConditions.push(inArray(houseBills.hblNumber, input.houseBillIds));
+
+        await db
+          .update(houseBills)
+          .set({
+            assignedConsolidationId: created.consolidationNumber,
+            status: 'Consolidated',
+            updatedAt: new Date()
+          })
+          .where(or(...hbConditions));
+      } catch (hbErr) {
+        console.warn('Notice linking house bills to consolidation:', hbErr);
+      }
+    }
+
+    return created;
   }
 
   async updateConsolidation(id: string, input: UpdateConsolidationInput) {
-    await this.getConsolidation(id);
+    const existing = await this.getConsolidation(id);
 
     const updatePayload: Record<string, unknown> = { ...input };
     if (input.containerId !== undefined) {
@@ -101,12 +156,86 @@ export class ConsolidationService {
     if (input.totalCbm !== undefined) {
       updatePayload.totalCbm = String((Number(input.totalCbm) || 0).toFixed(2));
     }
+    if (input.containerCapacityCbm !== undefined) {
+      updatePayload.containerCapacityCbm = String((Number(input.containerCapacityCbm) || 67.7).toFixed(2));
+    }
+    if (input.containerFillPercentage !== undefined) {
+      updatePayload.containerFillPercentage = String((Number(input.containerFillPercentage) || 0).toFixed(2));
+    }
 
-    return this.repo.update(id, updatePayload);
+    const updated = await this.repo.update(id, updatePayload);
+
+    // Sync status down to linked receipts/HBLs if changed to Sealed, In Transit, etc.
+    if (input.status && existing && (input.status === 'Sealed' || input.status === 'In Transit' || input.status === 'Completed')) {
+      try {
+        await db
+          .update(warehouseReceipts)
+          .set({ status: input.status === 'In Transit' ? 'In Transit' : 'Consolidated', updatedAt: new Date() })
+          .where(
+            or(
+              eq(warehouseReceipts.assignedConsolidationId, existing.id),
+              eq(warehouseReceipts.assignedConsolidationId, existing.consolidationNumber)
+            )
+          );
+      } catch (stErr) {
+        console.warn('Notice updating linked receipts status:', stErr);
+      }
+    }
+
+    return updated;
   }
 
   async deleteConsolidation(id: string) {
-    await this.getConsolidation(id);
+    const existing = await this.getConsolidation(id);
+    if (existing) {
+      try {
+        // Unlink assignedConsolidationId from warehouse receipts in database
+        await db
+          .update(warehouseReceipts)
+          .set({
+            assignedConsolidationId: null,
+            status: 'Ready for Consolidation',
+            updatedAt: new Date()
+          })
+          .where(
+            or(
+              eq(warehouseReceipts.assignedConsolidationId, existing.id),
+              eq(warehouseReceipts.assignedConsolidationId, existing.consolidationNumber)
+            )
+          );
+
+        // Unlink assignedConsolidationId from house bills in database
+        await db
+          .update(houseBills)
+          .set({
+            assignedConsolidationId: null,
+            status: 'Active',
+            updatedAt: new Date()
+          })
+          .where(
+            or(
+              eq(houseBills.assignedConsolidationId, existing.id),
+              eq(houseBills.assignedConsolidationId, existing.consolidationNumber)
+            )
+          );
+
+        // Reset cargo status if receiptIds exist
+        if (existing.receiptIds && Array.isArray(existing.receiptIds) && existing.receiptIds.length > 0) {
+          const rIds = existing.receiptIds.filter((r): r is string => typeof r === 'string');
+          if (rIds.length > 0) {
+            await db
+              .update(cargo)
+              .set({
+                status: 'Ready for Consolidation',
+                updatedAt: new Date()
+              })
+              .where(inArray(cargo.receiptNumber, rIds));
+          }
+        }
+      } catch (unlinkErr) {
+        console.warn('Notice unlinking related records on consolidation delete:', unlinkErr);
+      }
+    }
     return this.repo.delete(id);
   }
 }
