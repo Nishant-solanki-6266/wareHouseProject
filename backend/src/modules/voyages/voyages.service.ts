@@ -72,4 +72,3 @@ export class VoyagesService {
 }
 
 export const voyagesService = new VoyagesService();
-

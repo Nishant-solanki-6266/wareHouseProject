@@ -67,11 +67,11 @@ export class VoyagesRepository {
     return created;
   }
 
-  async update(id: string, data: Record<string, unknown>) {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  async update(idOrNumber: string, data: Record<string, unknown>) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
     const condition = isUuid
-      ? or(eq(voyages.id, id), eq(voyages.voyageNumber, id))
-      : eq(voyages.voyageNumber, id);
+      ? or(eq(voyages.id, idOrNumber), eq(voyages.voyageNumber, idOrNumber))
+      : eq(voyages.voyageNumber, idOrNumber);
 
     const updateData: Record<string, unknown> = { ...data, updatedAt: new Date() };
     delete updateData.id;
@@ -86,11 +86,11 @@ export class VoyagesRepository {
     return updated || null;
   }
 
-  async delete(id: string) {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  async delete(idOrNumber: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
     const condition = isUuid
-      ? or(eq(voyages.id, id), eq(voyages.voyageNumber, id))
-      : eq(voyages.voyageNumber, id);
+      ? or(eq(voyages.id, idOrNumber), eq(voyages.voyageNumber, idOrNumber))
+      : eq(voyages.voyageNumber, idOrNumber);
 
     const [deleted] = await db.delete(voyages).where(condition).returning();
     return !!deleted;
