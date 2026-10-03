@@ -55,28 +55,32 @@ export class ManifestsService {
   }
 
   async updateManifest(id: string, input: UpdateManifestInput) {
-    await this.getManifest(id);
+    const existing = await this.getManifest(id);
 
     const updatePayload: Record<string, unknown> = { ...input };
-    if (input.totalWeightLbs !== undefined) {
+    delete updatePayload.id;
+    delete updatePayload.createdAt;
+    delete updatePayload.updatedAt;
+
+    if (input.totalWeightLbs !== undefined && input.totalWeightLbs !== null) {
       updatePayload.totalWeightLbs = String((Number(input.totalWeightLbs) || 0).toFixed(2));
     }
-    if (input.totalWeightKg !== undefined) {
+    if (input.totalWeightKg !== undefined && input.totalWeightKg !== null) {
       updatePayload.totalWeightKg = String((Number(input.totalWeightKg) || 0).toFixed(2));
     }
-    if (input.totalCbm !== undefined) {
+    if (input.totalCbm !== undefined && input.totalCbm !== null) {
       updatePayload.totalCbm = String((Number(input.totalCbm) || 0).toFixed(2));
     }
-    if (input.totalCft !== undefined) {
+    if (input.totalCft !== undefined && input.totalCft !== null) {
       updatePayload.totalCft = String((Number(input.totalCft) || 0).toFixed(2));
     }
 
-    return this.repo.update(id, updatePayload);
+    return this.repo.update(existing.id, updatePayload);
   }
 
   async deleteManifest(id: string) {
-    await this.getManifest(id);
-    return this.repo.delete(id);
+    const existing = await this.getManifest(id);
+    return this.repo.delete(existing.id);
   }
 }
 

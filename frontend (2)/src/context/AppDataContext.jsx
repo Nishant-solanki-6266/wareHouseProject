@@ -286,19 +286,17 @@ export const AppDataProvider = ({ children }) => {
 
         case 'consolidations': {
           const consRes = await apiClient.get('/consolidations');
-          if (Array.isArray(consRes) && consRes.length > 0) {
-            setConsolidations(consRes);
-            setStored(KEYS.CONSOLIDATIONS, consRes);
-          }
+          const list = Array.isArray(consRes) ? consRes : (Array.isArray(consRes?.data) ? consRes.data : []);
+          setConsolidations(list);
+          setStored(KEYS.CONSOLIDATIONS, list);
           break;
         }
 
         case 'shipments': {
           const shpRes = await apiClient.get('/shipments');
-          if (Array.isArray(shpRes) && shpRes.length > 0) {
-            setShipments(shpRes);
-            setStored(KEYS.SHIPMENTS, shpRes);
-          }
+          const list = Array.isArray(shpRes) ? shpRes : (Array.isArray(shpRes?.data) ? shpRes.data : []);
+          setShipments(list);
+          setStored(KEYS.SHIPMENTS, list);
           break;
         }
 
@@ -313,11 +311,9 @@ export const AppDataProvider = ({ children }) => {
 
         case 'manifests': {
           const mnfRes = await apiClient.get('/manifests');
-          if (Array.isArray(mnfRes) && mnfRes.length > 0) {
-            setManifests(mnfRes);
-            setStored(KEYS.MANIFESTS, mnfRes);
-          }
-          await apiClient.get('/shipping-manifests').catch(() => {});
+          const list = Array.isArray(mnfRes) ? mnfRes : (Array.isArray(mnfRes?.data) ? mnfRes.data : []);
+          setManifests(list);
+          setStored(KEYS.MANIFESTS, list);
           break;
         }
 
@@ -598,8 +594,14 @@ export const AppDataProvider = ({ children }) => {
     if (!created) {
       created = await consolidationService.createConsolidation(consolidationData, currentUser?.name || "Operations Staff");
     }
+    if (created) {
+      setConsolidations(prev => [
+        created,
+        ...(Array.isArray(prev) ? prev.filter(c => c.id !== created.id && c.consolidationNumber !== created.consolidationNumber) : [])
+      ]);
+    }
     await refreshAll();
-    showToast(`Consolidation ${created.consolidationNumber || created.id} created successfully.`, 'success', 'Consolidation Ready');
+    showToast(`Consolidation ${created?.consolidationNumber || created?.id} created successfully.`, 'success', 'Consolidation Ready');
     return created;
   };
 
@@ -625,14 +627,22 @@ export const AppDataProvider = ({ children }) => {
   // 6. Shipments CRUD
   const createShipment = async (shipmentData) => {
     let created;
+    const payload = {
+      ...shipmentData,
+      agentId: shipmentData.agentId || currentUser?.agentId || null,
+      agentName: shipmentData.agentName || currentUser?.department || currentUser?.name || 'Nassau Freight Logistics Ltd',
+    };
     try {
-      const res = await apiClient.post('/shipments', shipmentData);
+      const res = await apiClient.post('/shipments', payload);
       if (res?.data) created = res.data;
     } catch (e) {
       console.warn('Backend createShipment notice:', e.message);
     }
     if (!created) {
-      created = await shipmentService.createShipment(shipmentData, currentUser?.name || "Operations Staff");
+      created = await shipmentService.createShipment(payload, currentUser?.name || "Operations Staff");
+    }
+    if (created) {
+      setShipments(prev => [created, ...(Array.isArray(prev) ? prev.filter(s => s.id !== created.id && s.shipmentNumber !== created.shipmentNumber) : [])]);
     }
     await refreshAll();
     showToast(`Shipment ${created.shipmentNumber || created.id} created successfully.`, 'success', 'Shipment Created');
@@ -730,13 +740,31 @@ export const AppDataProvider = ({ children }) => {
     if (!created) {
       created = await manifestService.generateManifest(manifestData, currentUser?.name || "Documentation Staff");
     }
+    if (created) {
+      setManifests(prev => [
+        created,
+        ...(Array.isArray(prev) ? prev.filter(m => m.id !== created.id && m.manifestNumber !== created.manifestNumber) : [])
+      ]);
+    }
     await refreshAll();
-    showToast(`Shipping Manifest ${created.manifestNumber || created.id} generated successfully.`, 'success', 'Manifest Created');
+    showToast(`Shipping Manifest ${created?.manifestNumber || created?.id} generated successfully.`, 'success', 'Manifest Created');
     return created;
   };
 
   const updateManifest = async (id, updates) => {
-    const updated = await manifestService.updateManifest(id, updates, currentUser?.name || "Documentation Staff");
+    let updated;
+    try {
+      const res = await apiClient.patch(`/manifests/${id}`, updates);
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend updateManifest notice:', e.message);
+    }
+    if (!updated) {
+      updated = await manifestService.updateManifest(id, updates, currentUser?.name || "Documentation Staff");
+    }
+    if (updated) {
+      setManifests(prev => prev.map(m => (m.id === id || m.manifestNumber === id ? { ...m, ...updated } : m)));
+    }
     fetchMenuApi('manifests');
     await refreshAll();
     showToast(`Shipping Manifest ${id} updated successfully.`, 'success', 'Manifest Updated');
@@ -745,13 +773,16 @@ export const AppDataProvider = ({ children }) => {
 
   const deleteManifest = async (id) => {
     setManifests(prev => prev.filter(m => m.id !== id && m.manifestNumber !== id));
-    const success = await manifestService.deleteManifest(id, currentUser?.name || "Documentation Staff");
-    if (success) {
-      fetchMenuApi('manifests');
-      await refreshAll();
-      showToast(`Shipping Manifest ${id} deleted.`, 'info', 'Manifest Deleted');
+    try {
+      await apiClient.delete(`/manifests/${id}`);
+    } catch (e) {
+      console.warn('Backend deleteManifest notice:', e.message);
     }
-    return success;
+    await manifestService.deleteManifest(id, currentUser?.name || "Documentation Staff");
+    fetchMenuApi('manifests');
+    await refreshAll();
+    showToast(`Shipping Manifest ${id} deleted.`, 'info', 'Manifest Deleted');
+    return true;
   };
 
   // 9. Vessels & Voyages CRUD
