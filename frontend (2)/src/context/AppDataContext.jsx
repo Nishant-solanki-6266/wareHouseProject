@@ -141,7 +141,7 @@ export const AppDataProvider = ({ children }) => {
           setStored(KEYS.WAREHOUSE_RECEIPTS, apiWR);
         }
         if (cargoRes.status === 'fulfilled' && cargoRes.value?.data) {
-          const apiCargo = Array.isArray(cargoRes.value.data) ? cargoRes.value.data : cargoRes.value.data.items || [];
+          const apiCargo = Array.isArray(cargoRes.value.data) ? cargoRes.value.data : (cargoRes.value.data.data || cargoRes.value.data.items || []);
           setCargoItems(apiCargo);
           setStored(KEYS.CARGO, apiCargo);
         }
