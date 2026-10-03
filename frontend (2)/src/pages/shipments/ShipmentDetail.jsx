@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { HoldAlertBanner } from '../../components/common/HoldAlertBanner';
@@ -29,6 +29,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
+import { shipmentService } from '../../services/shipmentService';
 import { WorkflowIndicator } from '../../components/common/WorkflowIndicator';
 
 export const ShipmentDetail = ({ shipmentId, onNavigate }) => {
@@ -39,8 +40,38 @@ export const ShipmentDetail = ({ shipmentId, onNavigate }) => {
   const [showPlaceHoldModal, setShowPlaceHoldModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [liveShipment, setLiveShipment] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const shipment = shipments.find(s => s.id === shipmentId || s.shipmentNumber === shipmentId || s.trackingNumber === shipmentId);
+  useEffect(() => {
+    let isMounted = true;
+    if (shipmentId) {
+      setIsLoading(true);
+      shipmentService.getShipmentById(shipmentId)
+        .then(res => {
+          if (isMounted && res) {
+            setLiveShipment(res);
+          }
+        })
+        .catch(err => console.warn('[ShipmentDetail] Live fetch note:', err))
+        .finally(() => {
+          if (isMounted) setIsLoading(false);
+        });
+    }
+    return () => { isMounted = false; };
+  }, [shipmentId]);
+
+  const activeShipment = liveShipment || shipments.find(s => s.id === shipmentId || s.shipmentNumber === shipmentId || s.trackingNumber === shipmentId);
+  const shipment = activeShipment;
+
+  if (!shipment && isLoading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+        <h3>Loading Shipment...</h3>
+        <p style={{ color: '#64748B' }}>Fetching live shipment data from database...</p>
+      </div>
+    );
+  }
 
   if (!shipment) {
     return (
@@ -54,10 +85,20 @@ export const ShipmentDetail = ({ shipmentId, onNavigate }) => {
   }
 
   // Linked entities
-  const linkedReceipts = warehouseReceipts.filter(r =>
-    shipment.warehouseReceiptIds?.includes(r.id) || r.assignedShipmentId === shipment.id
+  const linkedReceipts = (shipment.linkedReceipts && shipment.linkedReceipts.length > 0)
+    ? shipment.linkedReceipts
+    : warehouseReceipts.filter(r =>
+        shipment.warehouseReceiptIds?.includes(r.id) || 
+        shipment.warehouseReceiptIds?.includes(r.receiptNumber) || 
+        r.assignedShipmentId === shipment.id ||
+        r.assignedShipmentId === shipment.shipmentNumber
+      );
+  const linkedBL = shipment.linkedBL || billsOfLading.find(b => 
+    b.id === shipment.billOfLadingId || 
+    b.blNumber === shipment.billOfLadingNumber || 
+    b.shipmentId === shipment.id ||
+    b.shipmentId === shipment.shipmentNumber
   );
-  const linkedBL = billsOfLading.find(b => b.id === shipment.billOfLadingId || b.blNumber === shipment.billOfLadingNumber || b.shipmentId === shipment.id);
   const linkedContainer = containers.find(c => c.containerNumber === shipment.containerNumber);
 
   const isHoldActive = linkedBL?.status === 'On Hold' || linkedBL?.holdDetails?.isOnHold || shipment.blStatus === 'On Hold';
@@ -416,7 +457,7 @@ export const ShipmentDetail = ({ shipmentId, onNavigate }) => {
                           <span>4x6 Label</span>
                         </button>
                         <button
-                          onClick={() => onNavigate('warehouse-receipts', wr.id)}
+                          onClick={() => onNavigate('warehouse-receipts', wr.id || wr.receiptNumber)}
                           className="btn btn-sm btn-primary"
                           style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
                         >
@@ -524,7 +565,7 @@ export const ShipmentDetail = ({ shipmentId, onNavigate }) => {
                   </div>
                 </div>
                 <button
-                  onClick={() => onNavigate('warehouse-receipts', wr.id)}
+                  onClick={() => onNavigate('warehouse-receipts', wr.id || wr.receiptNumber)}
                   className="btn btn-sm btn-outline"
                 >
                   <span>View Receipt</span>
@@ -627,7 +668,9 @@ export const ShipmentDetail = ({ shipmentId, onNavigate }) => {
         isEdit={true}
         onClose={() => setShowEditModal(false)}
         onSave={async (updates) => {
-          await updateShipment(shipment.id, updates);
+          await updateShipment(shipment.id || shipment.shipmentNumber, updates);
+          const refreshed = await shipmentService.getShipmentById(shipment.id || shipment.shipmentNumber);
+          if (refreshed) setLiveShipment(refreshed);
         }}
       />
 
@@ -638,7 +681,7 @@ export const ShipmentDetail = ({ shipmentId, onNavigate }) => {
         itemName={shipment.shipmentNumber}
         itemType="Shipment"
         onConfirm={async () => {
-          await deleteShipment(shipment.id);
+          await deleteShipment(shipment.id || shipment.shipmentNumber);
           onNavigate('shipments');
         }}
       />

@@ -210,7 +210,7 @@ export const BillsOfLadingList = ({ onNavigate }) => {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onNavigate('bills-of-lading', item.id);
+                onNavigate('bills-of-lading', item.id || item.blNumber);
               }}
               className="btn btn-sm btn-primary"
               style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
@@ -332,7 +332,7 @@ export const BillsOfLadingList = ({ onNavigate }) => {
         emptyNextStep="Issue a new Master B/L or build a consolidation to generate one automatically."
         emptyActionLabel="Issue Master B/L"
         onEmptyAction={() => setShowAddModal(true)}
-        onRowClick={(item) => onNavigate('bills-of-lading', item.id)}
+        onRowClick={(item) => onNavigate('bills-of-lading', item.id || item.blNumber)}
       />
 
       {/* Add Master B/L Modal */}
@@ -352,7 +352,7 @@ export const BillsOfLadingList = ({ onNavigate }) => {
         isEdit={true}
         onClose={() => setEditingBL(null)}
         onSave={async (updates) => {
-          await updateBillOfLading(editingBL.id, updates);
+          await updateBillOfLading(editingBL.id || editingBL.blNumber, updates);
         }}
       />
 
@@ -363,7 +363,7 @@ export const BillsOfLadingList = ({ onNavigate }) => {
         itemName={deletingBL?.blNumber}
         itemType="Bill of Lading"
         onConfirm={async () => {
-          await deleteBillOfLading(deletingBL.id);
+          await deleteBillOfLading(deletingBL.id || deletingBL.blNumber);
         }}
       />
 
@@ -373,7 +373,7 @@ export const BillsOfLadingList = ({ onNavigate }) => {
         onClose={() => setActiveBLForClear(null)}
         bl={activeBLForClear}
         onConfirm={async (id, notes) => {
-          await clearBLHold(id, notes);
+          await clearBLHold(id || activeBLForClear.id || activeBLForClear.blNumber, notes);
         }}
       />
 
@@ -383,7 +383,7 @@ export const BillsOfLadingList = ({ onNavigate }) => {
         onClose={() => setActiveBLForPlace(null)}
         bl={activeBLForPlace}
         onConfirm={async (id, reason, notes) => {
-          await placeBLHold(id, reason, notes);
+          await placeBLHold(id || activeBLForPlace.id || activeBLForPlace.blNumber, reason, notes);
         }}
       />
     </div>

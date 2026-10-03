@@ -178,7 +178,7 @@ export const VesselsList = ({ onNavigate }) => {
             </thead>
             <tbody>
               {voyages.map(voy => (
-                <tr key={voy.id}>
+                <tr key={voy.id || voy.voyageNumber}>
                   <td style={{ fontWeight: 700, color: '#0A192F', fontFamily: 'JetBrains Mono, monospace' }}>{voy.voyageNumber}</td>
                   <td style={{ fontWeight: 600 }}>{voy.vesselName}</td>
                   <td>{voy.originPort}</td>
@@ -229,7 +229,7 @@ export const VesselsList = ({ onNavigate }) => {
         isEdit={true}
         onClose={() => setEditingVessel(null)}
         onSave={async (updates) => {
-          await updateVessel(editingVessel.id, updates);
+          await updateVessel(editingVessel.id || editingVessel.imoNumber, updates);
         }}
       />
       <DeleteConfirmModal
@@ -238,7 +238,7 @@ export const VesselsList = ({ onNavigate }) => {
         itemName={deletingVessel?.name}
         itemType="Vessel"
         onConfirm={async () => {
-          await deleteVessel(deletingVessel.id);
+          await deleteVessel(deletingVessel.id || deletingVessel.imoNumber);
         }}
       />
 
@@ -257,7 +257,7 @@ export const VesselsList = ({ onNavigate }) => {
         isEdit={true}
         onClose={() => setEditingVoyage(null)}
         onSave={async (updates) => {
-          await updateVoyage(editingVoyage.id, updates);
+          await updateVoyage(editingVoyage.id || editingVoyage.voyageNumber, updates);
         }}
       />
       <DeleteConfirmModal
@@ -266,7 +266,7 @@ export const VesselsList = ({ onNavigate }) => {
         itemName={deletingVoyage?.voyageNumber}
         itemType="Voyage"
         onConfirm={async () => {
-          await deleteVoyage(deletingVoyage.id);
+          await deleteVoyage(deletingVoyage.id || deletingVoyage.voyageNumber);
         }}
       />
     </div>

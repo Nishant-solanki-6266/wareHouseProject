@@ -2,8 +2,8 @@ import { HouseBillsRepository, houseBillsRepository } from './house-bills.reposi
 import { HouseBillFilterParams, CreateHouseBillInput } from './house-bills.types.js';
 import { NotFoundError } from '../../common/errors/not-found-error.js';
 import { db } from '../../db/index.js';
-import { customers } from '../../db/schema/index.js';
-import { eq, or } from 'drizzle-orm';
+import { customers, warehouseReceipts } from '../../db/schema/index.js';
+import { eq, or, inArray } from 'drizzle-orm';
 
 export class HouseBillsService {
   constructor(private readonly repo: HouseBillsRepository = houseBillsRepository) {}
@@ -21,8 +21,9 @@ export class HouseBillsService {
   async createHouseBill(input: CreateHouseBillInput) {
     const totalCount = await this.repo.countTotal();
     const seq = String(totalCount + 1).padStart(4, '0');
-    const hblNumber = `HBL-2026-${seq}`;
-    const createdDate = new Date().toISOString().split('T')[0];
+    const hblNumber = input.hblNumber?.trim() || `HBL-2026-${seq}`;
+    const createdDate = input.createdDate || new Date().toISOString().split('T')[0];
+    const issueDate = input.issueDate || createdDate;
 
     let resolvedCustomerId: string | undefined = undefined;
     if (input.customerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.customerId)) {
@@ -41,20 +42,20 @@ export class HouseBillsService {
       if (match.length > 0) resolvedCustomerId = match[0].id;
     }
 
-    return this.repo.create({
+    const created = await this.repo.create({
       hblNumber,
       customerId: resolvedCustomerId,
       customerName: input.customerName,
 
-      shipper: input.shipper,
-      consignee: input.consignee,
-      notifyParty: input.notifyParty,
-      agentId: input.agentId,
+      shipper: typeof input.shipper === 'string' ? { name: input.shipper, address: 'Miami, FL' } : input.shipper,
+      consignee: typeof input.consignee === 'string' ? { name: input.consignee, address: input.destinationPort || 'Destination Port' } : input.consignee,
+      notifyParty: typeof input.notifyParty === 'string' ? { name: input.notifyParty, address: 'Destination Port' } : input.notifyParty,
+      agentId: input.agentId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.agentId) ? input.agentId : undefined,
       agentName: input.agentName,
       originPort: input.originPort || 'Port of Miami (USMIA), FL',
       destinationPort: input.destinationPort,
       destinationCode: input.destinationCode,
-      warehouseReceiptIds: input.warehouseReceiptIds,
+      warehouseReceiptIds: input.warehouseReceiptIds || [],
       cargoDescription: input.cargoDescription,
       packages: input.packages || [],
       totalPackages: input.totalPackages ?? 0,
@@ -63,21 +64,118 @@ export class HouseBillsService {
       totalWeightKg: input.totalWeightKg ? String(input.totalWeightKg) : '0.00',
       totalCft: input.totalCft ? String(input.totalCft) : '0.00',
       totalCbm: input.totalCbm ? String(input.totalCbm) : '0.00',
-      status: 'Active',
+      status: input.status || 'Active',
       freightTerms: input.freightTerms || 'Freight Prepaid',
       createdDate,
-      issueDate: createdDate,
-      });
+      issueDate,
+      assignedConsolidationId: input.assignedConsolidationId,
+      assignedMasterBLId: input.assignedMasterBLId,
+      assignedShipmentId: input.assignedShipmentId,
+      notes: input.notes,
+    });
+
+    // Automatically link downstream warehouse receipts in database
+    if (input.warehouseReceiptIds && input.warehouseReceiptIds.length > 0) {
+      try {
+        const wrConditions = [];
+        const uuidIds = input.warehouseReceiptIds.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+        if (uuidIds.length > 0) {
+          wrConditions.push(inArray(warehouseReceipts.id, uuidIds));
+        }
+        wrConditions.push(inArray(warehouseReceipts.receiptNumber, input.warehouseReceiptIds));
+
+        await db
+          .update(warehouseReceipts)
+          .set({ assignedHouseBillId: created.hblNumber, updatedAt: new Date() })
+          .where(or(...wrConditions));
+      } catch (wrErr) {
+        console.warn('Notice updating warehouse receipts link on HBL creation:', wrErr);
+      }
+    }
+
+    return created;
   }
 
   async updateHouseBill(idOrHblNumber: string, input: any) {
+    const existing = await this.getHouseBill(idOrHblNumber);
 
-    await this.getHouseBill(idOrHblNumber);
-    return this.repo.update(idOrHblNumber, input);
+    // Sanitize update fields to match database schema columns precisely
+    const updateData: Record<string, any> = {};
+    if (input.customerName !== undefined) updateData.customerName = input.customerName;
+    if (input.cargoDescription !== undefined) updateData.cargoDescription = input.cargoDescription;
+    if (input.shipper !== undefined) {
+      updateData.shipper = typeof input.shipper === 'string' ? { name: input.shipper, address: 'Miami, FL' } : input.shipper;
+    }
+    if (input.consignee !== undefined) {
+      updateData.consignee = typeof input.consignee === 'string' ? { name: input.consignee, address: 'Destination Port' } : input.consignee;
+    }
+    if (input.notifyParty !== undefined) {
+      updateData.notifyParty = typeof input.notifyParty === 'string' ? { name: input.notifyParty, address: 'Destination Port' } : input.notifyParty;
+    }
+    if (input.originPort !== undefined) updateData.originPort = input.originPort;
+    if (input.destinationPort !== undefined) updateData.destinationPort = input.destinationPort;
+    if (input.destinationCode !== undefined) updateData.destinationCode = input.destinationCode;
+    if (input.freightTerms !== undefined) updateData.freightTerms = input.freightTerms;
+    if (input.status !== undefined) updateData.status = input.status;
+    if (input.notes !== undefined) updateData.notes = input.notes;
+    if (input.assignedConsolidationId !== undefined) updateData.assignedConsolidationId = input.assignedConsolidationId;
+    if (input.assignedMasterBLId !== undefined) updateData.assignedMasterBLId = input.assignedMasterBLId;
+    if (input.assignedShipmentId !== undefined) updateData.assignedShipmentId = input.assignedShipmentId;
+    if (input.totalPackages !== undefined) updateData.totalPackages = Number(input.totalPackages);
+    if (input.totalPieces !== undefined) updateData.totalPieces = Number(input.totalPieces);
+    if (input.totalWeightLbs !== undefined) updateData.totalWeightLbs = String(input.totalWeightLbs);
+    if (input.totalWeightKg !== undefined) updateData.totalWeightKg = String(input.totalWeightKg);
+    if (input.totalCft !== undefined) updateData.totalCft = String(input.totalCft);
+    if (input.totalCbm !== undefined) updateData.totalCbm = String(input.totalCbm);
+    if (Array.isArray(input.packages)) updateData.packages = input.packages;
+    if (Array.isArray(input.warehouseReceiptIds)) updateData.warehouseReceiptIds = input.warehouseReceiptIds;
+
+    if (input.customerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.customerId)) {
+      updateData.customerId = input.customerId;
+    }
+
+    const updated = await this.repo.update(idOrHblNumber, updateData);
+
+    // If warehouseReceiptIds updated, sync linked WRs
+    if (Array.isArray(input.warehouseReceiptIds)) {
+      try {
+        const wrConditions = [];
+        const uuidIds = input.warehouseReceiptIds.filter((id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+        if (uuidIds.length > 0) {
+          wrConditions.push(inArray(warehouseReceipts.id, uuidIds));
+        }
+        wrConditions.push(inArray(warehouseReceipts.receiptNumber, input.warehouseReceiptIds));
+
+        await db
+          .update(warehouseReceipts)
+          .set({ assignedHouseBillId: existing.hblNumber, updatedAt: new Date() })
+          .where(or(...wrConditions));
+      } catch (wrErr) {
+        console.warn('Notice syncing warehouse receipts link on HBL update:', wrErr);
+      }
+    }
+
+    return updated;
   }
 
   async deleteHouseBill(idOrHblNumber: string) {
-    await this.getHouseBill(idOrHblNumber);
+    const existing = await this.getHouseBill(idOrHblNumber);
+    if (existing) {
+      try {
+        // Unlink assignedHouseBillId from warehouse receipts in database
+        await db
+          .update(warehouseReceipts)
+          .set({ assignedHouseBillId: null, updatedAt: new Date() })
+          .where(
+            or(
+              eq(warehouseReceipts.assignedHouseBillId, existing.id),
+              eq(warehouseReceipts.assignedHouseBillId, existing.hblNumber)
+            )
+          );
+      } catch (wrErr) {
+        console.warn('Notice unlinking warehouse receipts on HBL delete:', wrErr);
+      }
+    }
     return this.repo.delete(idOrHblNumber);
   }
 

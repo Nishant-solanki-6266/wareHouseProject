@@ -11,6 +11,7 @@ export async function billsOfLadingRoutes(app: FastifyInstance): Promise<void> {
   app.get('/:id', billsOfLadingController.getById);
   app.post('/', billsOfLadingController.create);
   app.patch('/:id', billsOfLadingController.update);
+  app.put('/:id', billsOfLadingController.update);
   app.delete('/:id', billsOfLadingController.delete);
 
   // Hold governance: Only Super Admin & Documentation Staff can place or clear holds

@@ -44,7 +44,7 @@ export const updateConsolidationSchema = createConsolidationSchema.partial();
 
 export const consolidationQuerySchema = z.object({
   page: z.coerce.number().optional().default(1),
-  limit: z.coerce.number().optional().default(20),
+  limit: z.coerce.number().optional().default(100),
   search: z.string().optional(),
   status: z.string().optional(),
   destinationCode: z.string().optional(),

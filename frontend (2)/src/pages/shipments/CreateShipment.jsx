@@ -31,7 +31,7 @@ export const CreateShipment = ({ onNavigate }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const created = await createShipment(formData);
-    onNavigate('shipments', created.id);
+    onNavigate('shipments', created?.id || created?.shipmentNumber);
   };
 
   return (

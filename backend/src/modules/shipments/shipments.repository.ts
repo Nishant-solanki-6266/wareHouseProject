@@ -1,6 +1,6 @@
 import { eq, ilike, or, count, and, desc } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { shipments, NewShipment } from '../../db/schema/index.js';
+import { shipments, NewShipment, warehouseReceipts, billsOfLading } from '../../db/schema/index.js';
 import { ShipmentFilterParams } from './shipments.types.js';
 
 export class ShipmentsRepository {
@@ -68,7 +68,49 @@ export class ShipmentsRepository {
       .where(whereCondition)
       .limit(1);
 
-    return result[0] || null;
+    const shipment = result[0] || null;
+    if (!shipment) return null;
+
+    // Fetch linked warehouse receipts from database
+    const linkedReceipts = await db
+      .select()
+      .from(warehouseReceipts)
+      .where(
+        or(
+          eq(warehouseReceipts.assignedShipmentId, shipment.id),
+          eq(warehouseReceipts.assignedShipmentId, shipment.shipmentNumber)
+        )
+      );
+
+    // Fetch linked bill of lading from database
+    const blConditions = [];
+    if (shipment.id) blConditions.push(eq(billsOfLading.shipmentId, shipment.id));
+    if (shipment.shipmentNumber) blConditions.push(eq(billsOfLading.shipmentNumber, shipment.shipmentNumber));
+    if (shipment.billOfLadingNumber) blConditions.push(eq(billsOfLading.blNumber, shipment.billOfLadingNumber));
+    const isBlUuid = shipment.billOfLadingId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(shipment.billOfLadingId);
+    if (isBlUuid) blConditions.push(eq(billsOfLading.id, shipment.billOfLadingId!));
+
+    let linkedBL = null;
+    if (blConditions.length > 0) {
+      const blResult = await db
+        .select()
+        .from(billsOfLading)
+        .where(or(...blConditions))
+        .limit(1);
+      linkedBL = blResult[0] || null;
+    }
+
+    return {
+      ...shipment,
+      linkedReceipts: linkedReceipts.map(r => ({
+        ...r,
+        customer: r.customerName,
+        customerName: r.customerName,
+        cft: r.totalCft,
+        cbm: r.totalCbm,
+      })),
+      linkedBL,
+    };
   }
 
   async countTotal(): Promise<number> {
@@ -86,19 +128,29 @@ export class ShipmentsRepository {
   }
 
   async update(id: string, data: Partial<NewShipment>) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const whereCondition = isUuid
+      ? or(eq(shipments.id, id), eq(shipments.shipmentNumber, id))
+      : eq(shipments.shipmentNumber, id);
+
     const [updated] = await db
       .update(shipments)
       .set({ ...data, updatedAt: new Date() })
-      .where(or(eq(shipments.id, id), eq(shipments.shipmentNumber, id)))
+      .where(whereCondition)
       .returning();
 
     return updated || null;
   }
 
   async delete(id: string): Promise<boolean> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const whereCondition = isUuid
+      ? or(eq(shipments.id, id), eq(shipments.shipmentNumber, id))
+      : eq(shipments.shipmentNumber, id);
+
     const [deleted] = await db
       .delete(shipments)
-      .where(or(eq(shipments.id, id), eq(shipments.shipmentNumber, id)))
+      .where(whereCondition)
       .returning();
 
     return !!deleted;

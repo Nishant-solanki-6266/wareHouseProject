@@ -182,10 +182,8 @@ export const vesselService = {
       const res = await apiClient.get('vessels');
       if (res && res.data) {
         const items = Array.isArray(res.data) ? res.data : (res.data.items || res.data.vessels || []);
-        if (items.length > 0) {
-          setStored(KEYS.VESSELS, items);
-          return items;
-        }
+        setStored(KEYS.VESSELS, items);
+        return items;
       }
     } catch (e) {
       console.warn('[vesselService] API getVessels failed, using fallback:', e.message);
@@ -198,10 +196,8 @@ export const vesselService = {
       const res = await apiClient.get('voyages');
       if (res && res.data) {
         const items = Array.isArray(res.data) ? res.data : (res.data.items || res.data.voyages || []);
-        if (items.length > 0) {
-          setStored(KEYS.VOYAGES, items);
-          return items;
-        }
+        setStored(KEYS.VOYAGES, items);
+        return items;
       }
     } catch (e) {
       console.warn('[vesselService] API getVoyages failed, using fallback:', e.message);
@@ -319,9 +315,33 @@ export const vesselService = {
   },
 
   async createVoyage(data, currentUser = "Operations Staff") {
+    let created = null;
+    try {
+      const payload = {
+        voyageNumber: data.voyageNumber || `VOY-2026-${Math.floor(100 + Math.random() * 900)}`,
+        vesselName: data.vesselName || "M/V Tropic Island",
+        originPort: data.originPort || "Port of Miami (USMIA)",
+        destinationPort: data.destinationPort || "Nassau (BSNAS)",
+        departureDate: data.departureDate || new Date().toISOString().split('T')[0],
+        arrivalDate: data.arrivalDate || "2026-09-06",
+        carrier: data.carrier || "Tropical Shipping",
+        status: data.status || "Scheduled",
+        assignedShipmentsCount: Number(data.assignedShipmentsCount) || 0,
+        totalTeuUtilized: data.totalTeuUtilized !== undefined ? String(data.totalTeuUtilized) : "0.00"
+      };
+      if (data.vesselId) payload.vesselId = data.vesselId;
+
+      const res = await apiClient.post('voyages', payload);
+      if (res && res.data) {
+        created = res.data;
+      }
+    } catch (e) {
+      console.warn('[vesselService] API createVoyage failed, using fallback:', e.message);
+    }
+
     const list = getStored(KEYS.VOYAGES);
-    const id = data.id || `voy-${Date.now()}`;
-    const newVoyage = {
+    const id = created?.id || data.id || `voy-${Date.now()}`;
+    const newVoyage = created || {
       ...data,
       id,
       voyageNumber: data.voyageNumber || `VOY-2026-${Math.floor(100 + Math.random() * 900)}`,
@@ -334,7 +354,7 @@ export const vesselService = {
       status: data.status || "Scheduled"
     };
 
-    const updated = [newVoyage, ...list];
+    const updated = [newVoyage, ...list.filter(v => v.id !== newVoyage.id && v.voyageNumber !== newVoyage.voyageNumber)];
     setStored(KEYS.VOYAGES, updated);
 
     await auditService.logAction(
@@ -349,10 +369,20 @@ export const vesselService = {
   },
 
   async updateVoyage(id, updates, currentUser = "Operations Staff") {
+    let updatedItem = null;
+    try {
+      const res = await apiClient.patch(`voyages/${id}`, updates);
+      if (res && res.data) {
+        updatedItem = res.data;
+      }
+    } catch (e) {
+      console.warn('[vesselService] API updateVoyage failed, using local fallback:', e.message);
+    }
+
     const list = getStored(KEYS.VOYAGES);
     const index = list.findIndex(item => item.id === id || item.voyageNumber === id);
     if (index !== -1) {
-      list[index] = { ...list[index], ...updates };
+      list[index] = updatedItem || { ...list[index], ...updates };
       setStored(KEYS.VOYAGES, list);
 
       await auditService.logAction(
@@ -365,10 +395,16 @@ export const vesselService = {
 
       return list[index];
     }
-    return null;
+    return updatedItem;
   },
 
   async deleteVoyage(id, currentUser = "Operations Staff") {
+    try {
+      await apiClient.delete(`voyages/${id}`);
+    } catch (e) {
+      console.warn('[vesselService] API deleteVoyage failed, using local fallback:', e.message);
+    }
+
     const list = getStored(KEYS.VOYAGES);
     const existing = list.find(item => item.id === id || item.voyageNumber === id);
     if (!existing) return false;
@@ -565,7 +601,11 @@ export const userService = {
       };
       const res = await apiClient.post('users', payload);
       if (res && res.data) {
-        return res.data;
+        const createdUser = res.data;
+        const currentList = getStored(KEYS.USERS);
+        const updated = [createdUser, ...currentList.filter(u => u.id !== createdUser.id && u.email !== createdUser.email)];
+        setStored(KEYS.USERS, updated);
+        return createdUser;
       }
     } catch (e) {
       console.warn('[userService] API create user failed, using local storage:', e.message);
