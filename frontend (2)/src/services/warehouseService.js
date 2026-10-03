@@ -142,8 +142,8 @@ export const warehouseService = {
     let createdReceipt = null;
     try {
       const res = await apiClient.post('warehouse-receipts', payload);
-      if (res && res.data) {
-        createdReceipt = res.data;
+      if (res) {
+        createdReceipt = res.data || res;
       }
     } catch (err) {
       console.warn('Backend createReceipt failed, falling back to local:', err?.message || err);
@@ -207,8 +207,8 @@ export const warehouseService = {
     let updatedReceipt = null;
     try {
       const res = await apiClient.put(`warehouse-receipts/${encodeURIComponent(id)}`, updates);
-      if (res && res.data) {
-        updatedReceipt = res.data;
+      if (res) {
+        updatedReceipt = res.data || res;
       }
     } catch (err) {
       console.warn(`Backend updateReceipt ${id} failed:`, err?.message || err);
