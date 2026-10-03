@@ -11,6 +11,7 @@ export const contactObjectSchema = z.union([
 ]);
 
 export const createHouseBillSchema = z.object({
+  hblNumber: z.string().optional(),
   customerId: z
     .string()
     .optional()

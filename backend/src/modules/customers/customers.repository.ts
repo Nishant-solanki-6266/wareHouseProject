@@ -42,10 +42,15 @@ export class CustomersRepository {
   }
 
   async findById(id: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(customers.id, id), eq(customers.customerNumber, id))
+      : eq(customers.customerNumber, id);
+
     const result = await db
       .select()
       .from(customers)
-      .where(or(eq(customers.id, id), eq(customers.customerNumber, id)))
+      .where(condition)
       .limit(1);
 
     return result[0] || null;
@@ -66,19 +71,29 @@ export class CustomersRepository {
   }
 
   async update(id: string, data: UpdateCustomerInput) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(customers.id, id), eq(customers.customerNumber, id))
+      : eq(customers.customerNumber, id);
+
     const [updated] = await db
       .update(customers)
       .set({ ...data, updatedAt: new Date() })
-      .where(or(eq(customers.id, id), eq(customers.customerNumber, id)))
+      .where(condition)
       .returning();
 
     return updated || null;
   }
 
   async delete(id: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(customers.id, id), eq(customers.customerNumber, id))
+      : eq(customers.customerNumber, id);
+
     const [deleted] = await db
       .delete(customers)
-      .where(or(eq(customers.id, id), eq(customers.customerNumber, id)))
+      .where(condition)
       .returning();
 
     return !!deleted;

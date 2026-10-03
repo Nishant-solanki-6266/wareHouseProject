@@ -77,19 +77,29 @@ export class ShipmentsRepository {
   }
 
   async update(id: string, data: Partial<NewShipment>) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const whereCondition = isUuid
+      ? or(eq(shipments.id, id), eq(shipments.shipmentNumber, id))
+      : eq(shipments.shipmentNumber, id);
+
     const [updated] = await db
       .update(shipments)
       .set({ ...data, updatedAt: new Date() })
-      .where(or(eq(shipments.id, id), eq(shipments.shipmentNumber, id)))
+      .where(whereCondition)
       .returning();
 
     return updated || null;
   }
 
   async delete(id: string): Promise<boolean> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const whereCondition = isUuid
+      ? or(eq(shipments.id, id), eq(shipments.shipmentNumber, id))
+      : eq(shipments.shipmentNumber, id);
+
     const [deleted] = await db
       .delete(shipments)
-      .where(or(eq(shipments.id, id), eq(shipments.shipmentNumber, id)))
+      .where(whereCondition)
       .returning();
 
     return !!deleted;

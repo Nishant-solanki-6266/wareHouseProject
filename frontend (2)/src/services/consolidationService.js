@@ -9,10 +9,8 @@ export const consolidationService = {
       const res = await apiClient.get('consolidations', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        if (liveList.length > 0) {
-          setStored(KEYS.CONSOLIDATIONS, liveList);
-          return liveList;
-        }
+        setStored(KEYS.CONSOLIDATIONS, liveList);
+        return liveList;
       }
     } catch (err) {
       console.warn('Backend API /consolidations fetch failed, using local store:', err?.message || err);
@@ -464,10 +462,7 @@ export const consolidationService = {
   async updateConsolidation(id, updates, currentUser = "Operations Staff") {
     let updatedConsolidation = null;
     try {
-      const res = await apiFetch(`/consolidations/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        body: JSON.stringify(updates)
-      });
+      const res = await apiClient.put(`consolidations/${encodeURIComponent(id)}`, updates);
       if (res && res.data) {
         updatedConsolidation = res.data;
       }
@@ -499,9 +494,7 @@ export const consolidationService = {
 
   async deleteConsolidation(id, currentUser = "Operations Staff") {
     try {
-      await apiFetch(`/consolidations/${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      });
+      await apiClient.delete(`consolidations/${encodeURIComponent(id)}`);
     } catch (err) {
       console.warn(`Backend deleteConsolidation ${id} failed:`, err.message);
     }

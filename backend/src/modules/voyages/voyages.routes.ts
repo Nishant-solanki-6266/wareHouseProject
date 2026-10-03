@@ -7,4 +7,8 @@ export async function voyagesRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/', voyagesController.list);
   app.get('/:id', voyagesController.getById);
+  app.post('/', voyagesController.create);
+  app.put('/:id', voyagesController.update);
+  app.patch('/:id', voyagesController.update);
+  app.delete('/:id', voyagesController.delete);
 }

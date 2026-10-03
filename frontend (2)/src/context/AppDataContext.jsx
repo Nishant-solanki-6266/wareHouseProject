@@ -89,6 +89,7 @@ export const AppDataProvider = ({ children }) => {
           vesselsRes,
           voyagesRes,
           agentsRes,
+          documentsRes,
         ] = await Promise.allSettled([
           apiClient.get('/ports'),
           apiClient.get('/settings'),
@@ -104,6 +105,7 @@ export const AppDataProvider = ({ children }) => {
           apiClient.get('/vessels'),
           apiClient.get('/voyages'),
           apiClient.get('/agents'),
+          apiClient.get('/documents'),
         ]);
 
         if (portsRes.status === 'fulfilled' && portsRes.value?.data) {
@@ -176,6 +178,11 @@ export const AppDataProvider = ({ children }) => {
           setAgents(apiAgents);
           setStored(KEYS.AGENTS, apiAgents);
         }
+        if (documentsRes.status === 'fulfilled' && documentsRes.value?.data) {
+          const apiDocs = Array.isArray(documentsRes.value.data) ? documentsRes.value.data : documentsRes.value.data.items || [];
+          setCustomDocuments(apiDocs);
+          setStored(KEYS.DOCUMENTS, apiDocs);
+        }
       }
     } catch (e) {
       console.warn('Backend live sync notice:', e.message);
@@ -184,237 +191,204 @@ export const AppDataProvider = ({ children }) => {
 
     if (syncUsers) syncUsers();
 
-    try {
-      await Promise.allSettled([
-        customerService.getCustomers(),
-        warehouseService.getReceipts(),
-        cargoService.getCargo(),
-        houseBillService.getHouseBills(),
-        consolidationService.getConsolidations(),
-        shipmentService.getShipments(),
-        billOfLadingService.getBillsOfLading(),
-        manifestService.getManifests(),
-        containerService.getContainers(),
-        vesselService.getVessels(),
-        vesselService.getVoyages(),
-        agentService.getAgents(),
-        portService.getPorts(),
-        auditService.getLogs(),
-        settingsService.getSettings(),
-      ]);
-
-      setCustomers(getStored(KEYS.CUSTOMERS, []));
-      setWarehouseReceipts(getStored(KEYS.WAREHOUSE_RECEIPTS, []));
-      setCargoItems(getStored(KEYS.CARGO, []));
-      setHouseBills(getStored(KEYS.HOUSE_BILLS, []));
-      setConsolidations(getStored(KEYS.CONSOLIDATIONS, []));
-      setShipments(getStored(KEYS.SHIPMENTS, []));
-      setBillsOfLading(getStored(KEYS.BILLS_OF_LADING, []));
-      setManifests(getStored(KEYS.MANIFESTS, []));
-      setContainers(getStored(KEYS.CONTAINERS, []));
-      setVessels(getStored(KEYS.VESSELS, []));
-      setVoyages(getStored(KEYS.VOYAGES, []));
-      setAgents(getStored(KEYS.AGENTS, []));
-      setPorts(getStored(KEYS.PORTS, []));
-      setUsers(getStored(KEYS.USERS, []));
-      setCustomDocuments(getStored(KEYS.DOCUMENTS, []));
-      setAuditLogs(getStored(KEYS.AUDIT_LOGS, []));
-      setSettings(getStored(KEYS.SETTINGS, {}));
-    } catch (err) {
-      console.warn('Backend synchronization notice:', err?.message || err);
-    }
   }, [syncUsers]);
+
+  // Helper to extract list from diverse API response shapes
+  const extractListFromRes = (res) => {
+    if (!res) return null;
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res?.data)) return res.data;
+    if (Array.isArray(res?.data?.items)) return res.data.items;
+    if (Array.isArray(res?.items)) return res.items;
+    return null;
+  };
 
   // ON-DEMAND API Fetcher: Triggers ONLY the API corresponding to the clicked menu
   const fetchMenuApi = useCallback(async (tabName) => {
-    if (!tabName || !apiClient.getToken()) return;
+    if (!tabName) return;
     setActiveMenuTab(tabName);
 
     try {
       switch (tabName) {
         case 'dashboard': {
           if (currentRole === 'operations' || currentRole === 'warehouse') {
-            await apiClient.get('/cfs-dashboard');
-            await apiClient.get('/ops-dashboard');
+            await apiClient.get('/cfs-dashboard').catch(() => {});
+            await apiClient.get('/ops-dashboard').catch(() => {});
           } else if (currentRole === 'documentation') {
-            await apiClient.get('/docs-dashboard');
+            await apiClient.get('/docs-dashboard').catch(() => {});
           } else if (currentRole === 'agent') {
-            await apiClient.get('/agent-dashboard');
+            await apiClient.get('/agent-dashboard').catch(() => {});
           } else {
-            await apiClient.get('/admin-dashboard');
+            await apiClient.get('/admin-dashboard').catch(() => {});
           }
           break;
         }
 
         case 'customers': {
-          const custRes = await apiClient.get('/customers');
-          if (Array.isArray(custRes) && custRes.length > 0) {
-            setCustomers(custRes);
-            setStored(KEYS.CUSTOMERS, custRes);
+          const custRes = await apiClient.get('/customers').catch(() => null);
+          const list = extractListFromRes(custRes);
+          if (list !== null) {
+            setCustomers(list);
+            setStored(KEYS.CUSTOMERS, list);
           }
           break;
         }
 
         case 'warehouse-receipts': {
-          const wrRes = await apiClient.get('/warehouse-receipts');
-          if (Array.isArray(wrRes) && wrRes.length > 0) {
-            setWarehouseReceipts(wrRes);
-            setStored(KEYS.WAREHOUSE_RECEIPTS, wrRes);
+          const wrRes = await apiClient.get('/warehouse-receipts').catch(() => null);
+          const list = extractListFromRes(wrRes);
+          if (list !== null) {
+            setWarehouseReceipts(list);
+            setStored(KEYS.WAREHOUSE_RECEIPTS, list);
           }
           await apiClient.get('/labels').catch(() => { });
           break;
         }
 
         case 'cargo': {
-          const cargoRes = await apiClient.get('/cargo');
-          if (Array.isArray(cargoRes) && cargoRes.length > 0) {
-            setCargoItems(cargoRes);
-            setStored(KEYS.CARGO, cargoRes);
+          const cargoRes = await apiClient.get('/cargo').catch(() => null);
+          const list = extractListFromRes(cargoRes);
+          if (list !== null) {
+            setCargoItems(list);
+            setStored(KEYS.CARGO, list);
           }
-          await apiClient.get('/cargo-inventory').catch(() => { });
           break;
         }
 
         case 'house-bills': {
-          const hbRes = await apiClient.get('/house-bills');
-          if (Array.isArray(hbRes) && hbRes.length > 0) {
-            setHouseBills(hbRes);
-            setStored(KEYS.HOUSE_BILLS, hbRes);
+          const hbRes = await apiClient.get('/house-bills').catch(() => null);
+          const list = extractListFromRes(hbRes);
+          if (list !== null) {
+            setHouseBills(list);
+            setStored(KEYS.HOUSE_BILLS, list);
           }
           break;
         }
 
         case 'consolidations': {
-          const consRes = await apiClient.get('/consolidations');
-          if (Array.isArray(consRes) && consRes.length > 0) {
-            setConsolidations(consRes);
-            setStored(KEYS.CONSOLIDATIONS, consRes);
+          const consRes = await apiClient.get('/consolidations').catch(() => null);
+          const list = extractListFromRes(consRes);
+          if (list !== null) {
+            setConsolidations(list);
+            setStored(KEYS.CONSOLIDATIONS, list);
           }
           break;
         }
 
         case 'shipments': {
-          const shpRes = await apiClient.get('/shipments');
-          if (Array.isArray(shpRes) && shpRes.length > 0) {
-            setShipments(shpRes);
-            setStored(KEYS.SHIPMENTS, shpRes);
+          const shpRes = await apiClient.get('/shipments').catch(() => null);
+          const list = extractListFromRes(shpRes);
+          if (list !== null) {
+            setShipments(list);
+            setStored(KEYS.SHIPMENTS, list);
           }
           break;
         }
 
         case 'bills-of-lading': {
-          const blRes = await apiClient.get('/bills-of-lading');
-          if (Array.isArray(blRes) && blRes.length > 0) {
-            setBillsOfLading(blRes);
-            setStored(KEYS.BILLS_OF_LADING, blRes);
+          const blRes = await apiClient.get('/bills-of-lading').catch(() => null);
+          const list = extractListFromRes(blRes);
+          if (list !== null) {
+            setBillsOfLading(list);
+            setStored(KEYS.BILLS_OF_LADING, list);
           }
           break;
         }
 
         case 'manifests': {
-          const mnfRes = await apiClient.get('/manifests');
-          if (Array.isArray(mnfRes) && mnfRes.length > 0) {
-            setManifests(mnfRes);
-            setStored(KEYS.MANIFESTS, mnfRes);
+          const mnfRes = await apiClient.get('/manifests').catch(() => null);
+          const list = extractListFromRes(mnfRes);
+          if (list !== null) {
+            setManifests(list);
+            setStored(KEYS.MANIFESTS, list);
           }
-          await apiClient.get('/shipping-manifests').catch(() => { });
           break;
         }
 
         case 'containers': {
-          const cntRes = await apiClient.get('/containers');
-          if (Array.isArray(cntRes) && cntRes.length > 0) {
-            setContainers(cntRes);
-            setStored(KEYS.CONTAINERS, cntRes);
+          const cntRes = await apiClient.get('/containers').catch(() => null);
+          const list = extractListFromRes(cntRes);
+          if (list !== null) {
+            setContainers(list);
+            setStored(KEYS.CONTAINERS, list);
           }
           break;
         }
 
         case 'vessels': {
-          const vslRes = await apiClient.get('/vessels');
-          const voyRes = await apiClient.get('/voyages');
-          if (Array.isArray(vslRes) && vslRes.length > 0) {
-            setVessels(vslRes);
-            setStored(KEYS.VESSELS, vslRes);
+          const [vslRes, voyRes] = await Promise.allSettled([
+            apiClient.get('/vessels'),
+            apiClient.get('/voyages')
+          ]);
+          if (vslRes.status === 'fulfilled') {
+            const vList = extractListFromRes(vslRes.value);
+            if (vList !== null) {
+              setVessels(vList);
+              setStored(KEYS.VESSELS, vList);
+            }
           }
-          if (Array.isArray(voyRes) && voyRes.length > 0) {
-            setVoyages(voyRes);
-            setStored(KEYS.VOYAGES, voyRes);
+          if (voyRes.status === 'fulfilled') {
+            const voyList = extractListFromRes(voyRes.value);
+            if (voyList !== null) {
+              setVoyages(voyList);
+              setStored(KEYS.VOYAGES, voyList);
+            }
           }
-          await apiClient.get('/containers-vessels').catch(() => { });
           break;
         }
 
         case 'tracking': {
-          await apiClient.get('/tracking/TRK-VI-994819').catch(() => { });
+          const trkRes = await apiClient.get('/tracking').catch(() => null);
           break;
         }
 
         case 'documents': {
-          const docRes = await apiClient.get('/documents');
-          if (Array.isArray(docRes) && docRes.length > 0) {
-            setCustomDocuments(docRes);
-            setStored(KEYS.DOCUMENTS, docRes);
+          const docRes = await apiClient.get('/documents').catch(() => null);
+          const list = extractListFromRes(docRes);
+          if (list !== null) {
+            setCustomDocuments(list);
+            setStored(KEYS.DOCUMENTS, list);
           }
-          await apiClient.get('/documents-archive').catch(() => { });
           break;
         }
 
         case 'agents': {
-          const agtRes = await apiClient.get('/agents');
-          if (Array.isArray(agtRes) && agtRes.length > 0) {
-            setAgents(agtRes);
-            setStored(KEYS.AGENTS, agtRes);
+          const agtRes = await apiClient.get('/agents').catch(() => null);
+          const list = extractListFromRes(agtRes);
+          if (list !== null) {
+            setAgents(list);
+            setStored(KEYS.AGENTS, list);
           }
           break;
         }
 
         case 'users': {
-          const usrRes = await apiClient.get('/users');
-          if (Array.isArray(usrRes) && usrRes.length > 0) {
-            setUsers(usrRes);
-            setStored(KEYS.USERS, usrRes);
+          const usrRes = await apiClient.get('/users').catch(() => null);
+          const list = extractListFromRes(usrRes);
+          if (list !== null) {
+            setUsers(list);
+            setStored(KEYS.USERS, list);
           }
-          await apiClient.get('/users-roles').catch(() => { });
           break;
         }
 
         case 'audit': {
-          const audRes = await apiClient.get('/audit');
-          if (Array.isArray(audRes) && audRes.length > 0) {
-            setAuditLogs(audRes);
-            setStored(KEYS.AUDIT_LOGS, audRes);
+          const audRes = await apiClient.get('/audit').catch(() => null);
+          const list = extractListFromRes(audRes);
+          if (list !== null) {
+            setAuditLogs(list);
+            setStored(KEYS.AUDIT_LOGS, list);
           }
-          await apiClient.get('/audit-trail').catch(() => { });
-          break;
-        }
-
-        case 'history': {
-          await apiClient.get('/shipment-history').catch(() => { });
           break;
         }
 
         case 'settings': {
-          const setRes = await apiClient.get('/settings');
-          if (setRes) {
-            setSettings(setRes);
-            setStored(KEYS.SETTINGS, setRes);
+          const setRes = await apiClient.get('/settings').catch(() => null);
+          const val = setRes?.data || setRes;
+          if (val) {
+            setSettings(val);
+            setStored(KEYS.SETTINGS, val);
           }
-          break;
-        }
-
-        case 'agent-dashboard': {
-          await apiClient.get('/agent-dashboard').catch(() => { });
-          break;
-        }
-
-        case 'agent-shipments': {
-          await apiClient.get('/assigned-shipments').catch(() => { });
-          break;
-        }
-
-        case 'agent-documents': {
-          await apiClient.get('/agent-documents').catch(() => { });
           break;
         }
 
@@ -910,6 +884,14 @@ export const AppDataProvider = ({ children }) => {
     return created;
   };
 
+  const updateDocument = async (id, updates) => {
+    const updated = await documentService.updateDocument(id, updates, currentUser?.name || "Documentation Staff");
+    fetchMenuApi('documents');
+    await refreshAll();
+    showToast(`Document ${id} updated successfully.`, 'success', 'Document Updated');
+    return updated;
+  };
+
   const deleteDocument = async (id) => {
     setCustomDocuments(prev => prev.filter(d => d.id !== id));
     const success = await documentService.deleteDocument(id, currentUser?.name || "Documentation Staff");
@@ -988,6 +970,7 @@ export const AppDataProvider = ({ children }) => {
       agents,
       ports,
       users,
+      documents: customDocuments,
       customDocuments,
       auditLogs,
       settings,
@@ -1058,6 +1041,7 @@ export const AppDataProvider = ({ children }) => {
       deleteUser,
       // Documents
       uploadDocument,
+      updateDocument,
       deleteDocument,
       // Settings & reset
       updateSettings,

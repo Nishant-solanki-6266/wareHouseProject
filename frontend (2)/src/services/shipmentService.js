@@ -9,10 +9,8 @@ export const shipmentService = {
       const res = await apiClient.get('shipments', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        if (liveList.length > 0) {
-          setStored(KEYS.SHIPMENTS, liveList);
-          return liveList;
-        }
+        setStored(KEYS.SHIPMENTS, liveList);
+        return liveList;
       }
     } catch (err) {
       console.warn('Backend API /shipments fetch failed, using cached store:', err?.message || err);

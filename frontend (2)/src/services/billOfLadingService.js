@@ -9,10 +9,8 @@ export const billOfLadingService = {
       const res = await apiClient.get('bills-of-lading', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        if (liveList.length > 0) {
-          setStored(KEYS.BILLS_OF_LADING, liveList);
-          return liveList;
-        }
+        setStored(KEYS.BILLS_OF_LADING, liveList);
+        return liveList;
       }
     } catch (err) {
       console.warn('API error fetching bills of lading, fallback to local:', err?.message || err);

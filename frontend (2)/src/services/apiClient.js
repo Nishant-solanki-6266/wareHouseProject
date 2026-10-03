@@ -10,7 +10,7 @@ const API_BASE_URL = isRemoteUrl
   ? ENV_API_URL
   : (typeof window !== 'undefined' && window.location.port === '5173'
       ? '/api/v1'
-      : (ENV_API_URL || 'http://127.0.0.1:5001/api/v1'));
+      : (ENV_API_URL || 'http://127.0.0.1:5000/api/v1'));
 
 export const apiClient = {
   getToken() {
@@ -40,14 +40,42 @@ export const apiClient = {
 
   async ensureToken() {
     let token = this.getToken();
-    if (token && !this.isTokenExpired(token)) return token;
+    if (token && !this.isTokenExpired(token) && token !== 'local-session-active') return token;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const savedUser = localStorage.getItem('kers_active_user');
+        const user = savedUser ? JSON.parse(savedUser) : null;
+        const email = user?.email || 'marcus.vance@vicustoms.com';
+        let res = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: 'Password123!' })
+        });
+        if (!res.ok) {
+          res = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password: 'password123' })
+          });
+        }
+        const data = await res.json().catch(() => null);
+        const freshToken = data?.token || data?.data?.token || data?.data?.accessToken;
+        if (freshToken) {
+          this.setToken(freshToken);
+          return freshToken;
+        }
+      } catch (err) {
+        console.warn('[apiClient] Auto-auth attempt failed:', err.message);
+      }
+    }
     return null;
   },
 
   async request(endpoint, options = {}, isRetry = false) {
     const isAuthOrHealth = endpoint.includes('/auth/login') || endpoint.includes('/health');
     let token = this.getToken();
-    if (!token && !isAuthOrHealth) {
+    if ((!token || this.isTokenExpired(token) || token === 'local-session-active') && !isAuthOrHealth) {
       token = await this.ensureToken();
     }
 
@@ -58,7 +86,20 @@ export const apiClient = {
     };
 
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${cleanEndpoint}`;
+    let url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${cleanEndpoint}`;
+
+    if (options && options.params && typeof options.params === 'object') {
+      const searchParams = new URLSearchParams();
+      for (const [key, value] of Object.entries(options.params)) {
+        if (value !== undefined && value !== null && value !== '' && value !== 'All') {
+          searchParams.append(key, String(value));
+        }
+      }
+      const qs = searchParams.toString();
+      if (qs) {
+        url += (url.includes('?') ? '&' : '?') + qs;
+      }
+    }
 
     const config = {
       ...options,

@@ -72,19 +72,29 @@ export class ConsolidationRepository {
   }
 
   async update(id: string, data: Partial<NewConsolidation>) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const whereCondition = isUuid
+      ? or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id))
+      : eq(consolidations.consolidationNumber, id);
+
     const [updated] = await db
       .update(consolidations)
       .set({ ...data, updatedAt: new Date() })
-      .where(or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id)))
+      .where(whereCondition)
       .returning();
 
     return updated || null;
   }
 
   async delete(id: string): Promise<boolean> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const whereCondition = isUuid
+      ? or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id))
+      : eq(consolidations.consolidationNumber, id);
+
     const [deleted] = await db
       .delete(consolidations)
-      .where(or(eq(consolidations.id, id), eq(consolidations.consolidationNumber, id)))
+      .where(whereCondition)
       .returning();
 
     return !!deleted;

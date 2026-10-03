@@ -85,6 +85,48 @@ export class TrackingRepository {
 
     return { shipment, events };
   }
+
+  async listAllEvents(trackingNumber?: string) {
+    if (trackingNumber) {
+      return db
+        .select()
+        .from(trackingEvents)
+        .where(eq(trackingEvents.trackingNumber, trackingNumber))
+        .orderBy(trackingEvents.checkpointIndex);
+    }
+    return db
+      .select()
+      .from(trackingEvents)
+      .orderBy(trackingEvents.checkpointIndex);
+  }
+
+  async createEvent(data: Record<string, unknown>) {
+    const [created] = await db
+      .insert(trackingEvents)
+      .values(data as any)
+      .returning();
+    return created;
+  }
+
+  async updateEvent(id: string, data: Record<string, unknown>) {
+    const [updated] = await db
+      .update(trackingEvents)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      } as any)
+      .where(eq(trackingEvents.id, id))
+      .returning();
+    return updated || null;
+  }
+
+  async deleteEvent(id: string) {
+    const [deleted] = await db
+      .delete(trackingEvents)
+      .where(eq(trackingEvents.id, id))
+      .returning();
+    return !!deleted;
+  }
 }
 
 export const trackingRepository = new TrackingRepository();

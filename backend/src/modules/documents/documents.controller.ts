@@ -63,6 +63,25 @@ export class DocumentsController {
 
     reply.send(successResponse(item));
   };
+
+  create = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const body = (request.body as Record<string, unknown>) || {};
+    const created = await this.service.createDocument(body);
+    reply.status(201).send(successResponse(created, 'Document created successfully'));
+  };
+
+  update = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    const body = (request.body as Record<string, unknown>) || {};
+    const updated = await this.service.updateDocument(id, body);
+    reply.send(successResponse(updated, 'Document updated successfully'));
+  };
+
+  delete = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    const success = await this.service.deleteDocument(id);
+    reply.send(successResponse({ success }, 'Document deleted successfully'));
+  };
 }
 
 export const documentsController = new DocumentsController();

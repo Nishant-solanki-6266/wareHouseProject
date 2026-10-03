@@ -14,6 +14,22 @@ export class VoyagesService {
     if (!item) throw new NotFoundError('Voyage');
     return item;
   }
+
+  async createVoyage(data: Record<string, unknown>) {
+    return this.repo.create(data);
+  }
+
+  async updateVoyage(id: string, data: Record<string, unknown>) {
+    const updated = await this.repo.update(id, data);
+    if (!updated) throw new NotFoundError('Voyage');
+    return updated;
+  }
+
+  async deleteVoyage(id: string) {
+    const deleted = await this.repo.delete(id);
+    if (!deleted) throw new NotFoundError('Voyage');
+    return true;
+  }
 }
 
 export const voyagesService = new VoyagesService();

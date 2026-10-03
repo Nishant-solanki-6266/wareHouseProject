@@ -8,16 +8,14 @@ export const portService = {
       const res = await apiClient.get('ports');
       if (res && res.data) {
         const ports = Array.isArray(res.data) ? res.data : (res.data.items || res.data.ports || []);
-        if (ports.length > 0) {
-          // Normalize code property so both code and portCode are accessible
-          const mapped = ports.map(p => ({
-            ...p,
-            code: p.code || p.portCode,
-            portCode: p.portCode || p.code,
-          }));
-          setStored(KEYS.PORTS, mapped);
-          return mapped;
-        }
+        // Normalize code property so both code and portCode are accessible
+        const mapped = ports.map(p => ({
+          ...p,
+          code: p.code || p.portCode,
+          portCode: p.portCode || p.code,
+        }));
+        setStored(KEYS.PORTS, mapped);
+        return mapped;
       }
     } catch (e) {
       console.warn('[portService] Failed to fetch ports from API, using fallback:', e.message);

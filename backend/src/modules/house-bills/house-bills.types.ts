@@ -10,6 +10,7 @@ export interface HouseBillFilterParams {
 }
 
 export interface CreateHouseBillInput {
+  hblNumber?: string;
   customerId?: string;
   customerName: string;
   shipper: ShipperInfo;

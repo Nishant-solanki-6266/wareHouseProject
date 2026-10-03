@@ -21,7 +21,9 @@ export class HouseBillsService {
   async createHouseBill(input: CreateHouseBillInput) {
     const totalCount = await this.repo.countTotal();
     const seq = String(totalCount + 1).padStart(4, '0');
-    const hblNumber = `HBL-2026-${seq}`;
+    const hblNumber = input.hblNumber && input.hblNumber.trim()
+      ? input.hblNumber.trim()
+      : `HBL-2026-${seq}`;
     const createdDate = new Date().toISOString().split('T')[0];
 
     let resolvedCustomerId: string | undefined = undefined;

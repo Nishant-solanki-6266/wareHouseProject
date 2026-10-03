@@ -11,5 +11,6 @@ export async function warehouseRoutes(app: FastifyInstance): Promise<void> {
   app.get('/:id', warehouseController.getById);
   app.post('/', warehouseController.create);
   app.patch('/:id', warehouseController.update);
+  app.put('/:id', warehouseController.update);
   app.delete('/:id', warehouseController.delete);
 }

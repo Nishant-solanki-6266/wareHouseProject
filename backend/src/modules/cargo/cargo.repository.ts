@@ -56,21 +56,31 @@ export class CargoRepository {
   }
 
   async update(id: string, data: Record<string, unknown>) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const whereCondition = isUuid
+      ? or(eq(cargo.id, id), eq(cargo.cargoNumber, id))
+      : eq(cargo.cargoNumber, id);
+
     const [updated] = await db
       .update(cargo)
       .set({
         ...data,
         updatedAt: new Date(),
       } as any)
-      .where(or(eq(cargo.id, id), eq(cargo.cargoNumber, id)))
+      .where(whereCondition)
       .returning();
     return updated || null;
   }
 
   async delete(id: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const whereCondition = isUuid
+      ? or(eq(cargo.id, id), eq(cargo.cargoNumber, id))
+      : eq(cargo.cargoNumber, id);
+
     const [deleted] = await db
       .delete(cargo)
-      .where(or(eq(cargo.id, id), eq(cargo.cargoNumber, id)))
+      .where(whereCondition)
       .returning();
     return !!deleted;
   }

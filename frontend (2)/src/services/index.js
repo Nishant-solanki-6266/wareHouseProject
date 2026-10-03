@@ -18,15 +18,13 @@ export const containerService = {
       const res = await apiClient.get('containers', { params: filters });
       if (res && res.data) {
         const items = Array.isArray(res.data) ? res.data : (res.data.items || res.data.containers || []);
-        if (items.length > 0) {
-          setStored(KEYS.CONTAINERS, items);
-          return items;
-        }
+        setStored(KEYS.CONTAINERS, items);
+        return items;
       }
     } catch (e) {
       console.warn('[containerService] API getContainers failed, using fallback:', e.message);
     }
-    const list = getStored(KEYS.CONTAINERS);
+    const list = getStored(KEYS.CONTAINERS, []);
     let filtered = [...list];
     if (filters.search) {
       const q = filters.search.toLowerCase();
@@ -181,15 +179,13 @@ export const vesselService = {
       const res = await apiClient.get('vessels');
       if (res && res.data) {
         const items = Array.isArray(res.data) ? res.data : (res.data.items || res.data.vessels || []);
-        if (items.length > 0) {
-          setStored(KEYS.VESSELS, items);
-          return items;
-        }
+        setStored(KEYS.VESSELS, items);
+        return items;
       }
     } catch (e) {
       console.warn('[vesselService] API getVessels failed, using fallback:', e.message);
     }
-    return getStored(KEYS.VESSELS);
+    return getStored(KEYS.VESSELS, []);
   },
 
   async getVoyages() {
@@ -197,15 +193,13 @@ export const vesselService = {
       const res = await apiClient.get('voyages');
       if (res && res.data) {
         const items = Array.isArray(res.data) ? res.data : (res.data.items || res.data.voyages || []);
-        if (items.length > 0) {
-          setStored(KEYS.VOYAGES, items);
-          return items;
-        }
+        setStored(KEYS.VOYAGES, items);
+        return items;
       }
     } catch (e) {
       console.warn('[vesselService] API getVoyages failed, using fallback:', e.message);
     }
-    return getStored(KEYS.VOYAGES);
+    return getStored(KEYS.VOYAGES, []);
   },
 
   async createVessel(data, currentUser = "Operations Staff") {
@@ -318,9 +312,32 @@ export const vesselService = {
   },
 
   async createVoyage(data, currentUser = "Operations Staff") {
-    const list = getStored(KEYS.VOYAGES);
-    const id = data.id || `voy-${Date.now()}`;
-    const newVoyage = {
+    let created = null;
+    try {
+      const payload = {
+        voyageNumber: data.voyageNumber || `VOY-2026-${Math.floor(100 + Math.random() * 900)}`,
+        vesselId: data.vesselId || undefined,
+        vesselName: data.vesselName || "M/V Tropic Island",
+        carrier: data.carrier || "Tropical Shipping",
+        originPort: data.originPort || "Port of Miami (USMIA)",
+        destinationPort: data.destinationPort || "Port of Nassau (BSNAS)",
+        departureDate: data.departureDate || new Date().toISOString().split('T')[0],
+        arrivalDate: data.arrivalDate || "2026-09-06",
+        status: data.status || "Scheduled",
+        assignedShipmentsCount: Number(data.assignedShipmentsCount) || 0,
+        totalTeuUtilized: Number(data.totalTeuUtilized) || 0,
+      };
+      const res = await apiClient.post('voyages', payload);
+      if (res && res.data) {
+        created = res.data;
+      }
+    } catch (e) {
+      console.warn('[vesselService] API createVoyage failed, using local fallback:', e.message);
+    }
+
+    const list = getStored(KEYS.VOYAGES, []);
+    const id = created?.id || data.id || `voy-${Date.now()}`;
+    const newVoyage = created || {
       ...data,
       id,
       voyageNumber: data.voyageNumber || `VOY-2026-${Math.floor(100 + Math.random() * 900)}`,
@@ -333,7 +350,7 @@ export const vesselService = {
       status: data.status || "Scheduled"
     };
 
-    const updated = [newVoyage, ...list];
+    const updated = [newVoyage, ...list.filter(v => v.id !== newVoyage.id && v.voyageNumber !== newVoyage.voyageNumber)];
     setStored(KEYS.VOYAGES, updated);
 
     await auditService.logAction(
@@ -348,10 +365,20 @@ export const vesselService = {
   },
 
   async updateVoyage(id, updates, currentUser = "Operations Staff") {
-    const list = getStored(KEYS.VOYAGES);
+    let updatedItem = null;
+    try {
+      const res = await apiClient.put(`voyages/${id}`, updates);
+      if (res && res.data) {
+        updatedItem = res.data;
+      }
+    } catch (e) {
+      console.warn('[vesselService] API updateVoyage failed, using local fallback:', e.message);
+    }
+
+    const list = getStored(KEYS.VOYAGES, []);
     const index = list.findIndex(item => item.id === id || item.voyageNumber === id);
     if (index !== -1) {
-      list[index] = { ...list[index], ...updates };
+      list[index] = updatedItem || { ...list[index], ...updates };
       setStored(KEYS.VOYAGES, list);
 
       await auditService.logAction(
@@ -364,11 +391,17 @@ export const vesselService = {
 
       return list[index];
     }
-    return null;
+    return updatedItem;
   },
 
   async deleteVoyage(id, currentUser = "Operations Staff") {
-    const list = getStored(KEYS.VOYAGES);
+    try {
+      await apiClient.delete(`voyages/${id}`);
+    } catch (e) {
+      console.warn('[vesselService] API deleteVoyage failed, using local fallback:', e.message);
+    }
+
+    const list = getStored(KEYS.VOYAGES, []);
     const existing = list.find(item => item.id === id || item.voyageNumber === id);
     if (!existing) return false;
 
@@ -661,56 +694,149 @@ export const userService = {
 
 export const documentService = {
   async getDocuments() {
+    try {
+      const res = await apiClient.get('documents');
+      if (res && res.data) {
+        const live = Array.isArray(res.data) ? res.data : (res.data.items || []);
+        const mapped = live.map(d => ({
+          ...d,
+          docNumber: d.documentNumber || d.docNumber || d.id,
+          docType: d.documentType || d.docType || 'Supporting Document',
+          title: d.metadata?.title || d.fileName || d.documentNumber || 'Document',
+          party: d.metadata?.party || d.createdBy || 'Consignment Party',
+          date: d.metadata?.date || (d.createdAt ? d.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
+          status: d.status || 'Active'
+        }));
+        setStored(KEYS.DOCUMENTS, mapped);
+        return mapped;
+      }
+    } catch (e) {
+      console.warn('Backend getDocuments error:', e?.message);
+    }
     return getStored(KEYS.DOCUMENTS, []);
   },
 
   async uploadDocument(data, currentUser = "Documentation Staff") {
     const list = getStored(KEYS.DOCUMENTS, []);
     const id = data.id || `DOC-2026-${Math.floor(1000 + list.length + 1)}`;
-    const newDoc = {
-      ...data,
-      id,
-      docNumber: data.docNumber || id,
-      docType: data.docType || "Commercial Invoice",
-      entityType: "CUSTOM_DOC",
-      title: data.title || "Custom Attached Document",
-      date: data.date || new Date().toISOString().split('T')[0],
-      party: data.party || "Customer / Carrier",
-      status: data.status || "Active",
-      fileName: data.fileName || "document_attachment.pdf",
-      fileSize: data.fileSize || "1.2 MB",
-      notes: data.notes || ""
+    const payload = {
+      documentNumber: data.docNumber || id,
+      entityType: data.entityType || 'CUSTOM_DOC',
+      entityId: data.entityId || id,
+      documentType: data.docType || 'CUSTOMS_DOC',
+      fileName: data.fileName || `${data.title || 'document'}.pdf`,
+      fileUrl: data.fileUrl || null,
+      mimeType: data.mimeType || 'application/pdf',
+      fileSize: typeof data.fileSize === 'number' ? data.fileSize : 1024,
+      status: data.status || 'Active',
+      metadata: {
+        title: data.title || 'Custom Attached Document',
+        party: data.party || 'Customer / Carrier',
+        notes: data.notes || '',
+        date: data.date || new Date().toISOString().split('T')[0]
+      },
+      createdBy: typeof currentUser === 'string' ? currentUser : currentUser?.name || 'Documentation Staff'
     };
 
-    const updated = [newDoc, ...list];
+    let createdDoc = null;
+    try {
+      const res = await apiClient.post('documents', payload);
+      if (res && res.data) {
+        createdDoc = {
+          ...res.data,
+          id: res.data.id || id,
+          docNumber: res.data.documentNumber || payload.documentNumber,
+          docType: res.data.documentType || payload.documentType,
+          title: data.title || payload.metadata.title,
+          date: data.date || payload.metadata.date,
+          party: data.party || payload.metadata.party,
+          status: res.data.status || payload.status
+        };
+      }
+    } catch (e) {
+      console.warn('Backend uploadDocument failed, saving locally:', e?.message);
+    }
+
+    if (!createdDoc) {
+      createdDoc = {
+        ...payload,
+        id,
+        docNumber: payload.documentNumber,
+        docType: payload.documentType,
+        title: data.title || "Custom Attached Document",
+        date: data.date || new Date().toISOString().split('T')[0],
+        party: data.party || "Customer / Carrier"
+      };
+    }
+
+    const updated = [createdDoc, ...list.filter(d => d.id !== createdDoc.id && d.docNumber !== createdDoc.docNumber)];
     setStored(KEYS.DOCUMENTS, updated);
 
     await auditService.logAction(
       currentUser,
       "Document Center",
       "Uploaded Document",
-      id,
-      `Uploaded document ${newDoc.title} (${newDoc.docType}).`
+      createdDoc.docNumber || createdDoc.id,
+      `Uploaded document ${createdDoc.title} (${createdDoc.docType}).`
     );
 
-    return newDoc;
+    return createdDoc;
+  },
+
+  async updateDocument(id, updates, currentUser = "Documentation Staff") {
+    let updatedDoc = null;
+    try {
+      const res = await apiClient.put(`documents/${encodeURIComponent(id)}`, updates);
+      if (res && res.data) updatedDoc = res.data;
+    } catch (err) {
+      try {
+        const patchRes = await apiClient.patch(`documents/${encodeURIComponent(id)}`, updates);
+        if (patchRes && patchRes.data) updatedDoc = patchRes.data;
+      } catch (e2) {
+        console.warn('Backend updateDocument failed:', e2?.message || e2);
+      }
+    }
+
+    const list = getStored(KEYS.DOCUMENTS, []);
+    const idx = list.findIndex(d => d.id === id || d.docNumber === id || d.documentNumber === id);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...(updatedDoc || updates) };
+      setStored(KEYS.DOCUMENTS, list);
+
+      await auditService.logAction(
+        currentUser,
+        "Document Center",
+        "Updated Document",
+        id,
+        `Updated document details for ${list[idx].title || id}.`
+      );
+
+      return list[idx];
+    }
+    return updatedDoc;
   },
 
   async deleteDocument(id, currentUser = "Documentation Staff") {
-    const list = getStored(KEYS.DOCUMENTS, []);
-    const existing = list.find(item => item.id === id || item.docNumber === id);
-    if (!existing) return false;
+    try {
+      await apiClient.delete(`documents/${encodeURIComponent(id)}`);
+    } catch (e) {
+      console.warn('Backend deleteDocument failed:', e?.message);
+    }
 
-    const filtered = list.filter(item => item.id !== id && item.docNumber !== id);
+    const list = getStored(KEYS.DOCUMENTS, []);
+    const existing = list.find(item => item.id === id || item.docNumber === id || item.documentNumber === id);
+    const filtered = list.filter(item => item.id !== id && item.docNumber !== id && item.documentNumber !== id);
     setStored(KEYS.DOCUMENTS, filtered);
 
-    await auditService.logAction(
-      currentUser,
-      "Document Center",
-      "Deleted Document",
-      id,
-      `Deleted document ${existing.title} (${id}).`
-    );
+    if (existing) {
+      await auditService.logAction(
+        currentUser,
+        "Document Center",
+        "Deleted Document",
+        id,
+        `Deleted document ${existing.title} (${id}).`
+      );
+    }
 
     return true;
   }

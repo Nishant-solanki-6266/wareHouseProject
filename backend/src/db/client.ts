@@ -5,8 +5,8 @@ const { Pool } = pg;
 
 export const pool = new Pool({
   connectionString: env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
+  max: 10,
+  idleTimeoutMillis: 10000,
   connectionTimeoutMillis: 5000,
 });
 

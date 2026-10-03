@@ -9,10 +9,8 @@ export const cargoService = {
       const res = await apiClient.get('cargo', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        if (liveList.length > 0) {
-          setStored(KEYS.CARGO, liveList);
-          return liveList;
-        }
+        setStored(KEYS.CARGO, liveList);
+        return liveList;
       }
     } catch (err) {
       console.warn('Backend API /cargo fetch failed, using local store:', err?.message || err);
