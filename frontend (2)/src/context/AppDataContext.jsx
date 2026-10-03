@@ -190,7 +190,7 @@ export const AppDataProvider = ({ children }) => {
           const apiAgents = Array.isArray(val) ? val : val.items || [];
           if (apiAgents.length > 0) { setAgents(apiAgents); setStored(KEYS.AGENTS, apiAgents); }
         }
-        const auditRes = arguments?.[0] || undefined; // checked below via auditService sync
+        const auditRes = undefined; // checked below via auditService sync
         try {
           const liveLogs = await auditService.getLogs({ limit: 200 });
           setAuditLogs(Array.isArray(liveLogs) ? liveLogs : []);
