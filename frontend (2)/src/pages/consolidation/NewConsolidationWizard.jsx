@@ -37,6 +37,14 @@ export const NewConsolidationWizard = ({ onNavigate }) => {
     return list;
   }, [ports, warehouseReceipts]);
 
+  const defaultVessels = [
+    { id: 'VES-001', name: 'MV Island Voyager', type: 'Container Vessel' },
+    { id: 'VES-002', name: 'MV Atlantic Trader', type: 'Feeder Vessel' },
+    { id: 'VES-003', name: 'MV Caribbean Star', type: 'Container Vessel' },
+    { id: 'VES-004', name: 'MV Bahama Express', type: 'Ro-Ro Vessel' }
+  ];
+  const vesselOptions = (vessels && vessels.length > 0) ? vessels : defaultVessels;
+
   const defaultDestinationCode = isAgent
     ? (currentUser?.destinationPortCode || 'ALL')
     : 'ALL';
@@ -612,10 +620,23 @@ export const NewConsolidationWizard = ({ onNavigate }) => {
               <select
                 className="form-select"
                 value={formData.vesselName}
-                onChange={(e) => setFormData({ ...formData, vesselName: e.target.value })}
+                onChange={(e) => {
+                  const selectedVesselName = e.target.value;
+                  const vPrefix = selectedVesselName.split(' ').map(w => w[0]).join('').toUpperCase();
+                  const newVoyage = `V.2026-${vPrefix}-${Math.floor(10 + Math.random() * 90)}`;
+                  const newContainer = `${vPrefix}U-${Math.floor(100000 + Math.random() * 900000)}-${Math.floor(Math.random() * 9)}`;
+                  const newSeal = `SEAL-VI-${Math.floor(10000 + Math.random() * 90000)}`;
+                  setFormData(prev => ({
+                    ...prev,
+                    vesselName: selectedVesselName,
+                    voyageNumber: newVoyage,
+                    containerNumber: newContainer,
+                    sealNumber: newSeal
+                  }));
+                }}
               >
-                {vessels.map(v => (
-                  <option key={v.id} value={v.name}>{v.name} ({v.type})</option>
+                {vesselOptions.map(v => (
+                  <option key={v.id || v.name} value={v.name}>{v.name} ({v.type || 'Container Vessel'})</option>
                 ))}
               </select>
             </div>
