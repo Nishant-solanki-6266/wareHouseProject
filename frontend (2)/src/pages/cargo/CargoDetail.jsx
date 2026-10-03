@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CargoLabelModal } from '../../components/modals/CargoLabelModal';
@@ -9,22 +9,37 @@ import { BarcodeVisual, QrVisual } from '../../components/common/BarcodeVisual';
 import { WorkflowIndicator } from '../../components/common/WorkflowIndicator';
 import { Box, ArrowLeft, Printer, Package, Layers, ShieldCheck, Edit2, Trash2 } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
+import { cargoService } from '../../services/cargoService';
 
 export const CargoDetail = ({ cargoId, onNavigate }) => {
   const { cargoItems, warehouseReceipts, updateCargo, deleteCargo } = useAppData();
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [fetchedCargo, setFetchedCargo] = useState(null);
 
-  const cargo = cargoItems.find(c => String(c.id) === String(cargoId) || c.id === cargoId);
-  const wr = warehouseReceipts.find(r => 
-    String(r.id) === String(cargo?.warehouseReceiptId) || 
-    String(r.receiptNumber) === String(cargo?.receiptNumber) ||
-    r.id === cargo?.warehouseReceiptId || 
-    r.receiptNumber === cargo?.receiptNumber
+  const cargo = cargoItems.find(c => 
+    String(c.id) === String(cargoId) || 
+    c.id === cargoId || 
+    c.cargoNumber === cargoId
   );
 
-  if (!cargo) {
+  useEffect(() => {
+    if (!cargo && cargoId) {
+      cargoService.getCargoById(cargoId).then(data => {
+        if (data) setFetchedCargo(data);
+      }).catch(() => {});
+    }
+  }, [cargo, cargoId]);
+
+  const activeCargo = cargo || fetchedCargo;
+
+  const wr = warehouseReceipts.find(r => 
+    (activeCargo?.warehouseReceiptId && (String(r.id) === String(activeCargo.warehouseReceiptId) || r.id === activeCargo.warehouseReceiptId)) || 
+    (activeCargo?.receiptNumber && (String(r.receiptNumber) === String(activeCargo.receiptNumber) || r.receiptNumber === activeCargo.receiptNumber))
+  );
+
+  if (!activeCargo) {
     return (
       <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
         <h3>Cargo Item Not Found</h3>
@@ -38,12 +53,12 @@ export const CargoDetail = ({ cargoId, onNavigate }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '1200px', margin: '0 auto' }}>
       <PageHeader
-        title={`Cargo Unit ${cargo.id}`}
-        subtitle={`Associated with Warehouse Receipt ${cargo.receiptNumber} (${cargo.customer})`}
+        title={`Cargo Unit ${activeCargo.id}`}
+        subtitle={`Associated with Warehouse Receipt ${activeCargo.receiptNumber} (${activeCargo.customer})`}
         icon={Box}
         breadcrumbs={[
           { label: 'Cargo Inventory', href: '#' },
-          { label: cargo.id }
+          { label: activeCargo.id }
         ]}
         actions={
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -102,9 +117,9 @@ export const CargoDetail = ({ cargoId, onNavigate }) => {
             Current Status
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-            <StatusBadge status={cargo.status} />
+            <StatusBadge status={activeCargo.status} />
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0A192F', fontFamily: 'JetBrains Mono, monospace' }}>
-              {cargo.id}
+              {activeCargo.id}
             </span>
           </div>
         </div>
@@ -114,24 +129,24 @@ export const CargoDetail = ({ cargoId, onNavigate }) => {
             Next Step
           </div>
           <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0284C7', marginTop: '2px' }}>
-            {cargo.status === 'Ready for Consolidation'
+            {activeCargo.status === 'Ready for Consolidation'
               ? 'Ready for Operations Consolidation into ocean container'
-              : cargo.status === 'Consolidated'
-              ? `Packed in ocean box ${cargo.assignedConsolidationId || ''}`
+              : activeCargo.status === 'Consolidated'
+              ? `Packed in ocean box ${activeCargo.assignedConsolidationId || ''}`
               : 'Staged in warehouse CFS inventory'}
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {cargo.receiptNumber && (
+          {activeCargo.receiptNumber && (
             <button
-              onClick={() => onNavigate('warehouse-receipts', cargo.receiptNumber)}
+              onClick={() => onNavigate('warehouse-receipts', activeCargo.receiptNumber)}
               className="btn btn-outline btn-sm"
             >
               <span>View Warehouse Receipt</span>
             </button>
           )}
-          {cargo.status === 'Ready for Consolidation' && (
+          {activeCargo.status === 'Ready for Consolidation' && (
             <button
               onClick={() => onNavigate('consolidations', 'create')}
               className="btn btn-primary btn-sm"
@@ -150,46 +165,46 @@ export const CargoDetail = ({ cargoId, onNavigate }) => {
               <div>
                 <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>CARGO IDENTIFIER</div>
                 <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0A192F', fontFamily: 'JetBrains Mono, monospace' }}>
-                  {cargo.id}
+                  {activeCargo.id}
                 </div>
               </div>
-              <StatusBadge status={cargo.status} size="lg" />
+              <StatusBadge status={activeCargo.status} size="lg" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>Customer</div>
-                <div style={{ fontWeight: 700, color: '#0A192F', fontSize: '0.95rem' }}>{cargo.customer}</div>
+                <div style={{ fontWeight: 700, color: '#0A192F', fontSize: '0.95rem' }}>{activeCargo.customer}</div>
               </div>
               <div>
                 <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>Warehouse Receipt</div>
                 <button
-                  onClick={() => onNavigate('warehouse-receipts', cargo.receiptNumber)}
+                  onClick={() => onNavigate('warehouse-receipts', activeCargo.receiptNumber)}
                   style={{ fontWeight: 700, color: '#D97706', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.95rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
                 >
-                  {cargo.receiptNumber}
+                  {activeCargo.receiptNumber}
                 </button>
               </div>
             </div>
 
             <div>
               <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>Description of Goods</div>
-              <div style={{ fontSize: '0.9rem', color: '#1E293B', fontWeight: 500, marginTop: '2px' }}>{cargo.description}</div>
+              <div style={{ fontSize: '0.9rem', color: '#1E293B', fontWeight: 500, marginTop: '2px' }}>{activeCargo.description}</div>
             </div>
 
             {/* Metrics Breakdown */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', background: '#F8FAFC', padding: '1rem', borderRadius: '8px', border: '1px solid #E2E8F0', textAlign: 'center' }}>
               <div>
                 <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 700 }}>PACKAGES</div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0A192F' }}>{cargo.packageCount} {cargo.packageType}</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0A192F' }}>{activeCargo.packageCount} {activeCargo.packageType}</div>
               </div>
               <div>
                 <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 700 }}>GROSS WEIGHT</div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0A192F' }}>{cargo.weightLbs} lbs</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0A192F' }}>{activeCargo.weightLbs} lbs</div>
               </div>
               <div>
                 <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 700 }}>VOLUME (CFT / CBM)</div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#D97706' }}>{cargo.cft || ((cargo.cbm || 0) * 35.3147).toFixed(1)} CFT <span style={{ color: '#0284C7', fontSize: '0.9rem', fontWeight: 600 }}>({cargo.cbm} CBM)</span></div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#D97706' }}>{activeCargo.cft || ((activeCargo.cbm || 0) * 35.3147).toFixed(1)} CFT <span style={{ color: '#0284C7', fontSize: '0.9rem', fontWeight: 600 }}>({activeCargo.cbm} CBM)</span></div>
               </div>
             </div>
 
@@ -197,18 +212,18 @@ export const CargoDetail = ({ cargoId, onNavigate }) => {
               <div>
                 <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>Dimensions (L × W × H)</div>
                 <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                  {cargo.lengthInches || 0}" × {cargo.widthInches || 0}" × {cargo.heightInches || 0}"
+                  {activeCargo.lengthInches || 0}" × {activeCargo.widthInches || 0}" × {activeCargo.heightInches || 0}"
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>Destination Port</div>
-                <div style={{ fontWeight: 700, color: '#0284C7', fontSize: '0.9rem' }}>{cargo.destinationPort || 'NAS - Nassau'}</div>
+                <div style={{ fontWeight: 700, color: '#0284C7', fontSize: '0.9rem' }}>{activeCargo.destinationPort || 'NAS - Nassau'}</div>
               </div>
             </div>
 
             {/* Barcode representation */}
             <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-              <BarcodeVisual value={cargo.barcode || cargo.id} height={45} showText={true} />
+              <BarcodeVisual value={activeCargo.barcode || activeCargo.id} height={45} showText={true} />
             </div>
           </div>
         </div>
@@ -228,7 +243,7 @@ export const CargoDetail = ({ cargoId, onNavigate }) => {
               </button>
             </div>
 
-            <CargoLabel4x6 cargo={cargo} pieceIndex={1} totalPieces={cargo.packageCount || 1} />
+            <CargoLabel4x6 cargo={activeCargo} pieceIndex={1} totalPieces={activeCargo.packageCount || 1} />
           </div>
         </div>
       </div>
@@ -236,17 +251,17 @@ export const CargoDetail = ({ cargoId, onNavigate }) => {
       <CargoLabelModal
         isOpen={showLabelModal}
         onClose={() => setShowLabelModal(false)}
-        cargo={cargo}
+        cargo={activeCargo}
       />
 
       {/* Edit Cargo Modal */}
       <CargoModal
         isOpen={showEditModal}
-        cargo={cargo}
+        cargo={activeCargo}
         isEdit={true}
         onClose={() => setShowEditModal(false)}
         onSave={async (updates) => {
-          await updateCargo(cargo.id, updates);
+          await updateCargo(activeCargo.id, updates);
         }}
       />
 
@@ -254,10 +269,10 @@ export const CargoDetail = ({ cargoId, onNavigate }) => {
       <DeleteConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        itemName={cargo.id}
+        itemName={activeCargo.id}
         itemType="Cargo Unit"
         onConfirm={async () => {
-          await deleteCargo(cargo.id);
+          await deleteCargo(activeCargo.id);
           onNavigate('cargo');
         }}
       />

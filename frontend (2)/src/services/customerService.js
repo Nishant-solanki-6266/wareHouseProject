@@ -5,19 +5,21 @@ import { apiClient } from './apiClient';
 export const customerService = {
   async getCustomers(filters = {}) {
     try {
-      const res = await apiClient.get('customers', {
-        search: filters.search || '',
-        destinationCode: filters.destination && filters.destination !== 'All' ? filters.destination : '',
-        status: filters.status && filters.status !== 'All' ? filters.status : '',
-        limit: 100,
-      });
+      const params = {};
+      if (filters.search) params.search = filters.search;
+      if (filters.destination && filters.destination !== 'All') params.destinationCode = filters.destination;
+      if (filters.status && filters.status !== 'All') params.status = filters.status;
+      params.limit = 100;
+
+      const res = await apiClient.get('customers', { params });
 
       if (res && res.data) {
-        const customers = Array.isArray(res.data) ? res.data : (res.data.items || res.data.customers || []);
-        const mapped = customers.map(c => ({
+        const rawList = Array.isArray(res.data) ? res.data : (res.data.items || res.data.customers || []);
+        const mapped = rawList.map(c => ({
           ...c,
           customerNumber: c.customerNumber || c.id,
           telephone: c.telephone || c.phone || '',
+          createdDate: c.createdDate || (c.createdAt ? new Date(c.createdAt).toISOString().split('T')[0] : '2026-10-01'),
         }));
         setStored(KEYS.CUSTOMERS, mapped);
         return mapped;
@@ -56,12 +58,22 @@ export const customerService = {
     try {
       const res = await apiClient.get(`customers/${encodeURIComponent(id)}`);
       const apiData = res?.data || res;
-      if (apiData && apiData.id) {
-        return {
+      if (apiData && (apiData.id || apiData.customerNumber)) {
+        const mapped = {
           ...apiData,
           customerNumber: apiData.customerNumber || apiData.id,
           telephone: apiData.telephone || apiData.phone || '',
+          createdDate: apiData.createdDate || (apiData.createdAt ? new Date(apiData.createdAt).toISOString().split('T')[0] : '2026-10-01'),
         };
+        const list = getStored(KEYS.CUSTOMERS, []);
+        const idx = list.findIndex(c => c.id === mapped.id || c.customerNumber === mapped.customerNumber);
+        if (idx !== -1) {
+          list[idx] = { ...list[idx], ...mapped };
+        } else {
+          list.push(mapped);
+        }
+        setStored(KEYS.CUSTOMERS, list);
+        return mapped;
       }
     } catch (err) {
       console.warn(`Backend API fetch for customer ${id} failed:`, err?.message || err);
@@ -74,7 +86,7 @@ export const customerService = {
   async createCustomer(data, currentUser = "Warehouse Staff") {
     const list = getStored(KEYS.CUSTOMERS, []);
     const nextSeq = list.length + 1;
-    const id = data.customerNumber || `CUS-2026-${String(nextSeq).padStart(4, '0')}`;
+    const fallbackId = data.customerNumber || `CUS-2026-${String(nextSeq).padStart(4, '0')}`;
 
     const payload = {
       name: data.name || data.companyName || "New Customer",
@@ -84,8 +96,8 @@ export const customerService = {
       telephone: data.telephone || data.phone || "",
       phone: data.telephone || data.phone || "",
       address: data.address || "",
-      destinationPort: data.destinationPort || "NAS - Nassau, Bahamas",
-      destinationCode: data.destinationCode || (data.destinationPort ? data.destinationPort.split(' - ')[0] : "NAS"),
+      destinationPort: data.destinationPort || "Port of Nassau (BSNAS)",
+      destinationCode: data.destinationCode || "NAS",
       taxId: data.taxId || "",
       accountType: data.accountType || "Commercial Importer",
       creditTerms: data.creditTerms || "Net 30",
@@ -99,19 +111,21 @@ export const customerService = {
       if (res && res.data) {
         createdCustomer = {
           ...res.data,
-          customerNumber: res.data.customerNumber || res.data.id || id,
+          customerNumber: res.data.customerNumber || res.data.id || fallbackId,
           telephone: res.data.telephone || res.data.phone || payload.telephone || '',
+          createdDate: res.data.createdDate || (res.data.createdAt ? new Date(res.data.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
         };
       }
     } catch (err) {
-      console.warn('Backend createCustomer notice:', err?.message || err);
+      console.error('Backend createCustomer error:', err?.message || err);
+      throw err;
     }
 
     if (!createdCustomer) {
       createdCustomer = {
         ...payload,
-        id,
-        customerNumber: id,
+        id: fallbackId,
+        customerNumber: fallbackId,
         createdDate: data.createdDate || new Date().toISOString().split('T')[0],
       };
     }
@@ -158,10 +172,12 @@ export const customerService = {
           ...res.data,
           customerNumber: res.data.customerNumber || res.data.id,
           telephone: res.data.telephone || res.data.phone || updates.telephone || '',
+          createdDate: res.data.createdDate || (res.data.createdAt ? new Date(res.data.createdAt).toISOString().split('T')[0] : '2026-10-01'),
         };
       }
     } catch (err) {
-      console.warn(`Backend updateCustomer ${id} failed:`, err?.message || err);
+      console.error(`Backend updateCustomer ${id} failed:`, err?.message || err);
+      throw err;
     }
 
     const list = getStored(KEYS.CUSTOMERS, []);
@@ -191,14 +207,15 @@ export const customerService = {
       setStored(KEYS.CUSTOMERS, list);
       return apiUpdated;
     }
-    return null;
+    return apiUpdated;
   },
 
   async deleteCustomer(id, currentUser = "Super Admin") {
     try {
       await apiClient.delete(`customers/${encodeURIComponent(id)}`);
     } catch (err) {
-      console.warn(`Backend deleteCustomer ${id} failed:`, err?.message || err);
+      console.error(`Backend deleteCustomer ${id} failed:`, err?.message || err);
+      throw err;
     }
 
     const list = getStored(KEYS.CUSTOMERS, []);

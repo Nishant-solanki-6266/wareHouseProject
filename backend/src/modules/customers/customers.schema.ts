@@ -14,6 +14,7 @@ export const createCustomerSchema = z.object({
   accountType: z.string().optional(),
   creditTerms: z.string().optional(),
   notes: z.string().optional(),
+  status: z.string().optional(),
 });
 
 export const updateCustomerSchema = createCustomerSchema.partial().extend({

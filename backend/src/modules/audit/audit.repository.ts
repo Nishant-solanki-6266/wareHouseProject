@@ -7,8 +7,21 @@ export class AuditRepository {
   async findMany(filters: AuditLogFilterParams) {
     const conditions = [];
 
-    if (filters.module) {
-      conditions.push(eq(auditLogs.module, filters.module));
+    if (filters.module && filters.module !== 'All') {
+      const mod = filters.module.toLowerCase();
+      if (mod.includes('manifest')) {
+        conditions.push(ilike(auditLogs.module, '%manifest%'));
+      } else if (mod.includes('agent')) {
+        conditions.push(ilike(auditLogs.module, '%agent%'));
+      } else if (mod.includes('bill')) {
+        conditions.push(ilike(auditLogs.module, '%bill%'));
+      } else if (mod.includes('warehouse')) {
+        conditions.push(ilike(auditLogs.module, '%warehouse%'));
+      } else if (mod.includes('consolidation')) {
+        conditions.push(ilike(auditLogs.module, '%consolidation%'));
+      } else {
+        conditions.push(ilike(auditLogs.module, `%${filters.module}%`));
+      }
     }
     if (filters.userId) {
       conditions.push(eq(auditLogs.userId, filters.userId));
@@ -18,6 +31,7 @@ export class AuditRepository {
         or(
           ilike(auditLogs.logNumber, `%${filters.search}%`),
           ilike(auditLogs.userName, `%${filters.search}%`),
+          ilike(auditLogs.module, `%${filters.search}%`),
           ilike(auditLogs.action, `%${filters.search}%`),
           ilike(auditLogs.recordId, `%${filters.search}%`),
           ilike(auditLogs.description, `%${filters.search}%`)

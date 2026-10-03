@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -8,6 +8,14 @@ import { ShieldCheck, UserPlus, Shield, Check, X, Edit2, Trash2, Plus } from 'lu
 import { useAuth } from '../../context/AuthContext';
 import { useAppData } from '../../context/AppDataContext';
 
+const ROLE_NAME_MAP = {
+  super_admin: 'Super Admin',
+  operations: 'Operations Coordinator',
+  warehouse: 'Warehouse Staff',
+  documentation: 'Documentation Staff',
+  agent: 'Destination Agent'
+};
+
 export const UsersList = ({ onNavigate }) => {
   const { usersList, rolesList, currentUser, switchUser } = useAuth();
   const { createUser, updateUser, deleteUser } = useAppData();
@@ -15,6 +23,13 @@ export const UsersList = ({ onNavigate }) => {
   const [editingUser, setEditingUser] = useState(null);
   const [deletingUser, setDeletingUser] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  const enrichedUsers = useMemo(() => {
+    return (usersList || []).map(u => ({
+      ...u,
+      role: u.role || ROLE_NAME_MAP[u.roleKey] || (u.roleKey ? u.roleKey.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Staff Member')
+    }));
+  }, [usersList]);
 
   const userColumns = [
     {
@@ -47,7 +62,9 @@ export const UsersList = ({ onNavigate }) => {
       header: 'Assigned Role',
       accessor: 'role',
       render: (item) => (
-        <span style={{ fontWeight: 600, color: '#0284C7' }}>{item.role}</span>
+        <span style={{ fontWeight: 600, color: '#0284C7' }}>
+          {item.role || ROLE_NAME_MAP[item.roleKey] || item.roleKey || 'Staff Member'}
+        </span>
       )
     },
     {
@@ -134,7 +151,7 @@ export const UsersList = ({ onNavigate }) => {
           onClick={() => setActiveTab('users')}
           className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
         >
-          <span>Staff &amp; User Accounts ({usersList.length})</span>
+          <span>Staff &amp; User Accounts ({enrichedUsers.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('matrix')}
@@ -147,7 +164,7 @@ export const UsersList = ({ onNavigate }) => {
       {activeTab === 'users' ? (
         <ResponsiveTable
           columns={userColumns}
-          data={usersList}
+          data={enrichedUsers}
           searchPlaceholder="Search staff member, role, email..."
           pageSize={6}
         />

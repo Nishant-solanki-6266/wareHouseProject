@@ -6,13 +6,12 @@ import { apiFetch } from './apiConfig';
 export const shipmentService = {
   async getShipments(filters = {}) {
     try {
-      const res = await apiClient.get('shipments', { params: { ...filters, limit: 100 } });
-      if (res && res.data) {
-        const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        if (liveList.length > 0) {
-          setStored(KEYS.SHIPMENTS, liveList);
-          return liveList;
-        }
+      const res = await apiClient.get('shipments', { params: { ...filters, limit: 200 } });
+      if (res && (res.data !== undefined || Array.isArray(res))) {
+        const raw = res.data !== undefined ? res.data : res;
+        const liveList = Array.isArray(raw) ? raw : (raw?.items || raw?.shipments || []);
+        setStored(KEYS.SHIPMENTS, liveList);
+        return liveList;
       }
     } catch (err) {
       console.warn('Backend API /shipments fetch failed, using cached store:', err?.message || err);

@@ -20,12 +20,25 @@ export class PortsService {
   }
 
   async updatePort(idOrCode: string, input: UpdatePortInput) {
-    await this.getPort(idOrCode);
+    const existing = await this.repo.findByIdOrCode(idOrCode);
+    if (!existing) {
+      return this.repo.create({
+        portCode: input.portCode || idOrCode.replace(/^PORT-/, '').toUpperCase(),
+        name: input.name || `${idOrCode} Port`,
+        country: input.country || 'Bahamas',
+        island: input.island || undefined,
+        defaultAgent: input.defaultAgent || undefined,
+        status: input.status || 'Active',
+      });
+    }
     return this.repo.update(idOrCode, input);
   }
 
   async deletePort(idOrCode: string) {
-    await this.getPort(idOrCode);
+    const existing = await this.repo.findByIdOrCode(idOrCode);
+    if (!existing) {
+      return null;
+    }
     return this.repo.delete(idOrCode);
   }
 }

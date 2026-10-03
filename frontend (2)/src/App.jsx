@@ -108,7 +108,7 @@ const parseUrlToRoute = (isAgent) => {
       'shipments', 'consolidations', 'manifests', 'bills-of-lading', 'cargo', 'tracking',
       'warehouse-receipts', 'house-bills', 'customers'
     ];
-    
+
     if (isAgent && !agentAllowedTabs.includes(tab)) {
       return { tab: 'agent-dashboard', selectedRecordId: null, subAction: null };
     }
@@ -207,7 +207,7 @@ const MainAppRouter = () => {
   // Role-based route guard: keep activeTab strictly aligned with user role
   useEffect(() => {
     if (!isAuthenticated) return;
-    
+
     const agentAllowedTabs = [
       'agent-dashboard', 'agent-shipments', 'agent-bl-detail', 'agent-documents', 'agent-tracking',
       'shipments', 'consolidations', 'manifests', 'bills-of-lading', 'cargo', 'tracking',
@@ -249,7 +249,7 @@ const MainAppRouter = () => {
               'shipments', 'consolidations', 'manifests', 'bills-of-lading', 'cargo', 'tracking',
               'warehouse-receipts', 'house-bills', 'customers'
             ];
-            
+
             if (parsed.tab && agentAllowedTabs.includes(parsed.tab)) {
               navigateTo(parsed.tab, parsed.selectedRecordId || parsed.subAction, { replace: true });
             } else {

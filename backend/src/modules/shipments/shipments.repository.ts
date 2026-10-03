@@ -8,7 +8,16 @@ export class ShipmentsRepository {
     const conditions = [];
 
     if (filters.status && filters.status !== 'All') {
-      conditions.push(eq(shipments.status, filters.status));
+      const st = filters.status.toLowerCase();
+      if (st.includes('deliver')) {
+        conditions.push(or(eq(shipments.status, 'Delivered'), ilike(shipments.status, '%deliver%')));
+      } else if (st.includes('transit')) {
+        conditions.push(ilike(shipments.status, '%transit%'));
+      } else if (st.includes('loaded')) {
+        conditions.push(ilike(shipments.status, '%loaded%'));
+      } else {
+        conditions.push(ilike(shipments.status, `%${filters.status}%`));
+      }
     }
     if (filters.destinationCode && filters.destinationCode !== 'All') {
       conditions.push(eq(shipments.destinationCode, filters.destinationCode));

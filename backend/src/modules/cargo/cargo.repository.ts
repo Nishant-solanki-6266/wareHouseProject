@@ -1,7 +1,9 @@
-import { eq, ilike, or, count, and } from 'drizzle-orm';
+import { eq, ilike, or, count, and, desc } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { cargo } from '../../db/schema/index.js';
 import { CargoFilterParams } from './cargo.types.js';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class CargoRepository {
   async findMany(filters: CargoFilterParams) {
@@ -13,15 +15,22 @@ export class CargoRepository {
     if (filters.destinationCode && filters.destinationCode !== 'All') {
       conditions.push(eq(cargo.destinationCode, filters.destinationCode));
     }
+    if (filters.warehouseReceiptId && UUID_REGEX.test(filters.warehouseReceiptId)) {
+      conditions.push(eq(cargo.warehouseReceiptId, filters.warehouseReceiptId));
+    }
     if (filters.search) {
-      conditions.push(
-        or(
-          ilike(cargo.cargoNumber, `%${filters.search}%`),
-          ilike(cargo.receiptNumber, `%${filters.search}%`),
-          ilike(cargo.customer, `%${filters.search}%`),
-          ilike(cargo.description, `%${filters.search}%`)
-        )
-      );
+      const searchTerms = [
+        ilike(cargo.cargoNumber, `%${filters.search}%`),
+        ilike(cargo.receiptNumber, `%${filters.search}%`),
+        ilike(cargo.customer, `%${filters.search}%`),
+        ilike(cargo.description, `%${filters.search}%`),
+        ilike(cargo.destinationPort, `%${filters.search}%`),
+        ilike(cargo.warehouseLocation, `%${filters.search}%`),
+      ];
+      if (UUID_REGEX.test(filters.search)) {
+        searchTerms.push(eq(cargo.id, filters.search));
+      }
+      conditions.push(or(...searchTerms));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -30,6 +39,7 @@ export class CargoRepository {
       .select()
       .from(cargo)
       .where(whereClause)
+      .orderBy(desc(cargo.createdAt))
       .limit(filters.limit)
       .offset(filters.offset);
 
@@ -42,10 +52,12 @@ export class CargoRepository {
   }
 
   async findById(id: string) {
+    const isUuid = UUID_REGEX.test(id);
+    const matchCondition = isUuid ? or(eq(cargo.id, id), eq(cargo.cargoNumber, id)) : eq(cargo.cargoNumber, id);
     const result = await db
       .select()
       .from(cargo)
-      .where(or(eq(cargo.id, id), eq(cargo.cargoNumber, id)))
+      .where(matchCondition)
       .limit(1);
     return result[0] || null;
   }
@@ -56,21 +68,25 @@ export class CargoRepository {
   }
 
   async update(id: string, data: Record<string, unknown>) {
+    const isUuid = UUID_REGEX.test(id);
+    const matchCondition = isUuid ? or(eq(cargo.id, id), eq(cargo.cargoNumber, id)) : eq(cargo.cargoNumber, id);
     const [updated] = await db
       .update(cargo)
       .set({
         ...data,
         updatedAt: new Date(),
       } as any)
-      .where(or(eq(cargo.id, id), eq(cargo.cargoNumber, id)))
+      .where(matchCondition)
       .returning();
     return updated || null;
   }
 
   async delete(id: string) {
+    const isUuid = UUID_REGEX.test(id);
+    const matchCondition = isUuid ? or(eq(cargo.id, id), eq(cargo.cargoNumber, id)) : eq(cargo.cargoNumber, id);
     const [deleted] = await db
       .delete(cargo)
-      .where(or(eq(cargo.id, id), eq(cargo.cargoNumber, id)))
+      .where(matchCondition)
       .returning();
     return !!deleted;
   }

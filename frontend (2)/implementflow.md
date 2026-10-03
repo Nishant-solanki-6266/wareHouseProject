@@ -206,6 +206,97 @@ To ensure 100% honesty:
 1. **Client-Specific Customs EDI / XML Schema**:
    - The current manifest XML exporter generates a clean, structurally valid maritime XML document. When the client provides their specific customs EDI schema (e.g. ASYCUDA or Bahamas Customs EDI specifications), the tag names can be mapped directly.
 2. **Persistence Scope**:
-   - Data persists across all screens, modals, user switches, and browser reloads via reactive `localStorage` and `AppDataContext`. Production server-side persistence will connect seamlessly to the existing service layer (`src/services/`).
+   - Data persists across all screens, modals, user switches, and browser reloads via reactive `localStorage` and `AppDataContext`. Production server-side persistence connects seamlessly to the live Fastify backend and PostgreSQL database (`wereHouseDb`).
 3. **Hardware Barcode Scanners / Thermal Printers**:
    - Visual barcodes (Code 128) and 2D QR codes are rendered and print-ready via CSS `@media print` (4" $\times$ 6" roll format). Real thermal printers trigger directly via the browser print dialogue.
+
+---
+
+## 🚀 H. Live Backend & PostgreSQL Database Integration Completed
+
+### 1. Audit Trail (`/audit`)
+- **Backend Route:** `GET /api/v1/audit`, `POST /api/v1/audit`
+- **Database Table:** `audit_logs`
+- **Features Connected:**
+  - Real-time search by log number, user, action, and module.
+  - Flexible case-insensitive module filtering (`Manifests`, `Destination Agent`, `Bills of Lading`, `Warehouse Receipts`, `Consolidations`, etc.).
+  - Self-healing DDL in `db.plugin.ts` creating `audit_logs` table automatically on boot.
+  - Fixed `ReferenceError: totalCount is not defined` bug in `audit.service.ts` so all system actions log cleanly.
+
+### 2. Shipment History Archive (`/history`)
+- **Backend Route:** `GET /api/v1/shipments`
+- **Database Table:** `shipments`
+- **Features Connected:**
+  - Live query pulling historical ocean shipments from PostgreSQL.
+  - Multi-status filter tabs (`All Archived`, `Delivered`, `In Transit`, `Loaded & Sealed`).
+  - Search filter by Shipment #, Tracking #, Destination Port, and Agent.
+  - On-mount trigger via `fetchMenuApi('history')` in `ShipmentHistoryArchive.jsx`.
+
+### 3. Master Settings & System Config (`/settings`)
+- **Island Ports & Cargo Discharge Terminals:**
+  - **Backend Routes:** `GET /api/v1/ports`, `POST /api/v1/ports`, `PATCH /api/v1/ports/:id`, `DELETE /api/v1/ports/:id`
+  - **Database Table:** `ports`
+  - **Features Connected:**
+    - Full CRUD (Add new port destination, Edit port name/agent/status, Delete port).
+    - Fixed UUID vs Port Code casting error in `ports.repository.ts` so codes (`NAS`, `BGI`, `4555J`) don't fail Postgres type cast.
+    - Updated `ports.schema.ts` to accept both `code` and `portCode` and flexible status values.
+    - Added self-healing DDL in `db.plugin.ts` for automatic `ports` table verification.
+- **Company Branding & Sequences:**
+  - **Backend Route:** `GET /api/v1/settings`, `PUT /api/v1/settings/:key`
+  - **Database Table:** `settings` (`key` TEXT UNIQUE, `value` JSONB)
+  - **Features Connected:**
+    - Persists Company Profile (Trade Name, Legal Name, FMC License, Miami CFS Address, Phone, Email).
+    - Persists Document Numbering Sequences (Warehouse Receipt Prefix `WR-2026-`, House B/L Prefix `HBL-2026-`, Master B/L Prefix `BL-VI-2026-`).
+    - Syncs live from DB on page load / hard reload.
+- **Testing & Data Clean Slate:**
+  - **Option A (Clear Transactional Data):** Calls `POST /api/v1/settings/clean-slate` to safely truncate transactional tables (`shipments`, `audit_logs`) while preserving master configuration (Users, Roles, Staff Logins, Settings, and Ports) for clean testing.
+  - **Option B (Reset Demo Data):** Resets local client dataset to factory defaults.
+
+### 4. Customer Management (`/customers`)
+- **Backend Routes:** `GET /api/v1/customers`, `GET /api/v1/customers/:id`, `POST /api/v1/customers`, `PUT /api/v1/customers/:id`, `PATCH /api/v1/customers/:id`, `DELETE /api/v1/customers/:id`
+- **Database Table:** `customers`
+- **Features Connected:**
+  - Full CRUD: Create Customer modal, Edit Customer modal, Delete Customer with confirmation.
+  - Live search across Customer Name, Account Number, Email, Island/City, Country, and Tax ID.
+  - Status Filter tabs: `All`, `Active`, `Inactive`.
+  - Customer Profile / View Page: Live contact details, linked Warehouse Receipts from `warehouse_receipts` table, linked House Bills of Lading from `house_bills` table, and transaction history.
+  - PostgreSQL UUID Type Cast Fix in `customers.repository.ts`: Validates UUID format with regex before querying `customers.id`, preventing unhandled 500 error when searching/fetching by account number.
+  - Integrated with `customerService.js` and `AppDataContext.jsx`.
+
+### 5. Warehouse Receipts Intake & Management (`/warehouse-receipts` & `/warehouse-receipts/create`)
+- **Backend Routes:** `GET /api/v1/warehouse-receipts`, `GET /api/v1/warehouse-receipts/:id`, `POST /api/v1/warehouse-receipts`, `PUT /api/v1/warehouse-receipts/:id`, `DELETE /api/v1/warehouse-receipts/:id`
+- **Database Tables:** `warehouse_receipts`, `cargo`
+- **Features Connected:**
+  - Live Intake Form (`/warehouse-receipts/create`): Multi-package intake, live CFT & CBM volume math, automatic Lbs to Kg weight conversion, auto-generates Code 128 barcode and 2D QR tracking codes.
+  - Database Pipeline: Automatically populates linked Cargo unit in PostgreSQL `cargo` table with foreign key linkage and cascade deletion.
+  - Real-time Search: Receipt #, Customer Name, Description, Destination Port, Location, Barcode.
+  - Status Filter Tabs: `All`, `Ready for Consolidation`, `Consolidated`.
+  - Edit & Delete: Connected live to backend; updates and deletes persist directly in PostgreSQL.
+  - Detail View Page: Full receipts audit, linked package pieces, shipper & consignee information.
+  - 4" × 6" Thermal Label Preview: Renders live dynamic database data for thermal barcode printing.
+
+### 6. Cargo Inventory & 4" × 6" Thermal Roll Labels (`/cargo`)
+- **Backend Routes:** `GET /api/v1/cargo`, `GET /api/v1/cargo/:id`, `POST /api/v1/cargo`, `PUT /api/v1/cargo/:id`, `PATCH /api/v1/cargo/:id`, `DELETE /api/v1/cargo/:id`
+- **Database Table:** `cargo` (linked to `warehouse_receipts.id` with `onDelete: 'cascade'`)
+- **Features Connected:**
+  - PostgreSQL UUID Syntax Fix in `cargo.repository.ts`: Prevents 500 error when querying by `cargoNumber` (e.g. `CRG-3100-01`) vs UUID primary key.
+  - Multi-Field Database Search: Searches `cargoNumber`, `receiptNumber`, `customer`, `description`, `destinationPort`, `warehouseLocation`, and `id`.
+  - Status Filter Buttons: `All`, `Ready for Consolidation`, `Consolidated` filtering live rows from PostgreSQL.
+  - Quick Cargo Unit Intake Form: `POST /api/v1/cargo` with auto-calculated CFT/CBM, Lbs/Kg, barcode, and QR code.
+  - Edit Cargo Modal: `PUT/PATCH /api/v1/cargo/:id` updating dimensions, weight, customer, location, or status with automatic recalculation.
+  - Delete Cargo Button: `DELETE /api/v1/cargo/:id` permanently removes unit from PostgreSQL inventory.
+  - Cargo Detail Page (`CargoDetail.jsx`): Displays full live cargo unit specifications, warehouse staging bay, dimensions, gross weight, and clickable linked Warehouse Receipt.
+  - 4" × 6" Thermal Roll Label (`CargoLabelModal.jsx` & `CargoLabel4x6.jsx`): Dynamic live thermal label rendering:
+    - Destination Port banner (e.g. `PORT OF NASSAU (BSNAS)`, `KINGSTON FREEPORT TERMINAL (KFTL)`).
+    - Warehouse Receipt # (e.g. `3100`, `3101`, `3102`).
+    - Piece Count with multi-piece selector tabs (`1 OF 5`).
+    - Consignee / Importer name & Description of Goods.
+    - Primary Volume in CFT and CBM (`cargo.cft`, `cargo.cbm`).
+    - Gross Weight in LBS and KG (`cargo.weightLbs`, `cargo.weightKg`).
+    - Live scannable Code 128 barcode and 2D QR Code.
+
+### 7. Client Constraints & Project Standards Adherence
+- **Zero UI Changes (UI Lock):** Strict adherence to locked UI design — no CSS classes, layout elements, color palettes, or component structures were altered.
+- **Direct File Operations:** All backend logic, repositories, routes, controllers, and services edited directly in source files without command-line execution.
+- **No Duplicate Backend Routes:** Reused and extended existing Fastify controllers and route registries without redundant endpoints.
+- **Live Database Truth:** All receipts, labels, search queries, and inventory calculations read directly from live PostgreSQL (`wereHouseDb`).
