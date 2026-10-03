@@ -298,10 +298,9 @@ export const AppDataProvider = ({ children }) => {
 
         case 'house-bills': {
           const hbRes = await apiClient.get('/house-bills');
-          if (Array.isArray(hbRes) && hbRes.length > 0) {
-            setHouseBills(hbRes);
-            setStored(KEYS.HOUSE_BILLS, hbRes);
-          }
+          const list = Array.isArray(hbRes) ? hbRes : (Array.isArray(hbRes?.data) ? hbRes.data : []);
+          setHouseBills(list);
+          setStored(KEYS.HOUSE_BILLS, list);
           break;
         }
 
@@ -335,10 +334,9 @@ export const AppDataProvider = ({ children }) => {
 
         case 'bills-of-lading': {
           const blRes = await apiClient.get('/bills-of-lading');
-          if (Array.isArray(blRes) && blRes.length > 0) {
-            setBillsOfLading(blRes);
-            setStored(KEYS.BILLS_OF_LADING, blRes);
-          }
+          const list = Array.isArray(blRes) ? blRes : (Array.isArray(blRes?.data) ? blRes.data : []);
+          setBillsOfLading(list);
+          setStored(KEYS.BILLS_OF_LADING, list);
           break;
         }
 
@@ -631,13 +629,32 @@ export const AppDataProvider = ({ children }) => {
     if (!created) {
       created = await houseBillService.createHouseBill(hblData, currentUser?.name || "Documentation Staff");
     }
+    if (created) {
+      setHouseBills(prev => [
+        created,
+        ...(Array.isArray(prev) ? prev.filter(h => h.id !== created.id && h.hblNumber !== created.hblNumber) : [])
+      ]);
+    }
+    fetchMenuApi('house-bills');
     await refreshAll();
-    showToast(`House B/L ${created.hblNumber || created.id} issued for ${created.customerName || 'Customer'}.`, 'success', 'House B/L Created');
+    showToast(`House B/L ${created?.hblNumber || created?.id} issued for ${created?.customerName || 'Customer'}.`, 'success', 'House B/L Created');
     return created;
   };
 
   const updateHouseBill = async (id, updates) => {
-    const updated = await houseBillService.updateHouseBill(id, updates, currentUser?.name || "Documentation Staff");
+    let updated;
+    try {
+      const res = await apiClient.patch(`/house-bills/${id}`, updates);
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend updateHouseBill notice:', e.message);
+    }
+    if (!updated) {
+      updated = await houseBillService.updateHouseBill(id, updates, currentUser?.name || "Documentation Staff");
+    }
+    if (updated) {
+      setHouseBills(prev => prev.map(h => (h.id === id || h.hblNumber === id ? { ...h, ...updated } : h)));
+    }
     fetchMenuApi('house-bills');
     await refreshAll();
     showToast(`House B/L ${id} updated successfully.`, 'success', 'House B/L Updated');
@@ -646,12 +663,15 @@ export const AppDataProvider = ({ children }) => {
 
   const deleteHouseBill = async (id) => {
     setHouseBills(prev => prev.filter(h => h.id !== id && h.hblNumber !== id));
-    const success = await houseBillService.deleteHouseBill(id, currentUser?.name || "Documentation Staff");
-    if (success) {
-      fetchMenuApi('house-bills');
-      await refreshAll();
-      showToast(`House B/L ${id} deleted.`, 'info', 'House B/L Deleted');
+    try {
+      await apiClient.delete(`/house-bills/${id}`);
+    } catch (e) {
+      console.warn('Backend deleteHouseBill notice:', e.message);
     }
+    const success = await houseBillService.deleteHouseBill(id, currentUser?.name || "Documentation Staff");
+    fetchMenuApi('house-bills');
+    await refreshAll();
+    showToast(`House B/L ${id} deleted.`, 'info', 'House B/L Deleted');
     return success;
   };
 
@@ -777,13 +797,32 @@ export const AppDataProvider = ({ children }) => {
     if (!created) {
       created = await billOfLadingService.createBillOfLading(blData, currentUser?.name || "Documentation Staff");
     }
+    if (created) {
+      setBillsOfLading(prev => [
+        created,
+        ...(Array.isArray(prev) ? prev.filter(b => b.id !== created.id && b.blNumber !== created.blNumber) : [])
+      ]);
+    }
+    fetchMenuApi('bills-of-lading');
     await refreshAll();
-    showToast(`Master B/L ${created.blNumber || created.id} created successfully.`, 'success', 'Master B/L Created');
+    showToast(`Master B/L ${created?.blNumber || created?.id} created successfully.`, 'success', 'Master B/L Created');
     return created;
   };
 
   const updateBillOfLading = async (id, updates) => {
-    const updated = await billOfLadingService.updateBillOfLading(id, updates, currentUser?.name || "Documentation Staff");
+    let updated;
+    try {
+      const res = await apiClient.patch(`/bills-of-lading/${id}`, updates);
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend updateBillOfLading notice:', e.message);
+    }
+    if (!updated) {
+      updated = await billOfLadingService.updateBillOfLading(id, updates, currentUser?.name || "Documentation Staff");
+    }
+    if (updated) {
+      setBillsOfLading(prev => prev.map(b => (b.id === id || b.blNumber === id ? { ...b, ...updated } : b)));
+    }
     fetchMenuApi('bills-of-lading');
     await refreshAll();
     showToast(`Master B/L ${id} updated successfully.`, 'success', 'Master B/L Updated');
@@ -792,17 +831,32 @@ export const AppDataProvider = ({ children }) => {
 
   const deleteBillOfLading = async (id) => {
     setBillsOfLading(prev => prev.filter(b => b.id !== id && b.blNumber !== id));
-    const success = await billOfLadingService.deleteBillOfLading(id, currentUser?.name || "Documentation Staff");
-    if (success) {
-      fetchMenuApi('bills-of-lading');
-      await refreshAll();
-      showToast(`Master B/L ${id} deleted.`, 'info', 'Master B/L Deleted');
+    try {
+      await apiClient.delete(`/bills-of-lading/${id}`);
+    } catch (e) {
+      console.warn('Backend deleteBillOfLading notice:', e.message);
     }
+    const success = await billOfLadingService.deleteBillOfLading(id, currentUser?.name || "Documentation Staff");
+    fetchMenuApi('bills-of-lading');
+    await refreshAll();
+    showToast(`Master B/L ${id} deleted.`, 'info', 'Master B/L Deleted');
     return success;
   };
 
   const placeBLHold = async (blId, reason, notes) => {
-    const updated = await billOfLadingService.placeHold(blId, reason, notes, currentUser?.name || "Operations Staff");
+    let updated;
+    try {
+      const res = await apiClient.post(`/bills-of-lading/${blId}/hold`, { reason, holdNotes: notes });
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend placeBLHold notice:', e.message);
+    }
+    if (!updated) {
+      updated = await billOfLadingService.placeHold(blId, reason, notes, currentUser?.name || "Operations Staff");
+    }
+    if (updated) {
+      setBillsOfLading(prev => prev.map(b => (b.id === blId || b.blNumber === blId ? { ...b, ...updated } : b)));
+    }
     fetchMenuApi('bills-of-lading');
     await refreshAll();
     showToast(`Master B/L ${blId} has been placed ON HOLD. Document access restricted.`, 'warning', 'B/L Placed On Hold');
@@ -810,7 +864,19 @@ export const AppDataProvider = ({ children }) => {
   };
 
   const clearBLHold = async (blId, clearNotes) => {
-    const updated = await billOfLadingService.clearHold(blId, currentUser?.name || "Operations Staff", clearNotes);
+    let updated;
+    try {
+      const res = await apiClient.post(`/bills-of-lading/${blId}/release`, { notes: clearNotes });
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend clearBLHold notice:', e.message);
+    }
+    if (!updated) {
+      updated = await billOfLadingService.clearHold(blId, currentUser?.name || "Operations Staff", clearNotes);
+    }
+    if (updated) {
+      setBillsOfLading(prev => prev.map(b => (b.id === blId || b.blNumber === blId ? { ...b, ...updated } : b)));
+    }
     fetchMenuApi('bills-of-lading');
     await refreshAll();
     showToast(`Hold cleared for Master B/L ${blId}. Status is now RELEASED.`, 'success', 'B/L Released');
@@ -818,7 +884,19 @@ export const AppDataProvider = ({ children }) => {
   };
 
   const updateBLStatus = async (blId, status) => {
-    const updated = await billOfLadingService.updateStatus(blId, status, currentUser?.name || "Documentation Staff");
+    let updated;
+    try {
+      const res = await apiClient.patch(`/bills-of-lading/${blId}`, { status });
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend updateBLStatus notice:', e.message);
+    }
+    if (!updated) {
+      updated = await billOfLadingService.updateStatus(blId, status, currentUser?.name || "Documentation Staff");
+    }
+    if (updated) {
+      setBillsOfLading(prev => prev.map(b => (b.id === blId || b.blNumber === blId ? { ...b, ...updated } : b)));
+    }
     fetchMenuApi('bills-of-lading');
     await refreshAll();
     showToast(`Master B/L ${blId} status updated to ${status}.`, 'info', 'Status Updated');

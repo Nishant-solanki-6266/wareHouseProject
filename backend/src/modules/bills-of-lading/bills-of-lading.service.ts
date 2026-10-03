@@ -94,9 +94,13 @@ export class BillsOfLadingService {
   }
 
   async updateBill(idOrNumber: string, input: UpdateBillOfLadingInput) {
-    await this.getBill(idOrNumber);
+    const existing = await this.getBill(idOrNumber);
 
     const updatePayload: Record<string, unknown> = { ...input };
+    delete updatePayload.id;
+    delete updatePayload.createdAt;
+    delete updatePayload.updatedAt;
+
     if (input.agentId !== undefined) {
       updatePayload.agentId = input.agentId && UUID_REGEX.test(input.agentId) ? input.agentId : null;
     }
@@ -119,12 +123,12 @@ export class BillsOfLadingService {
       updatePayload.totalFreightUsd = String((Number(input.totalFreightUsd) || 0).toFixed(2));
     }
 
-    return this.repo.update(idOrNumber, updatePayload);
+    return this.repo.update(existing.id, updatePayload);
   }
 
   async deleteBill(idOrNumber: string) {
-    await this.getBill(idOrNumber);
-    return this.repo.delete(idOrNumber);
+    const existing = await this.getBill(idOrNumber);
+    return this.repo.delete(existing.id);
   }
 
   async placeHold(
