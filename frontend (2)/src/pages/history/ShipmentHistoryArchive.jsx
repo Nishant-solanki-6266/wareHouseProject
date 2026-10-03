@@ -7,8 +7,14 @@ import { useAppData } from '../../context/AppDataContext';
 import { useToast } from '../../context/ToastContext';
 
 export const ShipmentHistoryArchive = ({ onNavigate }) => {
-  const { shipments } = useAppData();
+  const { shipments, fetchMenuApi } = useAppData();
   const { showToast } = useToast();
+
+  React.useEffect(() => {
+    if (fetchMenuApi) {
+      fetchMenuApi('history');
+    }
+  }, [fetchMenuApi]);
 
   const handleExportArchiveCsv = () => {
     let csvContent = "data:text/csv;charset=utf-8,";

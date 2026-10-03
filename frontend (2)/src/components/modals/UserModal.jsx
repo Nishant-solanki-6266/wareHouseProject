@@ -47,6 +47,18 @@ export const UserModal = ({
     }
   }, [user, isEdit, isOpen]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleRoleChange = (roleKey) => {
@@ -68,46 +80,171 @@ export const UserModal = ({
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-dialog" style={{ maxWidth: '560px' }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="modal-title">
-            <ShieldCheck size={20} style={{ color: '#0A192F' }} />
-            <span>{isEdit ? `Edit Staff Account (${formData.name})` : 'Add New Staff User Account'}</span>
+    <div
+      className="modal-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      style={{
+        padding: 'clamp(0.5rem, 3vw, 1.25rem)'
+      }}
+    >
+      <div
+        className="modal-dialog"
+        style={{
+          maxWidth: '560px',
+          width: '100%',
+          maxHeight: 'min(92vh, 640px)',
+          display: 'flex',
+          flexDirection: 'column',
+          margin: 'auto',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="modal-header"
+          style={{
+            padding: '1.1rem 1.5rem',
+            borderBottom: '1px solid var(--border-color-light, #E2E8F0)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                background: '#EFF6FF',
+                color: '#2563EB',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                border: '1px solid #DBEAFE'
+              }}
+            >
+              <ShieldCheck size={20} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div
+                className="modal-title"
+                style={{
+                  fontSize: '1.05rem',
+                  fontWeight: 700,
+                  color: 'var(--brand-navy-900, #0A192F)',
+                  lineHeight: 1.3,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}
+              >
+                {isEdit ? `Edit Staff Account (${formData.name || 'User'})` : 'Add New Staff User Account'}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px', lineHeight: 1.3 }}>
+                {isEdit ? 'Update credentials and role permissions' : 'Set up credentials, role tier, and facility access'}
+              </div>
+            </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#64748B',
+              padding: '6px',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'background-color 0.15s ease, color 0.15s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#F1F5F9';
+              e.currentTarget.style.color = '#0F172A';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = '#64748B';
+            }}
+          >
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div className="form-group">
-              <label className="form-label">Full Name <span className="required">*</span></label>
-              <input
-                type="text"
-                required
-                className="form-control"
-                placeholder="e.g. Alex Morgan"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minHeight: 0,
+            overflow: 'hidden'
+          }}
+        >
+          <div
+            className="modal-body"
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              padding: '1.25rem 1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}
+          >
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '1rem'
+              }}
+            >
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8125rem', marginBottom: '0.35rem' }}>
+                  Full Name <span className="required" style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="form-control"
+                  placeholder="e.g. Alex Morgan"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8125rem', marginBottom: '0.35rem' }}>
+                  Email Address <span className="required" style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  className="form-control"
+                  placeholder="e.g. alex.morgan@vicustoms.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Email Address <span className="required">*</span></label>
-              <input
-                type="email"
-                required
-                className="form-control"
-                placeholder="e.g. alex.morgan@vicustoms.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Assigned Role &amp; Permission Tier</label>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8125rem', marginBottom: '0.35rem' }}>
+                Assigned Role &amp; Permission Tier
+              </label>
               <select
                 className="form-select"
                 value={formData.roleKey}
@@ -119,37 +256,71 @@ export const UserModal = ({
               </select>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Department / Facility</label>
-              <input
-                type="text"
-                className="form-control"
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              />
-            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '1rem'
+              }}
+            >
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8125rem', marginBottom: '0.35rem' }}>
+                  Department / Facility
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Operations & Freight Logistics"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                />
+              </div>
 
-            <div className="form-group">
-              <label className="form-label">Account Status</label>
-              <select
-                className="form-select"
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Suspended">Suspended</option>
-              </select>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8125rem', marginBottom: '0.35rem' }}>
+                  Account Status
+                </label>
+                <select
+                  className="form-select"
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                  <option value="Suspended">Suspended</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className="modal-footer">
-            <button type="button" onClick={onClose} className="btn btn-outline btn-sm">
+          <div
+            className="modal-footer"
+            style={{
+              padding: '0.875rem 1.5rem',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: '0.75rem',
+              background: '#F8FAFC',
+              borderTop: '1px solid var(--border-color-light, #E2E8F0)'
+            }}
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-outline btn-sm"
+              style={{ minWidth: '85px', justifyContent: 'center' }}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary btn-sm">
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              style={{ minWidth: '130px', justifyContent: 'center' }}
+            >
               {isEdit ? <Save size={14} /> : <Plus size={14} />}
-              <span>{isEdit ? 'Save User Changes' : 'Create User Account'}</span>
+              <span>{isEdit ? 'Save Changes' : 'Create User'}</span>
             </button>
           </div>
         </form>

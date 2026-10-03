@@ -20,15 +20,37 @@ import {
   Plus
 } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
+import { customerService } from '../../services/customerService';
 
 export const CustomerDetail = ({ customerId, onNavigate }) => {
   const { customers, warehouseReceipts, houseBills, updateCustomer, deleteCustomer } = useAppData();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [fetchedCustomer, setFetchedCustomer] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const customer = customers.find(c => c.id === customerId || c.customerNumber === customerId || c.name === customerId);
+  const contextCustomer = customers.find(c => c.id === customerId || c.customerNumber === customerId || c.name === customerId);
+  const customer = contextCustomer || fetchedCustomer;
+
+  React.useEffect(() => {
+    if (!contextCustomer && customerId) {
+      setIsLoading(true);
+      customerService.getCustomerById(customerId)
+        .then(res => {
+          if (res) setFetchedCustomer(res);
+        })
+        .finally(() => setIsLoading(false));
+    }
+  }, [contextCustomer, customerId]);
 
   if (!customer) {
+    if (isLoading) {
+      return (
+        <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#64748B' }}>
+          Loading customer profile...
+        </div>
+      );
+    }
     return (
       <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
         <h3>Customer Profile Not Found</h3>
@@ -41,12 +63,12 @@ export const CustomerDetail = ({ customerId, onNavigate }) => {
 
   // Linked Warehouse Receipts
   const linkedWrs = warehouseReceipts.filter(
-    w => w.customerId === customer.id || w.customer === customer.name || w.customerName === customer.name
+    w => w.customerId === customer.id || w.customerId === customer.customerNumber || w.customer === customer.name || w.customerName === customer.name
   );
 
   // Linked House Bills
   const linkedHbls = houseBills.filter(
-    h => h.customerId === customer.id || h.customerName === customer.name || h.consignee?.name === customer.name
+    h => h.customerId === customer.id || h.customerId === customer.customerNumber || h.customerName === customer.name || h.consignee?.name === customer.name
   );
 
   return (
@@ -313,7 +335,10 @@ export const CustomerDetail = ({ customerId, onNavigate }) => {
         customer={customer}
         onClose={() => setShowEditModal(false)}
         onSave={async (updates) => {
-          await updateCustomer(customer.id, updates);
+          const res = await updateCustomer(customer.id, updates);
+          if (res) {
+            setFetchedCustomer(prev => ({ ...(prev || {}), ...res, ...updates }));
+          }
         }}
       />
 

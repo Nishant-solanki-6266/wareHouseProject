@@ -7,10 +7,17 @@ import { PortModal } from '../../components/modals/PortModal';
 import { DeleteConfirmModal } from '../../components/modals/DeleteConfirmModal';
 
 export const SettingsPage = () => {
-  const { settings, updateSettings, resetDemoData, clearAllData, ports, createPort, updatePort, deletePort } = useAppData();
+  const { settings, updateSettings, resetDemoData, clearAllData, ports, createPort, updatePort, deletePort, fetchMenuApi } = useAppData();
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState('ports'); // 'ports' | 'branding' | 'sequences' | 'data_management'
+
+  useEffect(() => {
+    if (fetchMenuApi) {
+      fetchMenuApi('settings');
+      fetchMenuApi('ports');
+    }
+  }, [fetchMenuApi]);
 
   // Port modal states
   const [showPortModal, setShowPortModal] = useState(false);

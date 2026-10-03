@@ -45,11 +45,44 @@ export const ResponsiveTable = ({
     }
 
     if (activeFilter !== 'All') {
+      const filterLower = activeFilter.toLowerCase();
       result = result.filter(item => {
-        return item.status === activeFilter ||
+        // 1. Direct standard field matches
+        if (
+          item.status === activeFilter ||
           item.destinationCode === activeFilter ||
           item.type === activeFilter ||
-          item.agentId === activeFilter;
+          item.agentId === activeFilter
+        ) {
+          return true;
+        }
+
+        // Status flexible matching (e.g. Delivered matching "Delivered / Released")
+        if (item.status) {
+          const statusLower = String(item.status).toLowerCase();
+          if (statusLower === filterLower) return true;
+          if (filterLower === 'delivered' && statusLower.includes('deliver')) return true;
+          if (filterLower.includes('transit') && statusLower.includes('transit')) return true;
+          if (filterLower.includes('loaded') && statusLower.includes('loaded')) return true;
+        }
+
+        // 2. Module / Category matching (System Audit Trail, Activity Logs, etc.)
+        if (item.module) {
+          const modLower = String(item.module).toLowerCase();
+          if (modLower === filterLower) return true;
+          if (filterLower.includes('manifest') && modLower.includes('manifest')) return true;
+          if (filterLower.includes('agent') && modLower.includes('agent')) return true;
+          if (filterLower.includes('bill') && modLower.includes('bill')) return true;
+          if (filterLower.includes('warehouse') && modLower.includes('warehouse')) return true;
+          if (filterLower.includes('consolidation') && modLower.includes('consolidation')) return true;
+        }
+
+        // 3. Fallback: check if active filter matches action or category
+        if (item.action && String(item.action).toLowerCase().includes(filterLower)) {
+          return true;
+        }
+
+        return false;
       });
     }
 

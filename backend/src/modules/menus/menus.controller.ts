@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { successResponse } from '../../common/utils/response.js';
 import { db } from '../../db/index.js';
+import { desc } from 'drizzle-orm';
 import { warehouseReceipts, cargo, consolidations, shipments, billsOfLading, manifests, users, auditLogs, settings } from '../../db/schema/index.js';
 
 export class MenusController {
@@ -326,7 +327,7 @@ export class MenusController {
   // STAGE 5: Shipment History
   getShipmentHistory = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
-      const history = await db.select().from(shipments);
+      const history = await db.select().from(shipments).orderBy(desc(shipments.createdAt));
       reply.send(successResponse({
         stageName: 'Shipment History',
         menuName: 'Shipment History',

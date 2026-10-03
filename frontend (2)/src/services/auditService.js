@@ -4,47 +4,38 @@ import { apiClient } from './apiClient';
 export const auditService = {
   async getLogs(filters = {}) {
     try {
-      const res = await apiClient.get('audit', {
-        search: filters.search || '',
-        module: filters.module && filters.module !== 'All' ? filters.module : '',
-        limit: 100,
-      });
+      const params = {};
+      if (filters.search) params.search = filters.search;
+      if (filters.module && filters.module !== 'All') params.module = filters.module;
+      params.limit = filters.limit || 200;
 
-      if (res && res.data) {
-        const rawLogs = Array.isArray(res.data) ? res.data : (res.data.items || res.data.logs || []);
-        if (rawLogs.length > 0) {
-          return rawLogs.map(l => ({
-            ...l,
-            user: l.userName || l.user || 'System User',
-            recordId: l.recordId || l.logNumber || 'N/A',
-          }));
-        }
+      const res = await apiClient.get('audit', { params });
+
+      if (res) {
+        const raw = res.data || res;
+        const rawLogs = Array.isArray(raw) ? raw : (raw.items || raw.logs || []);
+        const formatted = rawLogs.map(l => ({
+          ...l,
+          id: l.id || l.logNumber,
+          logNumber: l.logNumber || l.id,
+          user: l.userName || l.user || 'System User',
+          userName: l.userName || l.user || 'System User',
+          recordId: l.recordId || l.logNumber || 'N/A',
+          timestamp: l.timestamp || (l.createdAt ? new Date(l.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : new Date().toLocaleString()),
+          ipAddress: l.ipAddress || '127.0.0.1 (Active Session)',
+          module: l.module || 'System',
+          action: l.action || 'Action',
+          description: l.description || ''
+        }));
+        setStored(KEYS.AUDIT_LOGS, formatted);
+        return formatted;
       }
     } catch (e) {
-      console.warn('[auditService] Failed to fetch audit logs from API, using fallback:', e.message);
+      console.warn('[auditService] Failed to fetch audit logs from API:', e.message);
     }
 
-    const list = getStored(KEYS.AUDIT_LOGS);
-    let filtered = [...list];
-
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      filtered = filtered.filter(item =>
-        item.user?.toLowerCase().includes(q) ||
-        item.module?.toLowerCase().includes(q) ||
-        item.action?.toLowerCase().includes(q) ||
-        item.recordId?.toLowerCase().includes(q) ||
-        item.description?.toLowerCase().includes(q)
-      );
-    }
-    if (filters.module && filters.module !== 'All') {
-      filtered = filtered.filter(item => item.module === filters.module);
-    }
-    if (filters.action && filters.action !== 'All') {
-      filtered = filtered.filter(item => item.action === filters.action);
-    }
-
-    return filtered;
+    const list = getStored(KEYS.AUDIT_LOGS, []);
+    return Array.isArray(list) ? list : [];
   },
 
   async logAction(user, module, action, recordId, description, metadata = {}) {

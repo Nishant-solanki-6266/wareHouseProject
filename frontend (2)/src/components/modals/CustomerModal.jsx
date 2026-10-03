@@ -33,7 +33,9 @@ export const CustomerModal = ({ isOpen, onClose, customer, isEdit = false, onSav
         accountType: customer.accountType || 'Commercial Importer',
         creditTerms: customer.creditTerms || 'Net 30',
         notes: customer.notes || '',
-        status: customer.status || 'Active'
+        status: customer.status || 'Active',
+        destinationPort: customer.destinationPort || defaultPort,
+        destinationCode: customer.destinationCode || (customer.destinationPort ? customer.destinationPort.split(' - ')[0] : 'NAS'),
       });
     } else {
       setFormData({
@@ -47,21 +49,29 @@ export const CustomerModal = ({ isOpen, onClose, customer, isEdit = false, onSav
         accountType: 'Commercial Importer',
         creditTerms: 'Net 30',
         notes: '',
-        status: 'Active'
+        status: 'Active',
+        destinationPort: defaultPort,
+        destinationCode: defaultPort ? defaultPort.split(' - ')[0] : 'NAS',
       });
     }
-  }, [customer, isEdit, isOpen]);
+  }, [customer, isEdit, isOpen, defaultPort]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = {
       ...formData,
-      companyName: formData.name
+      companyName: formData.name,
+      destinationPort: formData.destinationPort || customer?.destinationPort || defaultPort,
+      destinationCode: formData.destinationCode || customer?.destinationCode || (defaultPort ? defaultPort.split(' - ')[0] : 'NAS'),
     };
-    onSave(payload);
-    onClose();
+    try {
+      await onSave(payload);
+      onClose();
+    } catch (err) {
+      console.error('Failed to save customer profile:', err);
+    }
   };
 
   return (

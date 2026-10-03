@@ -117,13 +117,16 @@ export const portService = {
         island: updates.island,
         country: updates.country,
         status: updates.status,
+        defaultAgent: updates.defaultAgent,
       };
-      const res = await apiClient.patch(`ports/${id}`, payload);
+      const portLookup = updates.code || updates.portCode || id;
+      const res = await apiClient.patch(`ports/${portLookup}`, payload);
       if (res && res.data) {
         updatedPort = {
           ...res.data,
           code: res.data.code || res.data.portCode,
           portCode: res.data.portCode || res.data.code,
+          defaultAgent: res.data.defaultAgent || updates.defaultAgent || '',
         };
       }
     } catch (e) {
@@ -153,14 +156,16 @@ export const portService = {
   },
 
   async deletePort(id, currentUser = "Super Admin") {
+    const list = getStored(KEYS.PORTS);
+    const existing = list.find(item => item.id === id || item.code === id);
+    const portLookup = existing?.code || existing?.portCode || id;
+
     try {
-      await apiClient.delete(`ports/${id}`);
+      await apiClient.delete(`ports/${portLookup}`);
     } catch (e) {
       console.warn('[portService] API delete port failed, using local storage:', e.message);
     }
 
-    const list = getStored(KEYS.PORTS);
-    const existing = list.find(item => item.id === id || item.code === id);
     if (!existing) return false;
 
     const filtered = list.filter(item => item.id !== id && item.code !== id);

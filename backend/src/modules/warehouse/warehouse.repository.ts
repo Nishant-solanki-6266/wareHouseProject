@@ -19,14 +19,18 @@ export class WarehouseRepository {
     if (filters.agentId && filters.agentId !== 'All') {
       conditions.push(eq(warehouseReceipts.agentId, filters.agentId));
     }
-    if (filters.search) {
+    if (filters.search && filters.search.trim()) {
+      const q = filters.search.trim();
       conditions.push(
         or(
-          ilike(warehouseReceipts.receiptNumber, `%${filters.search}%`),
-          ilike(warehouseReceipts.customerName, `%${filters.search}%`),
-          ilike(warehouseReceipts.consignee, `%${filters.search}%`),
-          ilike(warehouseReceipts.cargoDescription, `%${filters.search}%`),
-          ilike(warehouseReceipts.destinationPort, `%${filters.search}%`)
+          ilike(warehouseReceipts.receiptNumber, `%${q}%`),
+          ilike(warehouseReceipts.customerName, `%${q}%`),
+          ilike(warehouseReceipts.shipper, `%${q}%`),
+          ilike(warehouseReceipts.consignee, `%${q}%`),
+          ilike(warehouseReceipts.cargoDescription, `%${q}%`),
+          ilike(warehouseReceipts.destinationPort, `%${q}%`),
+          ilike(warehouseReceipts.destinationCode, `%${q}%`),
+          sql`${warehouseReceipts.packages}::text ILIKE ${'%' + q + '%'}`
         )
       );
     }

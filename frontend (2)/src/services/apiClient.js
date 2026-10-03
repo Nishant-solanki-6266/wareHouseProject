@@ -10,7 +10,7 @@ const API_BASE_URL = isRemoteUrl
   ? ENV_API_URL
   : (typeof window !== 'undefined' && window.location.port === '5173'
       ? '/api/v1'
-      : (ENV_API_URL || 'http://127.0.0.1:5001/api/v1'));
+      : (ENV_API_URL || 'http://127.0.0.1:5000/api/v1'));
 
 export const apiClient = {
   getToken() {
@@ -58,7 +58,21 @@ export const apiClient = {
     };
 
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${cleanEndpoint}`;
+    let url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${cleanEndpoint}`;
+
+    // Serialize query params if provided
+    if (options.params && typeof options.params === 'object') {
+      const sp = new URLSearchParams();
+      Object.entries(options.params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') {
+          sp.append(k, String(v));
+        }
+      });
+      const qs = sp.toString();
+      if (qs) {
+        url += (url.includes('?') ? '&' : '?') + qs;
+      }
+    }
 
     const config = {
       ...options,

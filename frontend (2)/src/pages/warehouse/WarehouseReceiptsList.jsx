@@ -47,7 +47,7 @@ export const WarehouseReceiptsList = ({ onNavigate }) => {
       accessor: 'customer',
       render: (item) => (
         <div>
-          <div style={{ fontWeight: 600, color: '#0A192F' }}>{item.customer}</div>
+          <div style={{ fontWeight: 600, color: '#0A192F' }}>{item.customer || item.customerName}</div>
           <div style={{ fontSize: '0.72rem', color: '#64748B', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {item.consignee}
           </div>
@@ -73,7 +73,7 @@ export const WarehouseReceiptsList = ({ onNavigate }) => {
         <div>
           <div style={{ fontWeight: 600 }}>{item.weightLbs?.toLocaleString()} lbs</div>
           <div style={{ fontSize: '0.72rem', color: '#0284C7', fontWeight: 600 }}>
-            {item.cbm} CBM ({item.cft} CFT)
+            {item.cbm || item.totalCbm || '0.00'} CBM ({item.cft || item.totalCft || '0.00'} CFT)
           </div>
         </div>
       )

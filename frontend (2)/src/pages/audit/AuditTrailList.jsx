@@ -5,7 +5,13 @@ import { Activity, ShieldAlert, CheckCircle2, User, Clock, FileText } from 'luci
 import { useAppData } from '../../context/AppDataContext';
 
 export const AuditTrailList = () => {
-  const { auditLogs } = useAppData();
+  const { auditLogs, fetchMenuApi } = useAppData();
+
+  React.useEffect(() => {
+    if (fetchMenuApi) {
+      fetchMenuApi('audit');
+    }
+  }, [fetchMenuApi]);
 
   const columns = [
     {
@@ -22,7 +28,7 @@ export const AuditTrailList = () => {
       header: 'User / Officer',
       accessor: 'user',
       render: (item) => (
-        <span style={{ fontWeight: 600, color: '#0284C7' }}>{item.user}</span>
+        <span style={{ fontWeight: 600, color: '#0284C7' }}>{item.user || item.userName}</span>
       )
     },
     {

@@ -26,7 +26,11 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
   const { isDocs, isSuperAdmin } = useAuth();
   const canEditWR = isDocs || isSuperAdmin;
 
-  const nextSeq = 3100 + warehouseReceipts.length;
+  const maxSeq = warehouseReceipts.reduce((max, r) => {
+    const num = parseInt(r.receiptNumber || r.sequenceNumber, 10);
+    return !isNaN(num) && num > max ? num : max;
+  }, 3099);
+  const nextSeq = Math.max(3100, maxSeq + 1);
   const initialReceiptNum = String(nextSeq);
 
   const getPortCode = (p) => p?.portCode || p?.code || 'NAS';
@@ -265,7 +269,7 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
     };
 
     const created = await createWarehouseReceipt(payload);
-    onNavigate('warehouse-receipts', created.id);
+    onNavigate('warehouse-receipts', created?.id || created?.receiptNumber);
   };
 
   return (

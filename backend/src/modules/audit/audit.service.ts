@@ -9,8 +9,9 @@ export class AuditService {
   }
 
   async logAction(input: CreateAuditLogInput) {
-    const totalCount = await this.repo.countTotal();
-    const logNumber = `AUD-${String(9900 + totalCount + 1)}`;
+    const totalCount = await this.repo.countTotal().catch(() => 0);
+    const randSuffix = Math.floor(100 + Math.random() * 900);
+    const logNumber = `AUD-${String(9900 + totalCount + 1)}-${randSuffix}`;
     const timestamp = new Date().toLocaleString('en-US', {
       dateStyle: 'short',
       timeStyle: 'short',

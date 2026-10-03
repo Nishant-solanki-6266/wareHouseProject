@@ -104,6 +104,7 @@ export const AppDataProvider = ({ children }) => {
           apiClient.get('/vessels'),
           apiClient.get('/voyages'),
           apiClient.get('/agents'),
+          apiClient.get('/audit', { params: { limit: 200 } }),
         ]);
 
         if (portsRes.status === 'fulfilled' && portsRes.value?.data) {
@@ -117,12 +118,25 @@ export const AppDataProvider = ({ children }) => {
           setStored(KEYS.SETTINGS, apiSettings);
         }
         if (customersRes.status === 'fulfilled' && customersRes.value?.data) {
-          const apiCust = Array.isArray(customersRes.value.data) ? customersRes.value.data : customersRes.value.data.items || [];
+          const rawCust = Array.isArray(customersRes.value.data) ? customersRes.value.data : customersRes.value.data.items || [];
+          const apiCust = rawCust.map(c => ({
+            ...c,
+            customerNumber: c.customerNumber || c.id,
+            telephone: c.telephone || c.phone || '',
+            createdDate: c.createdDate || (c.createdAt ? new Date(c.createdAt).toISOString().split('T')[0] : '2026-10-01'),
+          }));
           setCustomers(apiCust);
           setStored(KEYS.CUSTOMERS, apiCust);
         }
         if (receiptsRes.status === 'fulfilled' && receiptsRes.value?.data) {
-          const apiWR = Array.isArray(receiptsRes.value.data) ? receiptsRes.value.data : receiptsRes.value.data.items || [];
+          const rawWR = Array.isArray(receiptsRes.value.data) ? receiptsRes.value.data : receiptsRes.value.data.items || [];
+          const apiWR = rawWR.map(r => ({
+            ...r,
+            customer: r.customer || r.customerName || '',
+            customerName: r.customerName || r.customer || '',
+            cbm: r.cbm || r.totalCbm || '0.00',
+            cft: r.cft || r.totalCft || '0.00',
+          }));
           setWarehouseReceipts(apiWR);
           setStored(KEYS.WAREHOUSE_RECEIPTS, apiWR);
         }
@@ -176,6 +190,14 @@ export const AppDataProvider = ({ children }) => {
           setAgents(apiAgents);
           setStored(KEYS.AGENTS, apiAgents);
         }
+        const auditRes = arguments?.[0] || undefined; // checked below via auditService sync
+        try {
+          const liveLogs = await auditService.getLogs({ limit: 200 });
+          setAuditLogs(Array.isArray(liveLogs) ? liveLogs : []);
+          setStored(KEYS.AUDIT_LOGS, Array.isArray(liveLogs) ? liveLogs : []);
+        } catch (audErr) {
+          console.warn('[AppDataContext] Initial audit sync notice:', audErr.message);
+        }
       }
     } catch (e) {
       console.warn('Backend live sync notice:', e.message);
@@ -227,7 +249,7 @@ export const AppDataProvider = ({ children }) => {
 
   // ON-DEMAND API Fetcher: Triggers ONLY the API corresponding to the clicked menu
   const fetchMenuApi = useCallback(async (tabName) => {
-    if (!tabName || !apiClient.getToken()) return;
+    if (!tabName) return;
     setActiveMenuTab(tabName);
 
     try {
@@ -247,31 +269,30 @@ export const AppDataProvider = ({ children }) => {
         }
 
         case 'customers': {
-          const custRes = await apiClient.get('/customers');
-          if (Array.isArray(custRes) && custRes.length > 0) {
-            setCustomers(custRes);
-            setStored(KEYS.CUSTOMERS, custRes);
+          const custData = await customerService.getCustomers();
+          if (Array.isArray(custData) && custData.length > 0) {
+            setCustomers(custData);
+            setStored(KEYS.CUSTOMERS, custData);
           }
           break;
         }
 
         case 'warehouse-receipts': {
-          const wrRes = await apiClient.get('/warehouse-receipts');
-          if (Array.isArray(wrRes) && wrRes.length > 0) {
-            setWarehouseReceipts(wrRes);
-            setStored(KEYS.WAREHOUSE_RECEIPTS, wrRes);
+          const wrList = await warehouseService.getReceipts();
+          if (Array.isArray(wrList) && wrList.length > 0) {
+            setWarehouseReceipts(wrList);
+            setStored(KEYS.WAREHOUSE_RECEIPTS, wrList);
           }
           await apiClient.get('/labels').catch(() => {});
           break;
         }
 
         case 'cargo': {
-          const cargoRes = await apiClient.get('/cargo');
-          if (Array.isArray(cargoRes) && cargoRes.length > 0) {
-            setCargoItems(cargoRes);
-            setStored(KEYS.CARGO, cargoRes);
+          const cargoList = await cargoService.getCargo();
+          if (Array.isArray(cargoList)) {
+            setCargoItems(cargoList);
+            setStored(KEYS.CARGO, cargoList);
           }
-          await apiClient.get('/cargo-inventory').catch(() => {});
           break;
         }
 
@@ -293,10 +314,22 @@ export const AppDataProvider = ({ children }) => {
         }
 
         case 'shipments': {
-          const shpRes = await apiClient.get('/shipments');
-          const list = Array.isArray(shpRes) ? shpRes : (Array.isArray(shpRes?.data) ? shpRes.data : []);
-          setShipments(list);
-          setStored(KEYS.SHIPMENTS, list);
+          try {
+            const liveShipments = await shipmentService.getShipments({ limit: 200 });
+            if (Array.isArray(liveShipments) && liveShipments.length > 0) {
+              setShipments(liveShipments);
+              setStored(KEYS.SHIPMENTS, liveShipments);
+            } else {
+              const shpRes = await apiClient.get('/shipments');
+              const list = Array.isArray(shpRes) ? shpRes : (Array.isArray(shpRes?.data) ? shpRes.data : []);
+              if (list.length > 0) {
+                setShipments(list);
+                setStored(KEYS.SHIPMENTS, list);
+              }
+            }
+          } catch (e) {
+            console.warn('[AppDataContext] Failed to load shipments:', e.message);
+          }
           break;
         }
 
@@ -376,25 +409,55 @@ export const AppDataProvider = ({ children }) => {
         }
 
         case 'audit': {
-          const audRes = await apiClient.get('/audit');
-          if (Array.isArray(audRes) && audRes.length > 0) {
-            setAuditLogs(audRes);
-            setStored(KEYS.AUDIT_LOGS, audRes);
+          try {
+            const logs = await auditService.getLogs({ limit: 200 });
+            setAuditLogs(Array.isArray(logs) ? logs : []);
+            setStored(KEYS.AUDIT_LOGS, Array.isArray(logs) ? logs : []);
+          } catch (e) {
+            console.warn('[AppDataContext] Failed to load audit logs from API:', e.message);
           }
           await apiClient.get('/audit-trail').catch(() => {});
           break;
         }
 
         case 'history': {
+          try {
+            const liveShipments = await shipmentService.getShipments({ limit: 200 });
+            if (Array.isArray(liveShipments)) {
+              setShipments(liveShipments);
+              setStored(KEYS.SHIPMENTS, liveShipments);
+            }
+          } catch (e) {
+            console.warn('[AppDataContext] Failed to load shipment history from API:', e.message);
+          }
           await apiClient.get('/shipment-history').catch(() => {});
           break;
         }
 
         case 'settings': {
-          const setRes = await apiClient.get('/settings');
-          if (setRes) {
-            setSettings(setRes);
-            setStored(KEYS.SETTINGS, setRes);
+          try {
+            const liveSettings = await settingsService.getSettings();
+            if (liveSettings && Object.keys(liveSettings).length > 0) {
+              setSettings(liveSettings);
+            }
+            const livePorts = await portService.getPorts();
+            if (Array.isArray(livePorts) && livePorts.length > 0) {
+              setPorts(livePorts);
+            }
+          } catch (e) {
+            console.warn('[AppDataContext] Failed to load settings from API:', e.message);
+          }
+          break;
+        }
+
+        case 'ports': {
+          try {
+            const livePorts = await portService.getPorts();
+            if (Array.isArray(livePorts) && livePorts.length > 0) {
+              setPorts(livePorts);
+            }
+          } catch (e) {
+            console.warn('[AppDataContext] Failed to load ports from API:', e.message);
           }
           break;
         }
@@ -423,103 +486,137 @@ export const AppDataProvider = ({ children }) => {
   }, [currentRole]);
 
   useEffect(() => {
-    if (apiClient.getToken()) {
-      refreshAll();
-      // Fetch initial active menu API on mount
-      fetchMenuApi(activeMenuTab);
-    }
+    refreshAll();
+    // Fetch initial active menu API on mount
+    fetchMenuApi(activeMenuTab);
   }, []);
 
   // 1. Customers CRUD
   const createCustomer = async (customerData) => {
-    const created = await customerService.createCustomer(customerData, currentUser?.name || "Warehouse Staff");
-    setCustomers(getStored(KEYS.CUSTOMERS, []));
-    await refreshAll();
-    showToast(`Customer Profile ${created.customerNumber || created.name} created successfully.`, 'success', 'Customer Created');
-    return created;
+    try {
+      const created = await customerService.createCustomer(customerData, currentUser?.name || "Warehouse Staff");
+      await refreshAll();
+      showToast(`Customer Profile ${created.customerNumber || created.name} created successfully.`, 'success', 'Customer Created');
+      return created;
+    } catch (err) {
+      showToast(err.message || 'Failed to create customer profile', 'error', 'Creation Error');
+      throw err;
+    }
   };
 
   const updateCustomer = async (id, updates) => {
-    const updated = await customerService.updateCustomer(id, updates, currentUser?.name || "Warehouse Staff");
-    setCustomers(getStored(KEYS.CUSTOMERS, []));
-    await refreshAll();
-    showToast(`Customer Profile ${id} updated successfully.`, 'success', 'Customer Updated');
-    return updated;
+    try {
+      const updated = await customerService.updateCustomer(id, updates, currentUser?.name || "Warehouse Staff");
+      await refreshAll();
+      showToast(`Customer Profile ${id} updated successfully.`, 'success', 'Customer Updated');
+      return updated;
+    } catch (err) {
+      showToast(err.message || 'Failed to update customer profile', 'error', 'Update Error');
+      throw err;
+    }
   };
 
   const deleteCustomer = async (id) => {
-    setCustomers(prev => prev.filter(c => c.id !== id && c.customerNumber !== id && c.accountNumber !== id));
-    const success = await customerService.deleteCustomer(id, currentUser?.name || "Super Admin");
-    if (success) {
-      setCustomers(getStored(KEYS.CUSTOMERS, []));
+    try {
+      setCustomers(prev => prev.filter(c => c.id !== id && c.customerNumber !== id && c.accountNumber !== id));
+      const success = await customerService.deleteCustomer(id, currentUser?.name || "Super Admin");
+      if (success) {
+        await refreshAll();
+        showToast(`Customer Profile ${id} deleted successfully.`, 'info', 'Customer Deleted');
+      }
+      return success;
+    } catch (err) {
       await refreshAll();
-      showToast(`Customer Profile ${id} deleted successfully.`, 'info', 'Customer Deleted');
+      showToast(err.message || 'Failed to delete customer profile', 'error', 'Delete Error');
+      throw err;
     }
-    return success;
   };
 
   // 2. Warehouse Receipts CRUD
   const createWarehouseReceipt = async (receiptData) => {
-    let created;
     try {
-      const res = await apiClient.post('/warehouse-receipts', receiptData);
-      if (res?.data) created = res.data;
-    } catch (e) {
-      console.warn('Backend createWarehouseReceipt notice:', e.message);
+      const created = await warehouseService.createReceipt(receiptData, currentUser?.name || "Warehouse Staff");
+      await refreshAll();
+      showToast(`Warehouse Receipt ${created.receiptNumber || created.id} intaked.`, 'success', 'Receipt Created');
+      return created;
+    } catch (err) {
+      showToast(err.message || 'Failed to intake warehouse receipt', 'error', 'Intake Failed');
+      throw err;
     }
-    if (!created) {
-      created = await warehouseService.createReceipt(receiptData, currentUser?.name || "Warehouse Staff");
-    }
-    await refreshAll();
-    showToast(`Warehouse Receipt ${created.receiptNumber || created.id} intaked.`, 'success', 'Receipt Created');
-    return created;
   };
 
   const updateWarehouseReceipt = async (id, updates) => {
-    const updated = await warehouseService.updateReceipt(id, updates, currentUser?.name || "Warehouse Staff");
-    fetchMenuApi('warehouse-receipts');
-    await refreshAll();
-    showToast(`Warehouse Receipt ${id} updated successfully.`, 'success', 'Receipt Updated');
-    return updated;
+    try {
+      const updated = await warehouseService.updateReceipt(id, updates, currentUser?.name || "Warehouse Staff");
+      await refreshAll();
+      showToast(`Warehouse Receipt ${id} updated successfully.`, 'success', 'Receipt Updated');
+      return updated;
+    } catch (err) {
+      showToast(err.message || 'Failed to update warehouse receipt', 'error', 'Update Failed');
+      throw err;
+    }
   };
 
   const deleteWarehouseReceipt = async (id) => {
-    setWarehouseReceipts(prev => prev.filter(r => r.id !== id && r.receiptNumber !== id));
-    const success = await warehouseService.deleteReceipt(id, currentUser?.name || "Warehouse Staff");
-    if (success) {
-      fetchMenuApi('warehouse-receipts');
+    try {
+      setWarehouseReceipts(prev => prev.filter(r => r.id !== id && r.receiptNumber !== id));
+      const success = await warehouseService.deleteReceipt(id, currentUser?.name || "Warehouse Staff");
+      if (success) {
+        await refreshAll();
+        showToast(`Warehouse Receipt ${id} deleted successfully.`, 'info', 'Receipt Deleted');
+      }
+      return success;
+    } catch (err) {
       await refreshAll();
-      showToast(`Warehouse Receipt ${id} deleted successfully.`, 'info', 'Receipt Deleted');
+      showToast(err.message || 'Failed to delete warehouse receipt', 'error', 'Delete Failed');
+      throw err;
     }
-    return success;
   };
 
   // 3. Cargo Inventory CRUD
   const createCargo = async (cargoData) => {
-    const created = await cargoService.createCargo(cargoData, currentUser?.name || "Warehouse Staff");
-    fetchMenuApi('cargo');
-    await refreshAll();
-    showToast(`Cargo Unit ${created.id} registered into warehouse inventory.`, 'success', 'Cargo Intaked');
-    return created;
+    try {
+      const created = await cargoService.createCargo(cargoData, currentUser?.name || "Warehouse Staff");
+      await fetchMenuApi('cargo');
+      await refreshAll();
+      showToast(`Cargo Unit ${created.cargoNumber || created.id} registered into warehouse inventory.`, 'success', 'Cargo Intaked');
+      return created;
+    } catch (err) {
+      await refreshAll();
+      showToast(err.message || 'Failed to intake cargo unit', 'error', 'Intake Failed');
+      throw err;
+    }
   };
 
   const updateCargo = async (id, updates) => {
-    const updated = await cargoService.updateCargo(id, updates, currentUser?.name || "Warehouse Staff");
-    fetchMenuApi('cargo');
-    await refreshAll();
-    showToast(`Cargo Unit ${id} updated successfully.`, 'success', 'Cargo Updated');
-    return updated;
+    try {
+      const updated = await cargoService.updateCargo(id, updates, currentUser?.name || "Warehouse Staff");
+      await fetchMenuApi('cargo');
+      await refreshAll();
+      showToast(`Cargo Unit ${updates.cargoNumber || id} updated successfully.`, 'success', 'Cargo Updated');
+      return updated;
+    } catch (err) {
+      await refreshAll();
+      showToast(err.message || 'Failed to update cargo unit', 'error', 'Update Failed');
+      throw err;
+    }
   };
 
   const deleteCargo = async (id) => {
-    setCargoItems(prev => prev.filter(c => c.id !== id && c.cargoNumber !== id));
-    const success = await cargoService.deleteCargo(id, currentUser?.name || "Warehouse Staff");
-    if (success) {
-      fetchMenuApi('cargo');
+    try {
+      setCargoItems(prev => prev.filter(c => c.id !== id && c.cargoNumber !== id));
+      const success = await cargoService.deleteCargo(id, currentUser?.name || "Warehouse Staff");
+      if (success) {
+        await fetchMenuApi('cargo');
+        await refreshAll();
+        showToast(`Cargo Unit ${id} deleted from inventory.`, 'info', 'Cargo Deleted');
+      }
+      return success;
+    } catch (err) {
       await refreshAll();
-      showToast(`Cargo Unit ${id} deleted from inventory.`, 'info', 'Cargo Deleted');
+      showToast(err.message || 'Failed to delete cargo unit', 'error', 'Delete Failed');
+      throw err;
     }
-    return success;
   };
 
   // 4. House Bills of Lading CRUD
@@ -981,8 +1078,9 @@ export const AppDataProvider = ({ children }) => {
   };
 
   // Clear all transactional records
-  const clearAllData = () => {
+  const clearAllData = async () => {
     clearTransactionalData();
+    await settingsService.cleanSlate();
     refreshAll();
     showToast(`All transactional records cleared! System is now a clean blank slate for testing.`, 'success', 'Data Cleared');
   };
