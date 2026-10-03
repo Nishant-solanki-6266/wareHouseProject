@@ -2,7 +2,7 @@
  * API Configuration & Base Fetch Client for VI Customs Backend
  */
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001/api/v1';
 export const TOKEN_STORAGE_KEY = 'kers_auth_token';
 
 /**
@@ -113,7 +113,7 @@ export async function apiFetch(endpoint, options = {}, isRetry = false) {
     return data;
   } catch (err) {
     if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
-      const netError = new Error('Unable to reach Backend API server. Please check if backend is running on port 5000.');
+      const netError = new Error('Unable to reach Backend API server. Please check if backend is running on port 5001.');
       netError.status = 0;
       netError.isNetworkError = true;
       throw netError;

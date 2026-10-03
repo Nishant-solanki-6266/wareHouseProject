@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, integer, numeric, jsonb, timestamp } from 'drizzle-orm/pg-core';
-import { containers } from './containers.schema';
-import { vessels } from './vessels.schema';
-import { voyages } from './voyages.schema';
+import { containers } from './containers.schema.js';
+import { vessels } from './vessels.schema.js';
+import { voyages } from './voyages.schema.js';
 
 export const consolidations = pgTable('consolidations', {
   id: uuid('id').defaultRandom().primaryKey(),

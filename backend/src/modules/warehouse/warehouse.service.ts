@@ -22,7 +22,7 @@ export class WarehouseService {
     return receipt;
   }
 
-  async createReceipt(input: CreateWarehouseReceiptInput & { receiptNumber?: string; sequenceNumber?: number; totalPieces?: number; customer?: string }) {
+  async createReceipt(input: CreateWarehouseReceiptInput & { receiptNumber?: string; sequenceNumber?: number; totalPieces?: number; customer?: string | null }) {
     let nextSeq: number;
     if (input.sequenceNumber && !isNaN(Number(input.sequenceNumber))) {
       nextSeq = Number(input.sequenceNumber);

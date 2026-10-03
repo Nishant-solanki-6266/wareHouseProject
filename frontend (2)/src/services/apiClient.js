@@ -1,8 +1,16 @@
 let authPromise = null;
 
-const API_BASE_URL = typeof window !== 'undefined' && window.location.port === '5173'
-  ? '/api/v1'
-  : 'http://127.0.0.1:5000/api/v1';
+const ENV_API_URL = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.trim().replace(/\/+$/, '')
+  : null;
+
+const isRemoteUrl = ENV_API_URL && !ENV_API_URL.includes('127.0.0.1') && !ENV_API_URL.includes('localhost');
+
+const API_BASE_URL = isRemoteUrl
+  ? ENV_API_URL
+  : (typeof window !== 'undefined' && window.location.port === '5173'
+      ? '/api/v1'
+      : (ENV_API_URL || 'http://127.0.0.1:5001/api/v1'));
 
 export const apiClient = {
   getToken() {
@@ -33,46 +41,7 @@ export const apiClient = {
   async ensureToken() {
     let token = this.getToken();
     if (token && !this.isTokenExpired(token)) return token;
-
-    if (!authPromise) {
-      authPromise = (async () => {
-        try {
-          let email = 'elena.r@vicustoms.com';
-          try {
-            const saved = localStorage.getItem('kers_active_user');
-            if (saved) {
-              const u = JSON.parse(saved);
-              if (u?.email) email = u.email;
-            }
-          } catch {}
-
-          const loginUrl = typeof window !== 'undefined' && window.location.port === '5173'
-            ? '/api/v1/auth/login'
-            : 'http://127.0.0.1:5000/api/v1/auth/login';
-
-          const res = await fetch(loginUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password: 'Password123!' }),
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.data?.token) {
-              this.setToken(data.data.token);
-              return data.data.token;
-            }
-          }
-        } catch (e) {
-          console.warn('Auto auth error:', e.message);
-        } finally {
-          authPromise = null;
-        }
-        return null;
-      })();
-    }
-
-    return authPromise;
+    return null;
   },
 
   async request(endpoint, options = {}, isRetry = false) {
@@ -105,12 +74,8 @@ export const apiClient = {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        if (response.status === 401 && !isRetry && !isAuthOrHealth) {
+        if (response.status === 401 && !isAuthOrHealth) {
           this.setToken(null);
-          const newToken = await this.ensureToken();
-          if (newToken) {
-            return this.request(endpoint, options, true);
-          }
         }
         const errorMsg = data?.message || `HTTP ${response.status}: ${response.statusText}`;
         const error = new Error(errorMsg);
@@ -128,9 +93,7 @@ export const apiClient = {
 
   async checkHealth() {
     try {
-      const target = typeof window !== 'undefined' && window.location.port === '5173'
-        ? '/api/v1/health'
-        : 'http://127.0.0.1:5000/health';
+      const target = `${API_BASE_URL}/health`;
       const res = await fetch(target);
       return res.ok;
     } catch {

@@ -32,6 +32,20 @@ export async function buildApp(): Promise<FastifyInstance> {
   // 1. Error handling plugin
   registerErrorHandlerPlugin(app);
 
+  // Allow empty JSON bodies for POST/PUT/PATCH requests (e.g. /auth/logout)
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body: string, done) => {
+    if (!body || body.trim() === '') {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(body));
+    } catch (err: any) {
+      err.statusCode = 400;
+      done(err, undefined);
+    }
+  });
+
   // 2. Core infrastructure plugins
   await registerCorsPlugin(app);
   await registerJwtPlugin(app);

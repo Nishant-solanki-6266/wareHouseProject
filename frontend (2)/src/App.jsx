@@ -233,6 +233,9 @@ const MainAppRouter = () => {
 
   // If user is not authenticated, show the Login Page
   if (!isAuthenticated) {
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      window.history.replaceState({ tab: 'login' }, '', '/login');
+    }
     return (
       <LoginPage
         onLoginSuccess={(loggedUser) => {

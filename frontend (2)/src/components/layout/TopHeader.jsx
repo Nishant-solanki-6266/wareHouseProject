@@ -372,7 +372,7 @@ export const TopHeader = ({
                         </div>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: '0.8rem', color: '#0A192F' }}>{u.name}</div>
-                          <div style={{ fontSize: '0.7rem', color: '#64748B' }}>{u.role}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748B' }}>{u.role || u.roleKey}</div>
                         </div>
                       </div>
                       {isSelected && <CheckCircle2 size={15} style={{ color: '#2563EB' }} />}

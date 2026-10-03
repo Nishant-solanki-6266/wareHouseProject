@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, integer, numeric, jsonb, timestamp } from 'drizzle-orm/pg-core';
-import { agents } from './agents.schema';
+import { agents } from './agents.schema.js';
 
 export interface TrackingCheckpoint {
   id: string;

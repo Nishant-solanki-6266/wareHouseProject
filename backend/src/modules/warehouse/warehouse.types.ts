@@ -15,14 +15,14 @@ export interface CreateWarehouseReceiptInput {
   sequenceNumber?: number;
   date?: string;
   customerId?: string | null;
-  customerName?: string;
-  customer?: string;
+  customerName?: string | null;
+  customer?: string | null;
   shipper?: string | null;
   consignee?: string | null;
   agentId?: string | null;
   agentName?: string | null;
-  destinationPort?: string;
-  destinationCode?: string;
+  destinationPort?: string | null;
+  destinationCode?: string | null;
   cargoDescription?: string | null;
   packages?: PackageItem[];
   packageCount?: number;

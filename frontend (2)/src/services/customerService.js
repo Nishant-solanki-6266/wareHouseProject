@@ -1,15 +1,20 @@
 import { getStored, setStored, KEYS } from './storageService';
 import { auditService } from './auditService';
 import { apiClient } from './apiClient';
-import { apiFetch } from './apiConfig';
 
 export const customerService = {
   async getCustomers(filters = {}) {
     try {
-      const res = await apiClient.get('customers', { params: { ...filters, limit: 100 } });
-      const apiData = res?.data ? (Array.isArray(res.data) ? res.data : (res.data.items || [])) : (Array.isArray(res) ? res : []);
-      if (apiData.length > 0) {
-        const mapped = apiData.map(c => ({
+      const res = await apiClient.get('customers', {
+        search: filters.search || '',
+        destinationCode: filters.destination && filters.destination !== 'All' ? filters.destination : '',
+        status: filters.status && filters.status !== 'All' ? filters.status : '',
+        limit: 100,
+      });
+
+      if (res && res.data) {
+        const customers = Array.isArray(res.data) ? res.data : (res.data.items || res.data.customers || []);
+        const mapped = customers.map(c => ({
           ...c,
           customerNumber: c.customerNumber || c.id,
           telephone: c.telephone || c.phone || '',
@@ -72,8 +77,6 @@ export const customerService = {
     const id = data.customerNumber || `CUS-2026-${String(nextSeq).padStart(4, '0')}`;
 
     const payload = {
-      ...data,
-      customerNumber: id,
       name: data.name || data.companyName || "New Customer",
       companyName: data.companyName || data.name || "New Customer",
       contactPerson: data.contactPerson || "",
@@ -97,16 +100,19 @@ export const customerService = {
         createdCustomer = {
           ...res.data,
           customerNumber: res.data.customerNumber || res.data.id || id,
+          telephone: res.data.telephone || res.data.phone || payload.telephone || '',
         };
       }
     } catch (err) {
-      console.warn('Backend createCustomer failed, saving locally:', err?.message || err);
+      console.warn('Backend createCustomer notice:', err?.message || err);
     }
 
     if (!createdCustomer) {
       createdCustomer = {
         ...payload,
-        id
+        id,
+        customerNumber: id,
+        createdDate: data.createdDate || new Date().toISOString().split('T')[0],
       };
     }
 
@@ -115,21 +121,44 @@ export const customerService = {
 
     await auditService.logAction(
       currentUser,
-      "Customer Directory",
-      "Created Customer",
+      "Customer",
+      "Created Customer Profile",
       createdCustomer.customerNumber || createdCustomer.id,
-      `Registered client ${createdCustomer.name} (${createdCustomer.customerNumber}, ${createdCustomer.destinationPort}).`
+      `Registered customer ${createdCustomer.name} (${createdCustomer.customerNumber}, ${createdCustomer.destinationPort}).`
     );
 
     return createdCustomer;
   },
 
   async updateCustomer(id, updates, currentUser = "Warehouse Staff") {
-    let updatedCustomer = null;
+    let apiUpdated = null;
     try {
-      const res = await apiClient.put(`customers/${encodeURIComponent(id)}`, updates);
+      const payload = {
+        name: updates.name || updates.companyName,
+        companyName: updates.companyName || updates.name,
+        contactPerson: updates.contactPerson,
+        email: updates.email,
+        telephone: updates.telephone || updates.phone,
+        phone: updates.telephone || updates.phone,
+        address: updates.address,
+        destinationPort: updates.destinationPort,
+        destinationCode: updates.destinationCode || (updates.destinationPort ? updates.destinationPort.split(' - ')[0] : undefined),
+        taxId: updates.taxId,
+        accountType: updates.accountType,
+        creditTerms: updates.creditTerms,
+        notes: updates.notes,
+        status: updates.status,
+      };
+
+      Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+      const res = await apiClient.patch(`customers/${encodeURIComponent(id)}`, payload);
       if (res && res.data) {
-        updatedCustomer = res.data;
+        apiUpdated = {
+          ...res.data,
+          customerNumber: res.data.customerNumber || res.data.id,
+          telephone: res.data.telephone || res.data.phone || updates.telephone || '',
+        };
       }
     } catch (err) {
       console.warn(`Backend updateCustomer ${id} failed:`, err?.message || err);
@@ -138,25 +167,31 @@ export const customerService = {
     const list = getStored(KEYS.CUSTOMERS, []);
     const index = list.findIndex(item => item.id === id || item.customerNumber === id);
     if (index !== -1) {
-      list[index] = {
+      const merged = {
         ...list[index],
-        ...(updatedCustomer || updates),
-        telephone: updates.telephone || updates.phone || list[index].telephone,
-        phone: updates.telephone || updates.phone || list[index].phone
+        ...updates,
+        ...(apiUpdated || {}),
+        telephone: updates.telephone || updates.phone || list[index].telephone || '',
+        phone: updates.telephone || updates.phone || list[index].phone || ''
       };
+      list[index] = merged;
       setStored(KEYS.CUSTOMERS, list);
 
       await auditService.logAction(
         currentUser,
-        "Customer Directory",
-        "Updated Customer",
+        "Customer",
+        "Updated Customer Profile",
         id,
-        `Updated master records for customer ${list[index].name} (${list[index].customerNumber}).`
+        `Updated customer profile for ${merged.name} (${id}).`
       );
 
-      return list[index];
+      return merged;
+    } else if (apiUpdated) {
+      list.unshift(apiUpdated);
+      setStored(KEYS.CUSTOMERS, list);
+      return apiUpdated;
     }
-    return updatedCustomer;
+    return null;
   },
 
   async deleteCustomer(id, currentUser = "Super Admin") {
@@ -171,15 +206,13 @@ export const customerService = {
     const filtered = list.filter(item => item.id !== id && item.customerNumber !== id);
     setStored(KEYS.CUSTOMERS, filtered);
 
-    if (existing) {
-      await auditService.logAction(
-        currentUser,
-        "Customer Directory",
-        "Deleted Customer",
-        id,
-        `Removed customer account ${existing.name} (${existing.customerNumber}).`
-      );
-    }
+    await auditService.logAction(
+      currentUser,
+      "Customer",
+      "Deleted Customer Profile",
+      id,
+      `Deleted customer profile ${existing?.name || id} (${id}).`
+    );
 
     return true;
   }

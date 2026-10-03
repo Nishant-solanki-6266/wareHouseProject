@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, integer, numeric, boolean, jsonb, timestamp } from 'drizzle-orm/pg-core';
-import { customers } from './customers.schema';
-import { agents } from './agents.schema';
+import { customers } from './customers.schema.js';
+import { agents } from './agents.schema.js';
 
 export interface PackageItem {
   id?: string;

@@ -40,6 +40,7 @@ export const AppDataProvider = ({ children }) => {
   const [settings, setSettings] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isBackendConnected, setIsBackendConnected] = useState(false);
+  const [activeMenuTab, setActiveMenuTab] = useState('dashboard');
 
   // Refresh all state from storage and sync with live backend
   const refreshAll = useCallback(async () => {
@@ -68,18 +69,9 @@ export const AppDataProvider = ({ children }) => {
       const isLive = await apiClient.checkHealth();
       setIsBackendConnected(isLive);
       if (isLive) {
+        // Only fetch protected data if user is authenticated with a token
         if (!apiClient.getToken()) {
-          try {
-            const loginRes = await apiClient.post('/auth/login', {
-              email: currentUser?.email || 'elena.r@vicustoms.com',
-              password: 'Password123!',
-            });
-            if (loginRes?.data?.token) {
-              apiClient.setToken(loginRes.data.token);
-            }
-          } catch (loginErr) {
-            console.warn('Auto-token acquisition notice:', loginErr.message);
-          }
+          return;
         }
 
         const [
@@ -235,7 +227,7 @@ export const AppDataProvider = ({ children }) => {
 
   // ON-DEMAND API Fetcher: Triggers ONLY the API corresponding to the clicked menu
   const fetchMenuApi = useCallback(async (tabName) => {
-    if (!tabName) return;
+    if (!tabName || !apiClient.getToken()) return;
     setActiveMenuTab(tabName);
 
     try {
@@ -269,7 +261,7 @@ export const AppDataProvider = ({ children }) => {
             setWarehouseReceipts(wrRes);
             setStored(KEYS.WAREHOUSE_RECEIPTS, wrRes);
           }
-          await apiClient.get('/labels').catch(() => {});
+          await apiClient.get('/labels').catch(() => { });
           break;
         }
 
@@ -279,7 +271,7 @@ export const AppDataProvider = ({ children }) => {
             setCargoItems(cargoRes);
             setStored(KEYS.CARGO, cargoRes);
           }
-          await apiClient.get('/cargo-inventory').catch(() => {});
+          await apiClient.get('/cargo-inventory').catch(() => { });
           break;
         }
 
@@ -325,7 +317,7 @@ export const AppDataProvider = ({ children }) => {
             setManifests(mnfRes);
             setStored(KEYS.MANIFESTS, mnfRes);
           }
-          await apiClient.get('/shipping-manifests').catch(() => {});
+          await apiClient.get('/shipping-manifests').catch(() => { });
           break;
         }
 
@@ -349,12 +341,12 @@ export const AppDataProvider = ({ children }) => {
             setVoyages(voyRes);
             setStored(KEYS.VOYAGES, voyRes);
           }
-          await apiClient.get('/containers-vessels').catch(() => {});
+          await apiClient.get('/containers-vessels').catch(() => { });
           break;
         }
 
         case 'tracking': {
-          await apiClient.get('/tracking/TRK-VI-994819').catch(() => {});
+          await apiClient.get('/tracking/TRK-VI-994819').catch(() => { });
           break;
         }
 
@@ -364,7 +356,7 @@ export const AppDataProvider = ({ children }) => {
             setCustomDocuments(docRes);
             setStored(KEYS.DOCUMENTS, docRes);
           }
-          await apiClient.get('/documents-archive').catch(() => {});
+          await apiClient.get('/documents-archive').catch(() => { });
           break;
         }
 
@@ -383,7 +375,7 @@ export const AppDataProvider = ({ children }) => {
             setUsers(usrRes);
             setStored(KEYS.USERS, usrRes);
           }
-          await apiClient.get('/users-roles').catch(() => {});
+          await apiClient.get('/users-roles').catch(() => { });
           break;
         }
 
@@ -393,12 +385,12 @@ export const AppDataProvider = ({ children }) => {
             setAuditLogs(audRes);
             setStored(KEYS.AUDIT_LOGS, audRes);
           }
-          await apiClient.get('/audit-trail').catch(() => {});
+          await apiClient.get('/audit-trail').catch(() => { });
           break;
         }
 
         case 'history': {
-          await apiClient.get('/shipment-history').catch(() => {});
+          await apiClient.get('/shipment-history').catch(() => { });
           break;
         }
 
@@ -412,17 +404,17 @@ export const AppDataProvider = ({ children }) => {
         }
 
         case 'agent-dashboard': {
-          await apiClient.get('/agent-dashboard').catch(() => {});
+          await apiClient.get('/agent-dashboard').catch(() => { });
           break;
         }
 
         case 'agent-shipments': {
-          await apiClient.get('/assigned-shipments').catch(() => {});
+          await apiClient.get('/assigned-shipments').catch(() => { });
           break;
         }
 
         case 'agent-documents': {
-          await apiClient.get('/agent-documents').catch(() => {});
+          await apiClient.get('/agent-documents').catch(() => { });
           break;
         }
 
@@ -435,39 +427,17 @@ export const AppDataProvider = ({ children }) => {
   }, [currentRole]);
 
   useEffect(() => {
-    refreshAll();
+    if (apiClient.getToken()) {
+      refreshAll();
+      // Fetch initial active menu API on mount
+      fetchMenuApi(activeMenuTab);
+    }
   }, []);
 
   // 1. Customers CRUD
   const createCustomer = async (customerData) => {
-    let created;
-    try {
-      const res = await apiClient.post('/customers', {
-        name: customerData.name || customerData.companyName || "New Customer",
-        companyName: customerData.companyName || customerData.name || "New Customer",
-        contactPerson: customerData.contactPerson,
-        email: customerData.email,
-        telephone: customerData.telephone || customerData.phone,
-        phone: customerData.phone || customerData.telephone,
-        address: customerData.address,
-        destinationPort: customerData.destinationPort,
-        destinationCode: customerData.destinationCode || (customerData.destinationPort ? customerData.destinationPort.split(' - ')[0] : 'NAS'),
-        taxId: customerData.taxId,
-        accountType: customerData.accountType,
-        creditTerms: customerData.creditTerms,
-        notes: customerData.notes,
-      });
-      if (res?.data) {
-        created = res.data;
-      }
-    } catch (apiErr) {
-      console.warn('Backend createCustomer notice:', apiErr.message);
-    }
-
-    if (!created) {
-      created = await customerService.createCustomer(customerData, currentUser?.name || "Warehouse Staff");
-    }
-
+    const created = await customerService.createCustomer(customerData, currentUser?.name || "Warehouse Staff");
+    setCustomers(getStored(KEYS.CUSTOMERS, []));
     await refreshAll();
     showToast(`Customer Profile ${created.customerNumber || created.name} created successfully.`, 'success', 'Customer Created');
     return created;
@@ -475,17 +445,17 @@ export const AppDataProvider = ({ children }) => {
 
   const updateCustomer = async (id, updates) => {
     const updated = await customerService.updateCustomer(id, updates, currentUser?.name || "Warehouse Staff");
-    fetchMenuApi('customers');
+    setCustomers(getStored(KEYS.CUSTOMERS, []));
     await refreshAll();
     showToast(`Customer Profile ${id} updated successfully.`, 'success', 'Customer Updated');
     return updated;
   };
 
   const deleteCustomer = async (id) => {
-    setCustomers(prev => prev.filter(c => c.id !== id && c.accountNumber !== id));
+    setCustomers(prev => prev.filter(c => c.id !== id && c.customerNumber !== id && c.accountNumber !== id));
     const success = await customerService.deleteCustomer(id, currentUser?.name || "Super Admin");
     if (success) {
-      fetchMenuApi('customers');
+      setCustomers(getStored(KEYS.CUSTOMERS, []));
       await refreshAll();
       showToast(`Customer Profile ${id} deleted successfully.`, 'info', 'Customer Deleted');
     }
@@ -990,6 +960,7 @@ export const AppDataProvider = ({ children }) => {
     setStored(KEYS.SETTINGS, newSettings);
     setSettings(newSettings);
     await settingsService.updateAllSettings(newSettings);
+    refreshAll();
     showToast(`System settings updated successfully.`, 'success', 'Settings Saved');
   };
 
@@ -1093,7 +1064,10 @@ export const AppDataProvider = ({ children }) => {
       clearAllData,
       resetDemoData,
       // Live Backend State
-      isBackendConnected
+      isBackendConnected,
+      activeMenuTab,
+      setActiveMenuTab,
+      fetchMenuApi
     }}>
       {children}
     </AppDataContext.Provider>

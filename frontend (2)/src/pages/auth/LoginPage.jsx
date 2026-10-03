@@ -20,13 +20,81 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { initialUsers } from '../../data/mock/usersData';
 
 export const LoginPage = ({ onLoginSuccess }) => {
   const { login, usersList } = useAuth();
   const { showToast } = useToast();
 
-  const [selectedUser, setSelectedUser] = useState(usersList[0]);
-  const [email, setEmail] = useState(usersList[0].email);
+  const roleDetails = {
+    'USR-001': {
+      roleKey: 'super_admin',
+      title: 'Super Admin',
+      shortLabel: 'Super Admin',
+      category: 'Full Access',
+      badgeColor: '#0284C7',
+      icon: ShieldCheck,
+      summary: 'Manage users, permissions & system settings'
+    },
+    'USR-005': {
+      roleKey: 'operations',
+      title: 'Operations',
+      shortLabel: 'Ops',
+      category: 'Consolidation',
+      badgeColor: '#059669',
+      icon: Ship,
+      summary: 'Consolidate cargo into containers & book shipments'
+    },
+    'USR-002': {
+      roleKey: 'documentation',
+      title: 'Documentation',
+      shortLabel: 'Docs',
+      category: 'B/L & Manifests',
+      badgeColor: '#8B5CF6',
+      icon: FileText,
+      summary: 'Review Master & House B/Ls, clear holds & export manifests'
+    },
+    'USR-003': {
+      roleKey: 'warehouse',
+      title: 'Warehouse',
+      shortLabel: 'Warehouse',
+      category: 'Cargo Intake',
+      badgeColor: '#D97706',
+      icon: Package,
+      summary: 'Receive cargo, measure dimensions & print labels'
+    },
+    'USR-004': {
+      roleKey: 'agent',
+      title: 'Destination Agent',
+      shortLabel: 'Agent',
+      category: 'Port Clearance',
+      badgeColor: '#EF4444',
+      icon: Shield,
+      summary: 'Inspect arrivals, clear customs & coordinate delivery'
+    }
+  };
+
+  const workflowOrder = ['USR-001', 'USR-005', 'USR-002', 'USR-003', 'USR-004'];
+
+  const sortedUsers = workflowOrder.map(code => {
+    const details = roleDetails[code];
+    const matched = usersList.find(u => {
+      const uCode = u.userCode || u.id;
+      return uCode === code || u.roleKey === details.roleKey;
+    });
+    const fallback = initialUsers.find(u => u.id === code) || initialUsers[0];
+    const userObj = matched || fallback;
+    return {
+      ...userObj,
+      details,
+      shortLabel: details.shortLabel,
+      roleTitle: details.title,
+      badgeColor: details.badgeColor
+    };
+  });
+
+  const [selectedUser, setSelectedUser] = useState(() => sortedUsers[0]);
+  const [email, setEmail] = useState(() => sortedUsers[0]?.email || 'marcus.vance@vicustoms.com');
   const [password, setPassword] = useState('password123');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -73,56 +141,6 @@ export const LoginPage = ({ onLoginSuccess }) => {
       }
     } catch {
       setIsLoading(false);
-    }
-  };
-
-  const workflowOrder = ['USR-001', 'USR-005', 'USR-002', 'USR-003', 'USR-004'];
-  const sortedUsers = [...usersList].sort((a, b) => {
-    const idxA = workflowOrder.indexOf(a.id);
-    const idxB = workflowOrder.indexOf(b.id);
-    return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
-  });
-
-  const roleDetails = {
-    'USR-001': {
-      title: 'Super Admin',
-      shortLabel: 'Super Admin',
-      category: 'Full Access',
-      badgeColor: '#0284C7',
-      icon: ShieldCheck,
-      summary: 'Manage users, permissions & system settings'
-    },
-    'USR-005': {
-      title: 'Operations',
-      shortLabel: 'Ops',
-      category: 'Consolidation',
-      badgeColor: '#059669',
-      icon: Ship,
-      summary: 'Consolidate cargo into containers & book shipments'
-    },
-    'USR-002': {
-      title: 'Documentation',
-      shortLabel: 'Docs',
-      category: 'B/L & Manifests',
-      badgeColor: '#8B5CF6',
-      icon: FileText,
-      summary: 'Review Master & House B/Ls, clear holds & export manifests'
-    },
-    'USR-003': {
-      title: 'Warehouse',
-      shortLabel: 'Warehouse',
-      category: 'Cargo Intake',
-      badgeColor: '#D97706',
-      icon: Package,
-      summary: 'Receive cargo, measure dimensions & print labels'
-    },
-    'USR-004': {
-      title: 'Destination Agent',
-      shortLabel: 'Agent',
-      category: 'Port Clearance',
-      badgeColor: '#EF4444',
-      icon: Shield,
-      summary: 'Inspect arrivals, clear customs & coordinate delivery'
     }
   };
 
@@ -180,17 +198,13 @@ export const LoginPage = ({ onLoginSuccess }) => {
               {/* 5-Column Clean Icon Buttons in Single Row */}
               <div className="role-icon-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.3rem' }}>
                 {sortedUsers.map((u) => {
-                  const isSelected = selectedUser.id === u.id;
-                  const details = roleDetails[u.id] || {
-                    badgeColor: '#059669',
-                    icon: Ship,
-                    shortLabel: 'Ops'
-                  };
+                  const details = u.details || roleDetails[u.userCode] || roleDetails[u.id] || roleDetails['USR-001'];
+                  const isSelected = (selectedUser?.userCode || selectedUser?.id) === (u.userCode || u.id) || selectedUser?.email === u.email;
                   const Icon = details.icon;
 
                   return (
                     <button
-                      key={u.id}
+                      key={u.userCode || u.id}
                       type="button"
                       onClick={() => handleQuickLogin(u)}
                       className={`role-icon-btn ${isSelected ? 'active' : ''}`}
@@ -348,19 +362,13 @@ export const LoginPage = ({ onLoginSuccess }) => {
             {/* 5 Persona Cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
               {sortedUsers.map((u) => {
-                const details = roleDetails[u.id] || {
-                  title: u.role,
-                  category: u.department,
-                  badgeColor: '#0284C7',
-                  icon: Users,
-                  summary: 'Access operational workspace'
-                };
+                const details = u.details || roleDetails[u.userCode] || roleDetails[u.id] || roleDetails['USR-001'];
                 const Icon = details.icon;
-                const isCurrent = selectedUser.id === u.id;
+                const isCurrent = (selectedUser?.userCode || selectedUser?.id) === (u.userCode || u.id) || selectedUser?.email === u.email;
 
                 return (
                   <div
-                    key={u.id}
+                    key={u.userCode || u.id}
                     onClick={() => handleSelectPersona(u)}
                     style={{
                       padding: '0.5rem 0.75rem',

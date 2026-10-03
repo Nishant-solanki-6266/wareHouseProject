@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, integer, numeric, timestamp } from 'drizzle-orm/pg-core';
-import { vessels } from './vessels.schema';
+import { vessels } from './vessels.schema.js';
 
 export const voyages = pgTable('voyages', {
   id: uuid('id').defaultRandom().primaryKey(),

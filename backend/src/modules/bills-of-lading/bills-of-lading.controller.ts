@@ -29,24 +29,6 @@ export class BillsOfLadingController {
     reply.send(successResponse(item));
   };
 
-  create = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const body = createBillOfLadingSchema.parse(request.body);
-    const created = await this.service.createBill(body);
-    reply.status(201).send(successResponse(created, 'Master Bill of Lading created successfully'));
-  };
-
-  update = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const { id } = request.params as { id: string };
-    const body = updateBillOfLadingSchema.parse(request.body);
-    const updated = await this.service.updateBill(id, body);
-    reply.send(successResponse(updated, 'Master Bill of Lading updated successfully'));
-  };
-
-  delete = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const { id } = request.params as { id: string };
-    await this.service.deleteBill(id);
-    reply.send(successResponse(null, 'Master Bill of Lading deleted successfully'));
-  };
 
   placeHold = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const { id } = request.params as { id: string };
@@ -115,7 +97,7 @@ export class BillsOfLadingController {
       totalFreightUsd: String(body.totalFreightUsd || '0.00')
     };
 
-    const item = await this.service.createBill(newBLData);
+    const item = await this.service.createBill(newBLData as any);
     reply.status(201).send(successResponse(item, 'Master Bill of Lading created successfully'));
   };
 
