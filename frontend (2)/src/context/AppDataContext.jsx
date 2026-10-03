@@ -89,7 +89,6 @@ export const AppDataProvider = ({ children }) => {
           vesselsRes,
           voyagesRes,
           agentsRes,
-          documentsRes,
         ] = await Promise.allSettled([
           apiClient.get('/ports'),
           apiClient.get('/settings'),
@@ -105,7 +104,6 @@ export const AppDataProvider = ({ children }) => {
           apiClient.get('/vessels'),
           apiClient.get('/voyages'),
           apiClient.get('/agents'),
-          apiClient.get('/documents'),
         ]);
 
         if (portsRes.status === 'fulfilled' && portsRes.value?.data) {
@@ -177,11 +175,6 @@ export const AppDataProvider = ({ children }) => {
           const apiAgents = Array.isArray(agentsRes.value.data) ? agentsRes.value.data : agentsRes.value.data.items || [];
           setAgents(apiAgents);
           setStored(KEYS.AGENTS, apiAgents);
-        }
-        if (documentsRes.status === 'fulfilled' && documentsRes.value?.data) {
-          const apiDocs = Array.isArray(documentsRes.value.data) ? documentsRes.value.data : documentsRes.value.data.items || [];
-          setCustomDocuments(apiDocs);
-          setStored(KEYS.DOCUMENTS, apiDocs);
         }
       }
     } catch (e) {
@@ -884,14 +877,6 @@ export const AppDataProvider = ({ children }) => {
     return created;
   };
 
-  const updateDocument = async (id, updates) => {
-    const updated = await documentService.updateDocument(id, updates, currentUser?.name || "Documentation Staff");
-    fetchMenuApi('documents');
-    await refreshAll();
-    showToast(`Document ${id} updated successfully.`, 'success', 'Document Updated');
-    return updated;
-  };
-
   const deleteDocument = async (id) => {
     setCustomDocuments(prev => prev.filter(d => d.id !== id));
     const success = await documentService.deleteDocument(id, currentUser?.name || "Documentation Staff");
@@ -970,7 +955,6 @@ export const AppDataProvider = ({ children }) => {
       agents,
       ports,
       users,
-      documents: customDocuments,
       customDocuments,
       auditLogs,
       settings,
@@ -1041,7 +1025,6 @@ export const AppDataProvider = ({ children }) => {
       deleteUser,
       // Documents
       uploadDocument,
-      updateDocument,
       deleteDocument,
       // Settings & reset
       updateSettings,

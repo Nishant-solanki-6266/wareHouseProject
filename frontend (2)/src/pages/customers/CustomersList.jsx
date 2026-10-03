@@ -73,8 +73,8 @@ export const CustomersList = ({ onNavigate }) => {
       header: 'Linked Cargo & Activity',
       accessor: 'id',
       render: (item) => {
-        const wrCount = warehouseReceipts.filter(w => w.customerId === item.id || w.customer === item.name || w.customerName === item.name).length;
-        const hblCount = houseBills.filter(h => h.customerId === item.id || h.customerName === item.name).length;
+        const wrCount = warehouseReceipts.filter(w => w.customerId === item.id || w.customerId === item.customerNumber || w.customer === item.name || w.customerName === item.name).length;
+        const hblCount = houseBills.filter(h => h.customerId === item.id || h.customerId === item.customerNumber || h.customerName === item.name || h.consignee?.name === item.name).length;
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem' }}>
             <div><strong style={{ color: '#D97706' }}>{wrCount}</strong> Warehouse Receipts</div>

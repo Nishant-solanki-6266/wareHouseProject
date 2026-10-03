@@ -7,8 +7,9 @@ export const shipmentService = {
   async getShipments(filters = {}) {
     try {
       const res = await apiClient.get('shipments', { params: { ...filters, limit: 100 } });
-      if (res && res.data) {
-        const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
+      if (res && (res.data !== undefined || Array.isArray(res))) {
+        const raw = res.data !== undefined ? res.data : res;
+        const liveList = Array.isArray(raw) ? raw : (raw?.items || raw?.shipments || []);
         setStored(KEYS.SHIPMENTS, liveList);
         return liveList;
       }

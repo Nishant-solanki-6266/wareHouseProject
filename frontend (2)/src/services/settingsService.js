@@ -66,5 +66,16 @@ export const settingsService = {
 
     await Promise.allSettled(promises);
     return merged;
+  },
+
+  async cleanSlate() {
+    try {
+      const res = await apiClient.post('settings/clean-slate');
+      return res;
+    } catch (e) {
+      console.warn('[settingsService] Clean slate API failed:', e.message);
+    }
+    return null;
   }
 };
+

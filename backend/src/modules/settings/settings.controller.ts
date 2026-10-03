@@ -23,6 +23,11 @@ export class SettingsController {
     const updated = await this.service.updateSetting(key, body.value, body.description);
     reply.send(successResponse(updated, 'Settings updated successfully'));
   };
+
+  cleanSlate = async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    await this.service.cleanSlate();
+    reply.send(successResponse({ success: true }, 'Transactional data cleared successfully'));
+  };
 }
 
 export const settingsController = new SettingsController();

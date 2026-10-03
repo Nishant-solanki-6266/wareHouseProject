@@ -7,10 +7,17 @@ export const warehouseService = {
   async getReceipts(filters = {}) {
     try {
       const res = await apiClient.get('warehouse-receipts', { params: { ...filters, limit: 100 } });
-      if (res && (res.data !== undefined || Array.isArray(res))) {
-        const apiData = Array.isArray(res.data) ? res.data : (res.data?.items || (Array.isArray(res) ? res : []));
-        setStored(KEYS.WAREHOUSE_RECEIPTS, apiData);
-        return apiData;
+      const apiData = res?.data ? (Array.isArray(res.data) ? res.data : (res.data.items || [])) : (Array.isArray(res) ? res : []);
+      if (apiData.length > 0) {
+        const localList = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
+        const mergedMap = new Map();
+        [...localList, ...apiData].forEach(item => {
+          const key = item.id || item.receiptNumber;
+          if (key) mergedMap.set(key, { ...mergedMap.get(key), ...item });
+        });
+        const merged = Array.from(mergedMap.values());
+        setStored(KEYS.WAREHOUSE_RECEIPTS, merged);
+        return merged;
       }
     } catch (err) {
       console.warn('Backend warehouse-receipts fetch note, using cached store:', err?.message || err);

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { settings } from '../../db/schema/index.js';
 
@@ -23,6 +23,20 @@ export class SettingsRepository {
       .returning();
 
     return saved;
+  }
+
+  async cleanSlate() {
+    try {
+      await db.execute(sql`TRUNCATE TABLE shipments, audit_logs RESTART IDENTITY CASCADE;`);
+    } catch {
+      try {
+        await db.execute(sql`DELETE FROM shipments;`);
+      } catch {}
+      try {
+        await db.execute(sql`DELETE FROM audit_logs;`);
+      } catch {}
+    }
+    return true;
   }
 }
 

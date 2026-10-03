@@ -18,10 +18,8 @@ export class CustomersService {
   }
 
   async createCustomer(input: CreateCustomerInput) {
-    const totalCount = await this.repo.countTotal();
-    const seq = String(totalCount + 1).padStart(4, '0');
-    const customerNumber = `CUS-2026-${seq}`;
-    const createdDate = new Date().toISOString().split('T')[0];
+    const customerNumber = input.customerNumber || (await this.repo.getNextCustomerNumber());
+    const createdDate = input.createdDate || new Date().toISOString().split('T')[0];
 
     return this.repo.create({
       ...input,

@@ -59,7 +59,14 @@ export const initializeStorage = () => {
     localStorage.setItem(KEYS.AGENTS, JSON.stringify(initialAgents));
     localStorage.setItem(KEYS.PORTS, JSON.stringify(initialPorts));
     localStorage.setItem(KEYS.SETTINGS, JSON.stringify(initialSettings));
+    localStorage.setItem(KEYS.AUDIT_LOGS, JSON.stringify([]));
     localStorage.setItem(CLEAN_SLATE_KEY, 'true');
+  }
+
+  const AUDIT_RESET_KEY = 'kers_audit_clean_slate_active';
+  if (!localStorage.getItem(AUDIT_RESET_KEY)) {
+    localStorage.setItem(KEYS.AUDIT_LOGS, JSON.stringify([]));
+    localStorage.setItem(AUDIT_RESET_KEY, 'true');
   }
 
   if (!localStorage.getItem(KEYS.CUSTOMERS)) {

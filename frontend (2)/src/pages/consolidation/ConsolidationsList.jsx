@@ -29,7 +29,15 @@ export const ConsolidationsList = ({ onNavigate }) => {
 
   // Filter if Agent
   const visibleConsolidations = isAgent 
-    ? consolidations.filter(c => !currentUser?.agentId || c.agentId === currentUser?.agentId || c.destinationPort?.includes('NAS') || c.destinationPort?.includes('Nassau')) 
+    ? consolidations.filter(c => 
+        !currentUser?.agentId || 
+        !c.agentId || 
+        c.agentId === currentUser?.agentId || 
+        (currentUser?.destinationPortCode && c.destinationCode === currentUser?.destinationPortCode) || 
+        (currentUser?.destinationPortCode && c.destinationPort?.includes(currentUser.destinationPortCode)) || 
+        c.destinationPort?.includes('NAS') || 
+        c.destinationPort?.includes('Nassau')
+      ) 
     : consolidations;
 
   const columns = [

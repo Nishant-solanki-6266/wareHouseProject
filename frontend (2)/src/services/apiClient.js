@@ -86,20 +86,7 @@ export const apiClient = {
     };
 
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    let url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${cleanEndpoint}`;
-
-    if (options && options.params && typeof options.params === 'object') {
-      const searchParams = new URLSearchParams();
-      for (const [key, value] of Object.entries(options.params)) {
-        if (value !== undefined && value !== null && value !== '' && value !== 'All') {
-          searchParams.append(key, String(value));
-        }
-      }
-      const qs = searchParams.toString();
-      if (qs) {
-        url += (url.includes('?') ? '&' : '?') + qs;
-      }
-    }
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${cleanEndpoint}`;
 
     const config = {
       ...options,

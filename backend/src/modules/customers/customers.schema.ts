@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 export const createCustomerSchema = z.object({
+  customerNumber: z.string().optional(),
+  createdDate: z.string().optional(),
   name: z.string().min(2, 'Customer name is required'),
   companyName: z.string().min(2, 'Company name is required'),
   contactPerson: z.string().optional(),
@@ -14,6 +16,7 @@ export const createCustomerSchema = z.object({
   accountType: z.string().optional(),
   creditTerms: z.string().optional(),
   notes: z.string().optional(),
+  status: z.string().optional(),
 });
 
 export const updateCustomerSchema = createCustomerSchema.partial().extend({

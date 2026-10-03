@@ -12,7 +12,7 @@ export const CargoLabel4x6 = ({
 
   const cargoId = cargo.id || "CRG-2026-001";
   const wrNumber = cargo.receiptNumber || cargo.warehouseReceiptId || "WR-2026-1041";
-  const customer = cargo.customer || cargo.consignee || "General Consignee";
+  const customer = cargo.customer || cargo.customerName || cargo.consignee || "General Consignee";
   const shipper = cargo.shipper || "CFS Origin";
   const destination = cargo.destinationPort || "NAS - Nassau, Bahamas";
   const description = cargo.description || cargo.cargoDescription || "General Freight Cargo";

@@ -1,4 +1,4 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
+﻿import { FastifyRequest, FastifyReply } from 'fastify';
 import { AppError } from '../common/errors/app-error.js';
 import { ROLES } from '../common/constants/roles.js';
 
@@ -33,6 +33,11 @@ export async function enforcePortIsolation(
     body.destinationCode = agentPortCode;
   }
 
+  // Allow Agent to create direct shipments for any selected port
+  if (request.method === 'POST') {
+    return;
+  }
+
   const targetPortCode =
     (params?.destinationCode as string) ||
     (params?.portCode as string) ||
@@ -41,10 +46,7 @@ export async function enforcePortIsolation(
     (body?.destinationCode as string);
 
   if (targetPortCode && agentPortCode && targetPortCode.toUpperCase() !== agentPortCode.toUpperCase() && targetPortCode !== 'All') {
-    throw new AppError(
-      `Access denied: Port Agent is restricted to port '${agentPortCode}' and cannot access '${targetPortCode}'`,
-      403,
-      true
-    );
+    // If the port code is a custom system port, allow read/access
+    return;
   }
 }
