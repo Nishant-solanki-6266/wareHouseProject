@@ -113,15 +113,11 @@ export const AuthProvider = ({ children }) => {
     const pwd = password || 'password123';
 
     try {
-      let res;
-      try {
-        res = await apiClient.post('/auth/login', { email, password: pwd });
-      } catch {
-        res = await apiClient.post('/auth/login', { email, password: 'Password123!' });
-      }
-      if (res && res.data && res.data.token) {
-        persistToken(res.data.token);
-        const loggedUser = res.data.user || targetUser;
+      const res = await apiClient.post('/auth/login', { email, password: pwd });
+      const authResult = res?.data || res;
+      if (authResult && authResult.token) {
+        persistToken(authResult.token);
+        const loggedUser = authResult.user || targetUser;
         setCurrentUser(loggedUser);
         setIsAuthenticated(true);
         localStorage.setItem('kers_is_authenticated', 'true');
@@ -129,7 +125,7 @@ export const AuthProvider = ({ children }) => {
         return loggedUser;
       }
     } catch (err) {
-      console.warn('[AuthContext] Backend login call failed, falling back to local session:', err.message);
+      console.warn('[AuthContext] Login notice:', err.message);
     }
 
     // Local fallback for offline/demo resilience

@@ -50,8 +50,9 @@ export const shipmentService = {
     if (!id) return null;
     try {
       const res = await apiClient.get(`shipments/${encodeURIComponent(id)}`);
-      if (res && res.data) {
-        return res.data;
+      const data = res?.data !== undefined ? res.data : res;
+      if (data && (data.id || data.shipmentNumber)) {
+        return data;
       }
     } catch (err) {
       console.warn(`Backend API fetch for shipment ${id} failed:`, err?.message || err);
@@ -65,8 +66,9 @@ export const shipmentService = {
     let createdShipment = null;
     try {
       const res = await apiClient.post('shipments', data);
-      if (res && res.data) {
-        createdShipment = res.data;
+      const resData = res?.data !== undefined ? res.data : res;
+      if (resData && (resData.id || resData.shipmentNumber)) {
+        createdShipment = resData;
       }
     } catch (err) {
       console.warn('Backend createShipment failed, storing locally:', err?.message || err);
@@ -128,9 +130,15 @@ export const shipmentService = {
   async updateShipment(id, updates, currentUser = "Operations Staff") {
     let updatedShipment = null;
     try {
-      const res = await apiClient.put(`shipments/${encodeURIComponent(id)}`, updates);
-      if (res && res.data) {
-        updatedShipment = res.data;
+      let res;
+      try {
+        res = await apiClient.patch(`shipments/${encodeURIComponent(id)}`, updates);
+      } catch {
+        res = await apiClient.put(`shipments/${encodeURIComponent(id)}`, updates);
+      }
+      const resData = res?.data !== undefined ? res.data : res;
+      if (resData && (resData.id || resData.shipmentNumber)) {
+        updatedShipment = resData;
       }
     } catch (err) {
       console.warn(`Backend updateShipment ${id} failed:`, err?.message || err);

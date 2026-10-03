@@ -76,7 +76,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
 
   const workflowOrder = ['USR-001', 'USR-005', 'USR-002', 'USR-003', 'USR-004'];
 
-  const sortedUsers = workflowOrder.map(code => {
+  const sortedUsers = workflowOrder.map((code, idx) => {
     const details = roleDetails[code];
     const matched = usersList.find(u => {
       const uCode = u.userCode || u.id;
@@ -86,6 +86,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
     const userObj = matched || fallback;
     return {
       ...userObj,
+      personaKey: `persona-${code}-${userObj.id || idx}`,
       details,
       shortLabel: details.shortLabel,
       roleTitle: details.title,
@@ -204,7 +205,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
 
                   return (
                     <button
-                      key={u.userCode || u.id}
+                      key={u.personaKey}
                       type="button"
                       onClick={() => handleQuickLogin(u)}
                       className={`role-icon-btn ${isSelected ? 'active' : ''}`}
@@ -368,7 +369,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
 
                 return (
                   <div
-                    key={u.userCode || u.id}
+                    key={u.personaKey}
                     onClick={() => handleSelectPersona(u)}
                     style={{
                       padding: '0.5rem 0.75rem',

@@ -10,6 +10,7 @@ export interface HouseBillFilterParams {
 }
 
 export interface CreateHouseBillInput {
+  hblNumber?: string;
   customerId?: string;
   customerName: string;
   shipper: ShipperInfo;
@@ -30,5 +31,12 @@ export interface CreateHouseBillInput {
   totalCft?: number;
   totalCbm?: number;
   freightTerms?: string;
+  status?: string;
+  createdDate?: string;
+  issueDate?: string;
+  assignedConsolidationId?: string;
+  assignedMasterBLId?: string;
+  assignedShipmentId?: string;
+  freightCharges?: any;
   notes?: string;
 }

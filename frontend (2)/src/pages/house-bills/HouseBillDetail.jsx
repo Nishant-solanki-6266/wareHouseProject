@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { HouseBLViewer } from '../../components/documents/HouseBLViewer';
 import { HouseBillModal } from '../../components/modals/HouseBillModal';
@@ -16,14 +16,28 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
+import { houseBillService } from '../../services/houseBillService';
 
 export const HouseBillDetail = ({ hblId, onNavigate }) => {
   const { houseBills, warehouseReceipts, updateHouseBill, deleteHouseBill, placeHBLHold, clearHBLHold } = useAppData();
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [liveHbl, setLiveHbl] = useState(null);
 
-  const hbl = houseBills.find(h => h.id === hblId || h.hblNumber === hblId);
+  useEffect(() => {
+    let isMounted = true;
+    houseBillService.getHouseBillById(hblId).then(res => {
+      if (isMounted && res) {
+        setLiveHbl(res);
+      }
+    }).catch(err => {
+      console.warn('Live fetch for house bill failed:', err);
+    });
+    return () => { isMounted = false; };
+  }, [hblId]);
+
+  const hbl = liveHbl || houseBills.find(h => h.id === hblId || h.hblNumber === hblId);
 
   if (!hbl) {
     return (

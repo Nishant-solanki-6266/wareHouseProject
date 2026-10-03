@@ -6,11 +6,30 @@ import { apiFetch } from './apiConfig';
 export const consolidationService = {
   async getConsolidations(filters = {}) {
     try {
+<<<<<<< HEAD
       const res = await apiClient.get('consolidations', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
         setStored(KEYS.CONSOLIDATIONS, liveList);
         return liveList;
+=======
+      const res = await apiClient.get('/consolidations', { params: { ...filters, limit: filters.limit || 100 } });
+      const apiData = res?.data ? (Array.isArray(res.data) ? res.data : (res.data.items || [])) : (Array.isArray(res) ? res : []);
+      if (Array.isArray(apiData) && apiData.length > 0) {
+        const mapped = apiData.map(item => ({
+          ...item,
+          totalCft: item.totalCft !== undefined ? Number(item.totalCft) : 0,
+          totalCbm: item.totalCbm !== undefined ? Number(item.totalCbm) : 0,
+          totalWeightLbs: item.totalWeightLbs !== undefined ? Number(item.totalWeightLbs) : 0,
+          totalPackages: item.totalPackages !== undefined ? Number(item.totalPackages) : 0,
+          totalReceipts: item.totalReceipts !== undefined ? Number(item.totalReceipts) : (item.receiptIds?.length || 0),
+          containerFillPercentage: item.containerFillPercentage !== undefined ? Number(item.containerFillPercentage) : 0,
+          receiptIds: Array.isArray(item.receiptIds) ? item.receiptIds : [],
+          houseBillIds: Array.isArray(item.houseBillIds) ? item.houseBillIds : [],
+        }));
+        setStored(KEYS.CONSOLIDATIONS, mapped);
+        return mapped;
+>>>>>>> cd5336dd0aa4dc9bc5f6babb410f9351c3606c8b
       }
     } catch (err) {
       console.warn('Backend API /consolidations fetch failed, using local store:', err?.message || err);
@@ -27,7 +46,7 @@ export const consolidationService = {
         item.destinationPort?.toLowerCase().includes(q) ||
         item.containerNumber?.toLowerCase().includes(q) ||
         item.vesselName?.toLowerCase().includes(q) ||
-        item.houseBillIds?.some(hId => hId.toLowerCase().includes(q))
+        item.houseBillIds?.some(hId => String(hId).toLowerCase().includes(q))
       );
     }
     if (filters.status && filters.status !== 'All') {
@@ -43,8 +62,21 @@ export const consolidationService = {
   async getConsolidationById(id) {
     if (!id) return null;
     try {
-      const res = await apiClient.get(`consolidations/${encodeURIComponent(id)}`);
-      if (res && res.data) return res.data;
+      const res = await apiClient.get(`/consolidations/${encodeURIComponent(id)}`);
+      const item = res?.data || (res?.id ? res : null);
+      if (item) {
+        return {
+          ...item,
+          totalCft: item.totalCft !== undefined ? Number(item.totalCft) : 0,
+          totalCbm: item.totalCbm !== undefined ? Number(item.totalCbm) : 0,
+          totalWeightLbs: item.totalWeightLbs !== undefined ? Number(item.totalWeightLbs) : 0,
+          totalPackages: item.totalPackages !== undefined ? Number(item.totalPackages) : 0,
+          totalReceipts: item.totalReceipts !== undefined ? Number(item.totalReceipts) : (item.receiptIds?.length || 0),
+          containerFillPercentage: item.containerFillPercentage !== undefined ? Number(item.containerFillPercentage) : 0,
+          receiptIds: Array.isArray(item.receiptIds) ? item.receiptIds : [],
+          houseBillIds: Array.isArray(item.houseBillIds) ? item.houseBillIds : [],
+        };
+      }
     } catch (err) {
       console.warn(`API error fetching consolidation by id ${id}:`, err?.message || err);
     }
@@ -54,23 +86,29 @@ export const consolidationService = {
   },
 
   async createConsolidation(consolidationData, currentUser = "Operations Staff") {
+    let createdConsolidationFromApi = null;
     try {
       const payload = {
         title: consolidationData.title || `Consolidation - ${consolidationData.destinationPort || 'NAS'}`,
         destinationPort: consolidationData.destinationPort || 'Port of Nassau (BSNAS)',
         destinationCode: consolidationData.destinationCode || 'NAS',
         status: consolidationData.status || 'Loaded',
+        containerId: consolidationData.containerId || undefined,
         containerNumber: consolidationData.containerNumber || 'MSKU-948291-4',
         containerType: consolidationData.containerType || "40' High Cube",
         containerCapacityCbm: Number(consolidationData.containerCapacityCbm) || 67.7,
         sealNumber: consolidationData.sealNumber || 'SEAL-01',
+        vesselId: consolidationData.vesselId || undefined,
         vesselName: consolidationData.vesselName || 'MV Caribbean Carrier',
+        voyageId: consolidationData.voyageId || undefined,
         voyageNumber: consolidationData.voyageNumber || 'V.2026-20W',
         carrier: consolidationData.carrier || 'Tropical Shipping Line',
         loadingPort: consolidationData.loadingPort || 'Port of Miami (USMIA)',
         dischargePort: consolidationData.dischargePort || consolidationData.destinationPort || 'Port of Nassau (BSNAS)',
         houseBillIds: consolidationData.houseBillIds || [],
         receiptIds: consolidationData.receiptIds || [],
+        totalHouseBills: Number(consolidationData.totalHouseBills) || (consolidationData.houseBillIds?.length || 0),
+        totalReceipts: Number(consolidationData.totalReceipts) || (consolidationData.receiptIds?.length || 0),
         totalPackages: Number(consolidationData.totalPackages) || 0,
         totalPieces: Number(consolidationData.totalPieces) || 0,
         totalWeightLbs: Number(consolidationData.totalWeightLbs) || 0,
@@ -84,14 +122,15 @@ export const consolidationService = {
         eta: consolidationData.eta || '2026-09-06',
         notes: consolidationData.notes || '',
       };
-      await apiClient.post('consolidations', payload);
+      const res = await apiClient.post('/consolidations', payload);
+      if (res?.data) createdConsolidationFromApi = res.data;
     } catch (err) {
       console.warn('API error creating consolidation cascade:', err);
     }
 
-    const list = getStored(KEYS.CONSOLIDATIONS);
+    const list = getStored(KEYS.CONSOLIDATIONS, []);
     const nextSeq = 820 + list.length + 1;
-    const id = consolidationData.consolidationNumber || `CNS-2026-${nextSeq}`;
+    const id = createdConsolidationFromApi?.consolidationNumber || consolidationData.consolidationNumber || `CNS-2026-${nextSeq}`;
 
     const shipmentId = `SHP-2026-${291 + list.length + 1}`;
     const blId = `BL-VI-2026-${String(95 + list.length + 1).padStart(4, '0')}`;
@@ -462,12 +501,18 @@ export const consolidationService = {
   async updateConsolidation(id, updates, currentUser = "Operations Staff") {
     let updatedConsolidation = null;
     try {
+<<<<<<< HEAD
       const res = await apiClient.put(`consolidations/${encodeURIComponent(id)}`, updates);
+=======
+      const res = await apiClient.patch(`/consolidations/${encodeURIComponent(id)}`, updates);
+>>>>>>> cd5336dd0aa4dc9bc5f6babb410f9351c3606c8b
       if (res && res.data) {
         updatedConsolidation = res.data;
+      } else if (res && res.id) {
+        updatedConsolidation = res;
       }
     } catch (err) {
-      console.warn(`Backend updateConsolidation ${id} failed:`, err.message);
+      console.warn(`Backend updateConsolidation ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.CONSOLIDATIONS, []);
@@ -494,15 +539,44 @@ export const consolidationService = {
 
   async deleteConsolidation(id, currentUser = "Operations Staff") {
     try {
+<<<<<<< HEAD
       await apiClient.delete(`consolidations/${encodeURIComponent(id)}`);
+=======
+      await apiClient.delete(`/consolidations/${encodeURIComponent(id)}`);
+>>>>>>> cd5336dd0aa4dc9bc5f6babb410f9351c3606c8b
     } catch (err) {
-      console.warn(`Backend deleteConsolidation ${id} failed:`, err.message);
+      console.warn(`Backend deleteConsolidation ${id} failed:`, err?.message || err);
     }
 
     const list = getStored(KEYS.CONSOLIDATIONS, []);
     const existing = list.find(item => item.id === id || item.consolidationNumber === id);
     const filtered = list.filter(item => item.id !== id && item.consolidationNumber !== id);
     setStored(KEYS.CONSOLIDATIONS, filtered);
+
+    if (existing) {
+      const receiptIds = existing.receiptIds || [];
+      const hblIds = existing.houseBillIds || [];
+      if (receiptIds.length > 0) {
+        const wrs = getStored(KEYS.WAREHOUSE_RECEIPTS, []);
+        const updatedWrs = wrs.map(wr => {
+          if (receiptIds.includes(wr.receiptNumber || wr.id)) {
+            return { ...wr, status: "Ready for Consolidation", assignedConsolidationId: null };
+          }
+          return wr;
+        });
+        setStored(KEYS.WAREHOUSE_RECEIPTS, updatedWrs);
+      }
+      if (hblIds.length > 0) {
+        const hbls = getStored(KEYS.HOUSE_BILLS, []);
+        const updatedHbls = hbls.map(hb => {
+          if (hblIds.includes(hb.hblNumber || hb.id)) {
+            return { ...hb, status: "Active", assignedConsolidationId: null };
+          }
+          return hb;
+        });
+        setStored(KEYS.HOUSE_BILLS, updatedHbls);
+      }
+    }
 
     await auditService.logAction(
       currentUser,

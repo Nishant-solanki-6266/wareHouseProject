@@ -1,6 +1,7 @@
 import { VoyagesRepository, voyagesRepository } from './voyages.repository.js';
 import { VoyageFilterParams } from './voyages.types.js';
 import { NotFoundError } from '../../common/errors/not-found-error.js';
+import { vesselsRepository } from '../vessels/vessels.repository.js';
 
 export class VoyagesService {
   constructor(private readonly repo: VoyagesRepository = voyagesRepository) {}
@@ -15,6 +16,7 @@ export class VoyagesService {
     return item;
   }
 
+<<<<<<< HEAD
   async createVoyage(data: Record<string, unknown>) {
     return this.repo.create(data);
   }
@@ -29,7 +31,62 @@ export class VoyagesService {
     const deleted = await this.repo.delete(id);
     if (!deleted) throw new NotFoundError('Voyage');
     return true;
+=======
+  async createVoyage(input: Record<string, unknown>) {
+    let vesselId = input.vesselId as string | undefined;
+    if (vesselId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vesselId)) {
+      vesselId = undefined;
+    }
+    if (!vesselId && typeof input.vesselName === 'string') {
+      const { data: matchedVessels } = await vesselsRepository.findMany({
+        search: input.vesselName,
+        limit: 1,
+        offset: 0,
+      });
+      if (matchedVessels && matchedVessels.length > 0) {
+        vesselId = matchedVessels[0].id;
+      }
+    }
+
+    return this.repo.create({
+      ...input,
+      vesselId: vesselId || null,
+    });
+  }
+
+  async updateVoyage(id: string, input: Record<string, unknown>) {
+    await this.getVoyage(id);
+
+    let vesselId = input.vesselId as string | undefined;
+    if (vesselId !== undefined) {
+      if (vesselId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vesselId)) {
+        vesselId = undefined;
+      }
+    } else if (typeof input.vesselName === 'string') {
+      const { data: matchedVessels } = await vesselsRepository.findMany({
+        search: input.vesselName,
+        limit: 1,
+        offset: 0,
+      });
+      if (matchedVessels && matchedVessels.length > 0) {
+        vesselId = matchedVessels[0].id;
+      }
+    }
+
+    const payload = { ...input };
+    if (vesselId !== undefined) {
+      payload.vesselId = vesselId || null;
+    }
+
+    return this.repo.update(id, payload);
+  }
+
+  async deleteVoyage(id: string) {
+    await this.getVoyage(id);
+    return this.repo.delete(id);
+>>>>>>> cd5336dd0aa4dc9bc5f6babb410f9351c3606c8b
   }
 }
 
 export const voyagesService = new VoyagesService();
+
