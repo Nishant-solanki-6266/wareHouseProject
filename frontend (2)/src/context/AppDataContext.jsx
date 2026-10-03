@@ -436,8 +436,6 @@ export const AppDataProvider = ({ children }) => {
 
   useEffect(() => {
     refreshAll();
-    // Fetch initial active menu API on mount
-    fetchMenuApi(activeMenuTab);
   }, []);
 
   // 1. Customers CRUD
