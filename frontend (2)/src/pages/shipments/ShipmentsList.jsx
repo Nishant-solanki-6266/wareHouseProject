@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { ResponsiveTable } from '../../components/tables/ResponsiveTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -29,7 +29,7 @@ export const ShipmentsList = ({ onNavigate }) => {
 
   // Filter if Agent
   const visibleShipments = isAgent 
-    ? shipments.filter(s => !currentUser?.agentId || s.agentId === currentUser?.agentId || s.destinationCode === currentUser?.destinationPortCode || s.destinationCode === 'NAS' || s.destinationPort?.includes('Nassau'))
+    ? shipments.filter(s => !currentUser?.agentId || !s.agentId || s.agentId === currentUser?.agentId || s.destinationCode === currentUser?.destinationPortCode || s.destinationCode === 'NAS' || s.destinationPort?.includes('Nassau'))
     : shipments;
 
   const columns = [
@@ -76,7 +76,7 @@ export const ShipmentsList = ({ onNavigate }) => {
         <div>
           <div style={{ fontWeight: 600, fontSize: '0.78rem' }}>{item.voyageNumber}</div>
           <div style={{ fontSize: '0.72rem', color: '#0284C7' }}>
-            {item.etd} → {item.eta}
+            {item.etd} â†’ {item.eta}
           </div>
         </div>
       )
@@ -241,4 +241,5 @@ export const ShipmentsList = ({ onNavigate }) => {
     </div>
   );
 };
+
 

@@ -71,11 +71,19 @@ export class ManifestsRepository {
     return created;
   }
 
+<<<<<<< HEAD
   async update(id: string, data: Partial<NewManifest>) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const whereCondition = isUuid
       ? or(eq(manifests.id, id), eq(manifests.manifestNumber, id))
       : eq(manifests.manifestNumber, id);
+=======
+  async update(idOrNumber: string, data: Partial<NewManifest>) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(manifests.id, idOrNumber), eq(manifests.manifestNumber, idOrNumber))
+      : eq(manifests.manifestNumber, idOrNumber);
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
 
     const [updated] = await db
       .update(manifests)
@@ -86,11 +94,19 @@ export class ManifestsRepository {
     return updated || null;
   }
 
+<<<<<<< HEAD
   async delete(id: string): Promise<boolean> {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const whereCondition = isUuid
       ? or(eq(manifests.id, id), eq(manifests.manifestNumber, id))
       : eq(manifests.manifestNumber, id);
+=======
+  async delete(idOrNumber: string): Promise<boolean> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const whereCondition = isUuid
+      ? or(eq(manifests.id, idOrNumber), eq(manifests.manifestNumber, idOrNumber))
+      : eq(manifests.manifestNumber, idOrNumber);
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
 
     const [deleted] = await db
       .delete(manifests)

@@ -123,8 +123,8 @@ export const BillOfLadingModal = ({
     onSave({
       blNumber: formData.blNumber,
       issueDate: formData.issueDate,
-      agentId: currentUser?.agentId || null,
-      agentName: currentUser?.roleKey === 'agent' ? currentUser.name : 'Caribbean Express Freight Ltd.',
+      agentId: bl?.agentId || currentUser?.agentId || null,
+      agentName: bl?.agentName || (currentUser?.roleKey === 'agent' ? currentUser.name : 'Caribbean Express Freight Ltd.'),
       destinationPortCode: formData.portOfDischarge?.split(' - ')[0]?.trim() || 'NAS',
       shipper: {
         name: formData.shipperName,
@@ -297,6 +297,9 @@ export const BillOfLadingModal = ({
                   value={formData.portOfLoading}
                   onChange={(e) => setFormData({ ...formData, portOfLoading: e.target.value })}
                 >
+                  {formData.portOfLoading && !ports.some(p => `${getPortCode(p)} - ${p.name}` === formData.portOfLoading) && (
+                    <option value={formData.portOfLoading}>{formData.portOfLoading}</option>
+                  )}
                   {ports.map(p => {
                     const pCode = getPortCode(p);
                     return (
@@ -316,6 +319,9 @@ export const BillOfLadingModal = ({
                   onChange={(e) => setFormData({ ...formData, portOfDischarge: e.target.value })}
                   required
                 >
+                  {formData.portOfDischarge && !ports.some(p => `${getPortCode(p)} - ${p.name}` === formData.portOfDischarge) && (
+                    <option value={formData.portOfDischarge}>{formData.portOfDischarge}</option>
+                  )}
                   {ports.map(p => {
                     const pCode = getPortCode(p);
                     return (

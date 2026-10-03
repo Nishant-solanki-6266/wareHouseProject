@@ -7,6 +7,7 @@ export interface CustomerFilterParams {
 }
 
 export interface CreateCustomerInput {
+  customerNumber?: string;
   name: string;
   companyName: string;
   contactPerson?: string;
@@ -20,7 +21,11 @@ export interface CreateCustomerInput {
   accountType?: string;
   creditTerms?: string;
   notes?: string;
+<<<<<<< HEAD
   customerNumber?: string;
+=======
+  status?: string;
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
   createdDate?: string;
 }
 

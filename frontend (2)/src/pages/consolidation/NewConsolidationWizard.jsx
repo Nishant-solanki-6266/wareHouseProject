@@ -24,9 +24,30 @@ export const NewConsolidationWizard = ({ onNavigate }) => {
   const { warehouseReceipts, houseBills, vessels, voyages, containers, agents, ports, createConsolidation } = useAppData();
   const { currentUser, isAgent } = useAuth();
 
+  const allAvailablePorts = useMemo(() => {
+    const list = [...ports];
+    warehouseReceipts.forEach(w => {
+      if (w.destinationCode && !list.some(p => (p.code === w.destinationCode || p.port_code === w.destinationCode))) {
+        list.push({ id: w.destinationCode, code: w.destinationCode, name: w.destinationPort || `${w.destinationCode} Port` });
+      }
+    });
+    if (!list.some(p => p.code === 'NAS' || p.port_code === 'NAS')) {
+      list.push({ id: 'NAS', code: 'NAS', name: 'Nassau Container Port (NAS)' });
+    }
+    return list;
+  }, [ports, warehouseReceipts]);
+
+  const defaultVessels = [
+    { id: 'VES-001', name: 'MV Island Voyager', type: 'Container Vessel' },
+    { id: 'VES-002', name: 'MV Atlantic Trader', type: 'Feeder Vessel' },
+    { id: 'VES-003', name: 'MV Caribbean Star', type: 'Container Vessel' },
+    { id: 'VES-004', name: 'MV Bahama Express', type: 'Ro-Ro Vessel' }
+  ];
+  const vesselOptions = (vessels && vessels.length > 0) ? vessels : defaultVessels;
+
   const defaultDestinationCode = isAgent
-    ? (currentUser?.destinationPortCode || 'NAS')
-    : (ports.find(p => p.code === 'NAS')?.code || ports[0]?.code || 'NAS');
+    ? (currentUser?.destinationPortCode || 'ALL')
+    : 'ALL';
 
   const [currentStep, setCurrentStep] = useState(1);
   const [destinationFilter, setDestinationFilter] = useState(defaultDestinationCode);
@@ -35,7 +56,7 @@ export const NewConsolidationWizard = ({ onNavigate }) => {
   // Eligible staged Warehouse Receipts for chosen destination
   const availableReceipts = useMemo(() => {
     return warehouseReceipts.filter(w => {
-      const matchDest = w.destinationCode === destinationFilter || w.destinationPort?.includes(destinationFilter);
+      const matchDest = destinationFilter === 'ALL' || w.destinationCode === destinationFilter || w.destinationPort?.includes(destinationFilter);
       const isReady = w.status === 'Ready for Consolidation' || !w.assignedConsolidationId;
       return matchDest && isReady;
     });
@@ -138,12 +159,16 @@ export const NewConsolidationWizard = ({ onNavigate }) => {
       'POS': 'Port of Spain (TTPOS)',
       'GCM': 'Port of George Town (KYGCM)'
     };
+    const portObj = allAvailablePorts.find(p => p.code === destCode || p.port_code === destCode);
+    const portName = portObj ? `${portObj.code || portObj.port_code} - ${portObj.name}` : (destPortMap[destCode] || `${destCode} Port`);
+    const dischargeName = portObj ? `Port of ${portObj.name} (${portObj.code || portObj.port_code})` : (dischargePortMap[destCode] || `${destCode} Port`);
+
     setFormData(prev => ({
       ...prev,
-      destinationCode: destCode,
-      destinationPort: destPortMap[destCode] || `${destCode} Port`,
-      dischargePort: dischargePortMap[destCode] || `${destCode} Port`,
-      title: `${destCode} LCL Consolidated Ocean Box`
+      destinationCode: destCode === 'ALL' ? 'NAS' : destCode,
+      destinationPort: destCode === 'ALL' ? 'NAS - Nassau, Bahamas' : portName,
+      dischargePort: destCode === 'ALL' ? 'Port of Nassau (BSNAS)' : dischargeName,
+      title: `${destCode === 'ALL' ? 'NAS' : destCode} LCL Consolidated Ocean Box`
     }));
   };
 
@@ -204,17 +229,13 @@ export const NewConsolidationWizard = ({ onNavigate }) => {
           ].map(step => (
             <div
               key={step.num}
-              onClick={() => {
-                if (step.num < currentStep || (step.num === 2 && selectedWrIds.length > 0)) {
-                  setCurrentStep(step.num);
-                }
-              }}
+              onClick={() => setCurrentStep(step.num)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                cursor: step.num <= currentStep ? 'pointer' : 'default',
-                opacity: step.num > currentStep ? 0.5 : 1
+                cursor: 'pointer',
+                opacity: 1
               }}
             >
               <div
@@ -264,9 +285,10 @@ export const NewConsolidationWizard = ({ onNavigate }) => {
                 value={destinationFilter}
                 onChange={(e) => handleDestinationChange(e.target.value)}
               >
-                {ports.map(p => (
-                  <option key={p.id || p.code} value={p.code}>
-                    {p.code} — {p.name}
+                <option value="ALL">All Destinations</option>
+                {allAvailablePorts.map(p => (
+                  <option key={p.id || p.code || p.port_code} value={p.code || p.port_code}>
+                    {p.code || p.port_code} — {p.name}
                   </option>
                 ))}
               </select>
@@ -358,7 +380,6 @@ export const NewConsolidationWizard = ({ onNavigate }) => {
             </div>
             <button
               onClick={() => setCurrentStep(2)}
-              disabled={selectedWrIds.length === 0}
               className="btn btn-primary"
             >
               <span>Next: Review Cargo</span>
@@ -599,10 +620,23 @@ export const NewConsolidationWizard = ({ onNavigate }) => {
               <select
                 className="form-select"
                 value={formData.vesselName}
-                onChange={(e) => setFormData({ ...formData, vesselName: e.target.value })}
+                onChange={(e) => {
+                  const selectedVesselName = e.target.value;
+                  const vPrefix = selectedVesselName.split(' ').map(w => w[0]).join('').toUpperCase();
+                  const newVoyage = `V.2026-${vPrefix}-${Math.floor(10 + Math.random() * 90)}`;
+                  const newContainer = `${vPrefix}U-${Math.floor(100000 + Math.random() * 900000)}-${Math.floor(Math.random() * 9)}`;
+                  const newSeal = `SEAL-VI-${Math.floor(10000 + Math.random() * 90000)}`;
+                  setFormData(prev => ({
+                    ...prev,
+                    vesselName: selectedVesselName,
+                    voyageNumber: newVoyage,
+                    containerNumber: newContainer,
+                    sealNumber: newSeal
+                  }));
+                }}
               >
-                {vessels.map(v => (
-                  <option key={v.id} value={v.name}>{v.name} ({v.type})</option>
+                {vesselOptions.map(v => (
+                  <option key={v.id || v.name} value={v.name}>{v.name} ({v.type || 'Container Vessel'})</option>
                 ))}
               </select>
             </div>

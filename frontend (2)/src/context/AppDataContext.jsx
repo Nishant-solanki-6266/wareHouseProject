@@ -178,25 +178,25 @@ export const AppDataProvider = ({ children }) => {
           setHouseBills(apiHBL);
           setStored(KEYS.HOUSE_BILLS, apiHBL);
         }
-        if (containersRes.status === 'fulfilled' && containersRes.value?.data) {
-          const apiCont = Array.isArray(containersRes.value.data) ? containersRes.value.data : containersRes.value.data.items || [];
-          setContainers(apiCont);
-          setStored(KEYS.CONTAINERS, apiCont);
+        if (containersRes.status === 'fulfilled' && containersRes.value) {
+          const val = containersRes.value.data || containersRes.value;
+          const apiCont = Array.isArray(val) ? val : val.items || [];
+          if (apiCont.length > 0) { setContainers(apiCont); setStored(KEYS.CONTAINERS, apiCont); }
         }
-        if (vesselsRes.status === 'fulfilled' && vesselsRes.value?.data) {
-          const apiVes = Array.isArray(vesselsRes.value.data) ? vesselsRes.value.data : vesselsRes.value.data.items || [];
-          setVessels(apiVes);
-          setStored(KEYS.VESSELS, apiVes);
+        if (vesselsRes.status === 'fulfilled' && vesselsRes.value) {
+          const val = vesselsRes.value.data || vesselsRes.value;
+          const apiVes = Array.isArray(val) ? val : val.items || [];
+          if (apiVes.length > 0) { setVessels(apiVes); setStored(KEYS.VESSELS, apiVes); }
         }
-        if (voyagesRes.status === 'fulfilled' && voyagesRes.value?.data) {
-          const apiVoy = Array.isArray(voyagesRes.value.data) ? voyagesRes.value.data : voyagesRes.value.data.items || [];
-          setVoyages(apiVoy);
-          setStored(KEYS.VOYAGES, apiVoy);
+        if (voyagesRes.status === 'fulfilled' && voyagesRes.value) {
+          const val = voyagesRes.value.data || voyagesRes.value;
+          const apiVoy = Array.isArray(val) ? val : val.items || [];
+          if (apiVoy.length > 0) { setVoyages(apiVoy); setStored(KEYS.VOYAGES, apiVoy); }
         }
-        if (agentsRes.status === 'fulfilled' && agentsRes.value?.data) {
-          const apiAgents = Array.isArray(agentsRes.value.data) ? agentsRes.value.data : agentsRes.value.data.items || [];
-          setAgents(apiAgents);
-          setStored(KEYS.AGENTS, apiAgents);
+        if (agentsRes.status === 'fulfilled' && agentsRes.value) {
+          const val = agentsRes.value.data || agentsRes.value;
+          const apiAgents = Array.isArray(val) ? val : val.items || [];
+          if (apiAgents.length > 0) { setAgents(apiAgents); setStored(KEYS.AGENTS, apiAgents); }
         }
         const auditRes = arguments?.[0] || undefined; // checked below via auditService sync
         try {
@@ -305,29 +305,50 @@ export const AppDataProvider = ({ children }) => {
         }
 
         case 'house-bills': {
+<<<<<<< HEAD
           const hbData = await houseBillService.getHouseBills();
           if (Array.isArray(hbData)) {
             setHouseBills(hbData);
             setStored(KEYS.HOUSE_BILLS, hbData);
           }
+=======
+          const hbRes = await apiClient.get('/house-bills');
+          const list = Array.isArray(hbRes) ? hbRes : (Array.isArray(hbRes?.data) ? hbRes.data : []);
+          setHouseBills(list);
+          setStored(KEYS.HOUSE_BILLS, list);
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
           break;
         }
 
         case 'consolidations': {
+<<<<<<< HEAD
           const consRes = await consolidationService.getConsolidations();
           if (Array.isArray(consRes)) {
             setConsolidations(consRes);
             setStored(KEYS.CONSOLIDATIONS, consRes);
           }
+=======
+          const consRes = await apiClient.get('/consolidations');
+          const list = Array.isArray(consRes) ? consRes : (Array.isArray(consRes?.data) ? consRes.data : []);
+          setConsolidations(list);
+          setStored(KEYS.CONSOLIDATIONS, list);
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
           break;
         }
 
         case 'shipments': {
           try {
             const liveShipments = await shipmentService.getShipments({ limit: 200 });
-            if (Array.isArray(liveShipments)) {
+            if (Array.isArray(liveShipments) && liveShipments.length > 0) {
               setShipments(liveShipments);
               setStored(KEYS.SHIPMENTS, liveShipments);
+            } else {
+              const shpRes = await apiClient.get('/shipments');
+              const list = Array.isArray(shpRes) ? shpRes : (Array.isArray(shpRes?.data) ? shpRes.data : []);
+              if (list.length > 0) {
+                setShipments(list);
+                setStored(KEYS.SHIPMENTS, list);
+              }
             }
           } catch (e) {
             console.warn('[AppDataContext] Failed to load shipments:', e.message);
@@ -336,15 +357,23 @@ export const AppDataProvider = ({ children }) => {
         }
 
         case 'bills-of-lading': {
+<<<<<<< HEAD
           const liveBLs = await billOfLadingService.getBillsOfLading();
           if (Array.isArray(liveBLs)) {
             setBillsOfLading(liveBLs);
             setStored(KEYS.BILLS_OF_LADING, liveBLs);
           }
+=======
+          const blRes = await apiClient.get('/bills-of-lading');
+          const list = Array.isArray(blRes) ? blRes : (Array.isArray(blRes?.data) ? blRes.data : []);
+          setBillsOfLading(list);
+          setStored(KEYS.BILLS_OF_LADING, list);
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
           break;
         }
 
         case 'manifests': {
+<<<<<<< HEAD
           try {
             const liveManifests = await manifestService.getManifests();
             if (Array.isArray(liveManifests)) {
@@ -354,6 +383,12 @@ export const AppDataProvider = ({ children }) => {
           } catch (e) {
             console.warn('[AppDataContext] Failed to load manifests:', e.message);
           }
+=======
+          const mnfRes = await apiClient.get('/manifests');
+          const list = Array.isArray(mnfRes) ? mnfRes : (Array.isArray(mnfRes?.data) ? mnfRes.data : []);
+          setManifests(list);
+          setStored(KEYS.MANIFESTS, list);
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
           break;
         }
 
@@ -633,18 +668,45 @@ export const AppDataProvider = ({ children }) => {
     if (created) {
       setHouseBills(prev => [created, ...prev.filter(h => h.id !== created.id && h.hblNumber !== created.hblNumber)]);
     }
+<<<<<<< HEAD
     await fetchMenuApi('house-bills');
+=======
+    if (created) {
+      setHouseBills(prev => [
+        created,
+        ...(Array.isArray(prev) ? prev.filter(h => h.id !== created.id && h.hblNumber !== created.hblNumber) : [])
+      ]);
+    }
+    fetchMenuApi('house-bills');
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
     await refreshAll();
     showToast(`House B/L ${created?.hblNumber || created?.id} issued for ${created?.customerName || 'Customer'}.`, 'success', 'House B/L Created');
     return created;
   };
 
   const updateHouseBill = async (id, updates) => {
+<<<<<<< HEAD
     const updated = await houseBillService.updateHouseBill(id, updates, currentUser?.name || "Documentation Staff");
     if (updated) {
       setHouseBills(prev => prev.map(h => (h.id === id || h.hblNumber === id ? { ...h, ...updated } : h)));
     }
     await fetchMenuApi('house-bills');
+=======
+    let updated;
+    try {
+      const res = await apiClient.patch(`/house-bills/${id}`, updates);
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend updateHouseBill notice:', e.message);
+    }
+    if (!updated) {
+      updated = await houseBillService.updateHouseBill(id, updates, currentUser?.name || "Documentation Staff");
+    }
+    if (updated) {
+      setHouseBills(prev => prev.map(h => (h.id === id || h.hblNumber === id ? { ...h, ...updated } : h)));
+    }
+    fetchMenuApi('house-bills');
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
     await refreshAll();
     showToast(`House B/L ${updated?.hblNumber || id} updated successfully.`, 'success', 'House B/L Updated');
     return updated;
@@ -652,12 +714,23 @@ export const AppDataProvider = ({ children }) => {
 
   const deleteHouseBill = async (id) => {
     setHouseBills(prev => prev.filter(h => h.id !== id && h.hblNumber !== id));
+<<<<<<< HEAD
     const success = await houseBillService.deleteHouseBill(id, currentUser?.name || "Documentation Staff");
     await fetchMenuApi('house-bills');
     await refreshAll();
     if (success) {
       showToast(`House B/L ${id} deleted.`, 'info', 'House B/L Deleted');
+=======
+    try {
+      await apiClient.delete(`/house-bills/${id}`);
+    } catch (e) {
+      console.warn('Backend deleteHouseBill notice:', e.message);
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
     }
+    const success = await houseBillService.deleteHouseBill(id, currentUser?.name || "Documentation Staff");
+    fetchMenuApi('house-bills');
+    await refreshAll();
+    showToast(`House B/L ${id} deleted.`, 'info', 'House B/L Deleted');
     return success;
   };
 
@@ -696,10 +769,31 @@ export const AppDataProvider = ({ children }) => {
 
   // 5. Consolidations CRUD
   const createConsolidation = async (consolidationData) => {
+<<<<<<< HEAD
     const created = await consolidationService.createConsolidation(consolidationData, currentUser?.name || "Operations Staff");
     await fetchMenuApi('consolidations');
     await refreshAll();
     showToast(`Consolidation ${created?.consolidationNumber || created?.id || 'Record'} created successfully.`, 'success', 'Consolidation Ready');
+=======
+    let created;
+    try {
+      const res = await apiClient.post('/consolidations', consolidationData);
+      if (res?.data) created = res.data;
+    } catch (e) {
+      console.warn('Backend createConsolidation notice:', e.message);
+    }
+    if (!created) {
+      created = await consolidationService.createConsolidation(consolidationData, currentUser?.name || "Operations Staff");
+    }
+    if (created) {
+      setConsolidations(prev => [
+        created,
+        ...(Array.isArray(prev) ? prev.filter(c => c.id !== created.id && c.consolidationNumber !== created.consolidationNumber) : [])
+      ]);
+    }
+    await refreshAll();
+    showToast(`Consolidation ${created?.consolidationNumber || created?.id} created successfully.`, 'success', 'Consolidation Ready');
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
     return created;
   };
 
@@ -724,6 +818,7 @@ export const AppDataProvider = ({ children }) => {
 
   // 6. Shipments CRUD
   const createShipment = async (shipmentData) => {
+<<<<<<< HEAD
     try {
       const created = await shipmentService.createShipment(shipmentData, currentUser?.name || "Super Admin");
       await fetchMenuApi('shipments');
@@ -734,6 +829,29 @@ export const AppDataProvider = ({ children }) => {
       showToast(err?.message || 'Failed to create shipment', 'error', 'Creation Error');
       throw err;
     }
+=======
+    let created;
+    const payload = {
+      ...shipmentData,
+      agentId: shipmentData.agentId || currentUser?.agentId || null,
+      agentName: shipmentData.agentName || currentUser?.department || currentUser?.name || 'Nassau Freight Logistics Ltd',
+    };
+    try {
+      const res = await apiClient.post('/shipments', payload);
+      if (res?.data) created = res.data;
+    } catch (e) {
+      console.warn('Backend createShipment notice:', e.message);
+    }
+    if (!created) {
+      created = await shipmentService.createShipment(payload, currentUser?.name || "Operations Staff");
+    }
+    if (created) {
+      setShipments(prev => [created, ...(Array.isArray(prev) ? prev.filter(s => s.id !== created.id && s.shipmentNumber !== created.shipmentNumber) : [])]);
+    }
+    await refreshAll();
+    showToast(`Shipment ${created.shipmentNumber || created.id} created successfully.`, 'success', 'Shipment Created');
+    return created;
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
   };
 
   const updateShipment = async (id, updates) => {
@@ -778,6 +896,7 @@ export const AppDataProvider = ({ children }) => {
       showToast(err?.message || 'Failed to create Master B/L', 'error', 'Creation Failed');
       throw err;
     }
+<<<<<<< HEAD
   };
 
   const updateBillOfLading = async (id, updates) => {
@@ -847,6 +966,115 @@ export const AppDataProvider = ({ children }) => {
       showToast(err?.message || 'Failed to update B/L status', 'error', 'Status Update Failed');
       throw err;
     }
+=======
+    if (!created) {
+      created = await billOfLadingService.createBillOfLading(blData, currentUser?.name || "Documentation Staff");
+    }
+    if (created) {
+      setBillsOfLading(prev => [
+        created,
+        ...(Array.isArray(prev) ? prev.filter(b => b.id !== created.id && b.blNumber !== created.blNumber) : [])
+      ]);
+    }
+    fetchMenuApi('bills-of-lading');
+    await refreshAll();
+    showToast(`Master B/L ${created?.blNumber || created?.id} created successfully.`, 'success', 'Master B/L Created');
+    return created;
+  };
+
+  const updateBillOfLading = async (id, updates) => {
+    let updated;
+    try {
+      const res = await apiClient.patch(`/bills-of-lading/${id}`, updates);
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend updateBillOfLading notice:', e.message);
+    }
+    if (!updated) {
+      updated = await billOfLadingService.updateBillOfLading(id, updates, currentUser?.name || "Documentation Staff");
+    }
+    if (updated) {
+      setBillsOfLading(prev => prev.map(b => (b.id === id || b.blNumber === id ? { ...b, ...updated } : b)));
+    }
+    fetchMenuApi('bills-of-lading');
+    await refreshAll();
+    showToast(`Master B/L ${id} updated successfully.`, 'success', 'Master B/L Updated');
+    return updated;
+  };
+
+  const deleteBillOfLading = async (id) => {
+    setBillsOfLading(prev => prev.filter(b => b.id !== id && b.blNumber !== id));
+    try {
+      await apiClient.delete(`/bills-of-lading/${id}`);
+    } catch (e) {
+      console.warn('Backend deleteBillOfLading notice:', e.message);
+    }
+    const success = await billOfLadingService.deleteBillOfLading(id, currentUser?.name || "Documentation Staff");
+    fetchMenuApi('bills-of-lading');
+    await refreshAll();
+    showToast(`Master B/L ${id} deleted.`, 'info', 'Master B/L Deleted');
+    return success;
+  };
+
+  const placeBLHold = async (blId, reason, notes) => {
+    let updated;
+    try {
+      const res = await apiClient.post(`/bills-of-lading/${blId}/hold`, { reason, holdNotes: notes });
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend placeBLHold notice:', e.message);
+    }
+    if (!updated) {
+      updated = await billOfLadingService.placeHold(blId, reason, notes, currentUser?.name || "Operations Staff");
+    }
+    if (updated) {
+      setBillsOfLading(prev => prev.map(b => (b.id === blId || b.blNumber === blId ? { ...b, ...updated } : b)));
+    }
+    fetchMenuApi('bills-of-lading');
+    await refreshAll();
+    showToast(`Master B/L ${blId} has been placed ON HOLD. Document access restricted.`, 'warning', 'B/L Placed On Hold');
+    return updated;
+  };
+
+  const clearBLHold = async (blId, clearNotes) => {
+    let updated;
+    try {
+      const res = await apiClient.post(`/bills-of-lading/${blId}/release`, { notes: clearNotes });
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend clearBLHold notice:', e.message);
+    }
+    if (!updated) {
+      updated = await billOfLadingService.clearHold(blId, currentUser?.name || "Operations Staff", clearNotes);
+    }
+    if (updated) {
+      setBillsOfLading(prev => prev.map(b => (b.id === blId || b.blNumber === blId ? { ...b, ...updated } : b)));
+    }
+    fetchMenuApi('bills-of-lading');
+    await refreshAll();
+    showToast(`Hold cleared for Master B/L ${blId}. Status is now RELEASED.`, 'success', 'B/L Released');
+    return updated;
+  };
+
+  const updateBLStatus = async (blId, status) => {
+    let updated;
+    try {
+      const res = await apiClient.patch(`/bills-of-lading/${blId}`, { status });
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend updateBLStatus notice:', e.message);
+    }
+    if (!updated) {
+      updated = await billOfLadingService.updateStatus(blId, status, currentUser?.name || "Documentation Staff");
+    }
+    if (updated) {
+      setBillsOfLading(prev => prev.map(b => (b.id === blId || b.blNumber === blId ? { ...b, ...updated } : b)));
+    }
+    fetchMenuApi('bills-of-lading');
+    await refreshAll();
+    showToast(`Master B/L ${blId} status updated to ${status}.`, 'info', 'Status Updated');
+    return updated;
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
   };
 
   // 8. Manifests CRUD
@@ -861,6 +1089,7 @@ export const AppDataProvider = ({ children }) => {
       showToast(err?.message || 'Failed to generate manifest', 'error', 'Creation Error');
       throw err;
     }
+<<<<<<< HEAD
   };
 
   const updateManifest = async (id, updates) => {
@@ -891,6 +1120,54 @@ export const AppDataProvider = ({ children }) => {
       showToast(err?.message || 'Failed to delete manifest', 'error', 'Delete Error');
       throw err;
     }
+=======
+    if (!created) {
+      created = await manifestService.generateManifest(manifestData, currentUser?.name || "Documentation Staff");
+    }
+    if (created) {
+      setManifests(prev => [
+        created,
+        ...(Array.isArray(prev) ? prev.filter(m => m.id !== created.id && m.manifestNumber !== created.manifestNumber) : [])
+      ]);
+    }
+    await refreshAll();
+    showToast(`Shipping Manifest ${created?.manifestNumber || created?.id} generated successfully.`, 'success', 'Manifest Created');
+    return created;
+  };
+
+  const updateManifest = async (id, updates) => {
+    let updated;
+    try {
+      const res = await apiClient.patch(`/manifests/${id}`, updates);
+      if (res?.data) updated = res.data;
+    } catch (e) {
+      console.warn('Backend updateManifest notice:', e.message);
+    }
+    if (!updated) {
+      updated = await manifestService.updateManifest(id, updates, currentUser?.name || "Documentation Staff");
+    }
+    if (updated) {
+      setManifests(prev => prev.map(m => (m.id === id || m.manifestNumber === id ? { ...m, ...updated } : m)));
+    }
+    fetchMenuApi('manifests');
+    await refreshAll();
+    showToast(`Shipping Manifest ${id} updated successfully.`, 'success', 'Manifest Updated');
+    return updated;
+  };
+
+  const deleteManifest = async (id) => {
+    setManifests(prev => prev.filter(m => m.id !== id && m.manifestNumber !== id));
+    try {
+      await apiClient.delete(`/manifests/${id}`);
+    } catch (e) {
+      console.warn('Backend deleteManifest notice:', e.message);
+    }
+    await manifestService.deleteManifest(id, currentUser?.name || "Documentation Staff");
+    fetchMenuApi('manifests');
+    await refreshAll();
+    showToast(`Shipping Manifest ${id} deleted.`, 'info', 'Manifest Deleted');
+    return true;
+>>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
   };
 
   // 9. Vessels & Voyages CRUD
