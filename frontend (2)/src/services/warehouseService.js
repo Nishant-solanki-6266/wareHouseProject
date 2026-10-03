@@ -156,14 +156,8 @@ export const warehouseService = {
     let createdReceipt = null;
     try {
       const res = await apiClient.post('warehouse-receipts', payload);
-      if (res && res.data) {
-        createdReceipt = {
-          ...res.data,
-          customer: res.data.customer || res.data.customerName || payload.customer,
-          customerName: res.data.customerName || res.data.customer || payload.customerName,
-          cbm: res.data.cbm || res.data.totalCbm || payload.cbm,
-          cft: res.data.cft || res.data.totalCft || payload.cft,
-        };
+      if (res) {
+        createdReceipt = res.data || res;
       }
     } catch (err) {
       console.error('Backend createReceipt error:', err?.message || err);
@@ -227,15 +221,9 @@ export const warehouseService = {
   async updateReceipt(id, updates, currentUser = "Warehouse Staff") {
     let updatedReceipt = null;
     try {
-      const res = await apiClient.patch(`warehouse-receipts/${encodeURIComponent(id)}`, updates);
-      if (res && res.data) {
-        updatedReceipt = {
-          ...res.data,
-          customer: res.data.customer || res.data.customerName || updates.customer || updates.customerName,
-          customerName: res.data.customerName || res.data.customer || updates.customerName || updates.customer,
-          cbm: res.data.cbm || res.data.totalCbm || updates.cbm || updates.totalCbm,
-          cft: res.data.cft || res.data.totalCft || updates.cft || updates.totalCft,
-        };
+      const res = await apiClient.put(`warehouse-receipts/${encodeURIComponent(id)}`, updates);
+      if (res) {
+        updatedReceipt = res.data || res;
       }
     } catch (err) {
       console.error(`Backend updateReceipt ${id} failed:`, err?.message || err);
