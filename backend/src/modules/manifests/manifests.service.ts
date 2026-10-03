@@ -213,14 +213,9 @@ export class ManifestsService {
     const updatePayload: Record<string, unknown> = { ...input };
     delete updatePayload.id;
     delete updatePayload.createdAt;
-<<<<<<< HEAD
-
-    if (input.totalWeightLbs !== undefined) {
-=======
     delete updatePayload.updatedAt;
 
     if (input.totalWeightLbs !== undefined && input.totalWeightLbs !== null) {
->>>>>>> ceb12aa2c2c32ba96a8c32e6b6bee67659416841
       updatePayload.totalWeightLbs = String((Number(input.totalWeightLbs) || 0).toFixed(2));
     }
     if (input.totalWeightKg !== undefined && input.totalWeightKg !== null) {
