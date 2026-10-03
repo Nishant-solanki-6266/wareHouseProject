@@ -64,22 +64,6 @@ export class TrackingService {
       events: timeline,
     };
   }
-
-  async listEvents(trackingNumber?: string) {
-    return this.repo.listAllEvents(trackingNumber);
-  }
-
-  async createEvent(data: Record<string, unknown>) {
-    return this.repo.createEvent(data);
-  }
-
-  async updateEvent(id: string, data: Record<string, unknown>) {
-    return this.repo.updateEvent(id, data);
-  }
-
-  async deleteEvent(id: string) {
-    return this.repo.deleteEvent(id);
-  }
 }
 
 export const trackingService = new TrackingService();

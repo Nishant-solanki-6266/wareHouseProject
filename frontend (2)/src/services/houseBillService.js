@@ -5,11 +5,10 @@ import { apiClient } from './apiClient';
 export const houseBillService = {
   async getHouseBills(filters = {}) {
     try {
-      const res = await apiClient.get('house-bills', { params: filters });
-      if (res && res.data) {
-        const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        setStored(KEYS.HOUSE_BILLS, liveList);
-        return liveList;
+      const res = await apiClient.get('house-bills', filters);
+      if (res && Array.isArray(res.data)) {
+        setStored(KEYS.HOUSE_BILLS, res.data);
+        return res.data;
       }
     } catch (err) {
       console.warn('API error fetching house bills, fallback to local:', err);
@@ -217,17 +216,10 @@ export const houseBillService = {
   },
 
   async updateHouseBill(id, updates, currentUser = "Documentation Staff") {
-    let updatedHbl = null;
     try {
-      const res = await apiClient.put(`house-bills/${id}`, updates);
-      if (res && res.data) updatedHbl = res.data;
+      await apiClient.patch(`house-bills/${id}`, updates);
     } catch (err) {
-      try {
-        const patchRes = await apiClient.patch(`house-bills/${id}`, updates);
-        if (patchRes && patchRes.data) updatedHbl = patchRes.data;
-      } catch (e2) {
-        console.warn('API error updating house bill:', e2?.message || e2);
-      }
+      console.warn('API error updating house bill:', err);
     }
 
     const list = getStored(KEYS.HOUSE_BILLS);
@@ -235,7 +227,7 @@ export const houseBillService = {
     if (index !== -1) {
       list[index] = {
         ...list[index],
-        ...(updatedHbl || updates)
+        ...updates
       };
       setStored(KEYS.HOUSE_BILLS, list);
 
@@ -249,7 +241,7 @@ export const houseBillService = {
 
       return list[index];
     }
-    return updatedHbl;
+    return null;
   },
 
   async deleteHouseBill(id, currentUser = "Documentation Staff") {

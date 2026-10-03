@@ -8,14 +8,16 @@ export const portService = {
       const res = await apiClient.get('ports');
       if (res && res.data) {
         const ports = Array.isArray(res.data) ? res.data : (res.data.items || res.data.ports || []);
-        // Normalize code property so both code and portCode are accessible
-        const mapped = ports.map(p => ({
-          ...p,
-          code: p.code || p.portCode,
-          portCode: p.portCode || p.code,
-        }));
-        setStored(KEYS.PORTS, mapped);
-        return mapped;
+        if (ports.length > 0) {
+          // Normalize code property so both code and portCode are accessible
+          const mapped = ports.map(p => ({
+            ...p,
+            code: p.code || p.portCode,
+            portCode: p.portCode || p.code,
+          }));
+          setStored(KEYS.PORTS, mapped);
+          return mapped;
+        }
       }
     } catch (e) {
       console.warn('[portService] Failed to fetch ports from API, using fallback:', e.message);
@@ -115,16 +117,13 @@ export const portService = {
         island: updates.island,
         country: updates.country,
         status: updates.status,
-        defaultAgent: updates.defaultAgent,
       };
-      const portLookup = updates.code || updates.portCode || id;
-      const res = await apiClient.patch(`ports/${portLookup}`, payload);
+      const res = await apiClient.patch(`ports/${id}`, payload);
       if (res && res.data) {
         updatedPort = {
           ...res.data,
           code: res.data.code || res.data.portCode,
           portCode: res.data.portCode || res.data.code,
-          defaultAgent: res.data.defaultAgent || updates.defaultAgent || '',
         };
       }
     } catch (e) {
@@ -154,16 +153,14 @@ export const portService = {
   },
 
   async deletePort(id, currentUser = "Super Admin") {
-    const list = getStored(KEYS.PORTS);
-    const existing = list.find(item => item.id === id || item.code === id);
-    const portLookup = existing?.code || existing?.portCode || id;
-
     try {
-      await apiClient.delete(`ports/${portLookup}`);
+      await apiClient.delete(`ports/${id}`);
     } catch (e) {
       console.warn('[portService] API delete port failed, using local storage:', e.message);
     }
 
+    const list = getStored(KEYS.PORTS);
+    const existing = list.find(item => item.id === id || item.code === id);
     if (!existing) return false;
 
     const filtered = list.filter(item => item.id !== id && item.code !== id);

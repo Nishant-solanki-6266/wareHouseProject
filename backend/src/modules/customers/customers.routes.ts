@@ -9,6 +9,5 @@ export async function customersRoutes(app: FastifyInstance): Promise<void> {
   app.get('/:id', customersController.getById);
   app.post('/', customersController.create);
   app.patch('/:id', customersController.update);
-  app.put('/:id', customersController.update);
   app.delete('/:id', customersController.delete);
 }

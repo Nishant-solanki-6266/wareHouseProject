@@ -9,8 +9,10 @@ export const manifestService = {
       const res = await apiClient.get('manifests', { params: { ...filters, limit: 100 } });
       if (res && res.data) {
         const liveList = Array.isArray(res.data) ? res.data : (res.data.items || []);
-        setStored(KEYS.MANIFESTS, liveList);
-        return liveList;
+        if (liveList.length > 0) {
+          setStored(KEYS.MANIFESTS, liveList);
+          return liveList;
+        }
       }
     } catch (err) {
       console.warn('Backend API /manifests fetch failed, using cached store:', err?.message || err);

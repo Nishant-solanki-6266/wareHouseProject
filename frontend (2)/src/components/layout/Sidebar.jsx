@@ -31,34 +31,16 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose }) => {
 
   const roleKey = currentUser?.roleKey || 'super_admin';
 
-  const getRoleBadge = () => {
-    const rawRole = currentUser?.roleKey || currentUser?.roleName || currentUser?.role;
-    if (rawRole === 'warehouse' || rawRole === 'operations') {
-      return 'WAREHOUSE / OPERATIONS';
-    }
-    if (rawRole === 'super_admin') {
-      return 'SUPER ADMIN';
-    }
-    if (rawRole === 'documentation' || rawRole === 'documentation_staff') {
-      return 'DOCUMENTATION STAFF';
-    }
-    if (rawRole === 'agent' || rawRole === 'port_agent') {
-      return 'PORT AGENT';
-    }
-    return (rawRole ? String(rawRole).replace(/_/g, ' ').toUpperCase() : 'WAREHOUSE / OPERATIONS');
-  };
-
   // Build role-filtered navigation menu
   const getNavSections = () => {
-    // 1. WAREHOUSE & OPERATIONS (Elena Rostova / Carlos Mendez)
-    if (roleKey === 'warehouse' || roleKey === 'operations') {
+    // 1. WAREHOUSE INTAKE SPECIALIST (Carlos Mendez)
+    if (roleKey === 'warehouse') {
       return [
         {
-          title: 'WAREHOUSE & OPERATIONS',
+          title: 'CFS WAREHOUSE INTAKE',
           items: [
-            { id: 'dashboard', label: 'Operations Dashboard', icon: LayoutDashboard },
-            { id: 'customers', label: 'Customers', icon: Users },
-            { id: 'warehouse-receipts', label: 'Warehouse Receipts', icon: Package },
+            { id: 'dashboard', label: 'CFS Dashboard', icon: LayoutDashboard },
+            { id: 'warehouse-receipts', label: 'Warehouse Receipts (WR)', icon: Package },
             { id: 'cargo', label: 'Cargo Inventory', icon: Box },
             { id: 'house-bills', label: 'House B/Ls', icon: FileText },
             { id: 'documents', label: 'Labels & Docs', icon: Tag },
@@ -72,21 +54,38 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose }) => {
       ];
     }
 
-    // 2. DOCUMENTATION & OPERATIONS (Sarah Jenkins)
-    if (roleKey === 'documentation' || roleKey === 'documentation_staff') {
+    // 2. OPERATIONS COORDINATOR (Elena Rostova)
+    if (roleKey === 'operations') {
       return [
         {
-          title: 'DOCUMENTATION & OPERATIONS',
+          title: 'VESSEL & CONSOLIDATIONS',
+          items: [
+            { id: 'dashboard', label: 'Operations Dashboard', icon: LayoutDashboard },
+            { id: 'consolidations', label: 'Consolidations Wizard', icon: Layers },
+            { id: 'shipments', label: 'Master Shipments', icon: Ship },
+            { id: 'containers', label: 'Containers Fleet', icon: Box },
+            { id: 'vessels', label: 'Vessels & Voyages', icon: Anchor },
+            { id: 'cargo', label: 'Cargo Staged', icon: Box },
+            { id: 'bills-of-lading', label: 'Bills of Lading (View)', icon: FileText },
+            { id: 'tracking', label: 'Shipment Tracking', icon: Search }
+          ]
+        }
+      ];
+    }
+
+    // 3. DOCUMENTATION SPECIALIST (Sarah Jenkins)
+    if (roleKey === 'documentation') {
+      return [
+        {
+          title: 'MARITIME DOCUMENTATION',
           items: [
             { id: 'dashboard', label: 'Documentation Desk', icon: LayoutDashboard },
-            { id: 'customers', label: 'Customers', icon: Users },
+            { id: 'house-bills', label: 'House Bills of Lading (HBL)', icon: FileText },
+            { id: 'bills-of-lading', label: 'Master Bills (MBL) & Holds', icon: FileText },
+            { id: 'manifests', label: 'Ocean Manifests (CSV/XML)', icon: FileSpreadsheet },
             { id: 'warehouse-receipts', label: 'Warehouse Receipts', icon: Package },
-            { id: 'cargo', label: 'Cargo Inventory', icon: Box },
-            { id: 'bills-of-lading', label: 'Bills of Lading (MBL & HBL)', icon: FileText },
-            { id: 'consolidations', label: 'Consolidations', icon: Layers },
-            { id: 'containers', label: 'Containers', icon: Box },
-            { id: 'vessels', label: 'Vessels & Voyages', icon: Anchor },
-            { id: 'manifests', label: 'Manifests', icon: FileText },
+            { id: 'consolidations', label: 'Consolidations View', icon: Layers },
+            { id: 'customers', label: 'Customer Profiles', icon: Users },
             { id: 'documents', label: 'Documents & Labels', icon: FileStack },
             { id: 'tracking', label: 'Tracking', icon: Search },
             { id: 'history', label: 'Shipment History', icon: History }
@@ -179,7 +178,7 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose }) => {
             alignItems: 'center',
             justifyContent: 'space-between'
           }}>
-            <span>ROLE: {getRoleBadge()}</span>
+            <span>ROLE: {currentUser?.role?.toUpperCase()}</span>
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
           </div>
         </div>

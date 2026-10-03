@@ -44,38 +44,6 @@ export class DocumentsRepository {
     const result = await db.select().from(documents).where(whereCondition).limit(1);
     return result[0] || null;
   }
-
-  async create(data: Record<string, unknown>) {
-    const [created] = await db.insert(documents).values(data as any).returning();
-    return created;
-  }
-
-  async update(id: string, data: Record<string, unknown>) {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    const whereCondition = isUuid
-      ? or(eq(documents.id, id), eq(documents.documentNumber, id))
-      : eq(documents.documentNumber, id);
-
-    const [updated] = await db
-      .update(documents)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      } as any)
-      .where(whereCondition)
-      .returning();
-    return updated || null;
-  }
-
-  async delete(id: string) {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    const whereCondition = isUuid
-      ? or(eq(documents.id, id), eq(documents.documentNumber, id))
-      : eq(documents.documentNumber, id);
-
-    const [deleted] = await db.delete(documents).where(whereCondition).returning();
-    return !!deleted;
-  }
 }
 
 export const documentsRepository = new DocumentsRepository();
