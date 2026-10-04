@@ -115,17 +115,18 @@ export const consolidationService = {
         notes: consolidationData.notes || '',
       };
       const res = await apiClient.post('/consolidations', payload);
-      if (res?.data) createdConsolidationFromApi = res.data;
+      if (res?.data) {
+        createdConsolidationFromApi = res.data;
+      }
     } catch (err) {
       console.warn('API error creating consolidation cascade:', err);
+      throw err;
     }
 
     const list = getStored(KEYS.CONSOLIDATIONS, []);
-    const nextSeq = 820 + list.length + 1;
-    const id = createdConsolidationFromApi?.consolidationNumber || consolidationData.consolidationNumber || `CNS-2026-${nextSeq}`;
-
-    const shipmentId = `SHP-2026-${291 + list.length + 1}`;
-    const blId = `BL-VI-2026-${String(95 + list.length + 1).padStart(4, '0')}`;
+    const id = createdConsolidationFromApi?.consolidationNumber || consolidationData.consolidationNumber;
+    const shipmentId = createdConsolidationFromApi?.assignedShipmentId || `SHP-2026-${291 + list.length + 1}`;
+    const blId = createdConsolidationFromApi?.assignedMasterBLId || `BL-VI-2026-${String(95 + list.length + 1).padStart(4, '0')}`;
     const manifestId = `MNF-2026-${443 + list.length}`;
 
     // 1. Resolve selected House Bills
@@ -164,8 +165,7 @@ export const consolidationService = {
     totalCft = Number(totalCft.toFixed(2));
     totalCbm = Number(totalCbm.toFixed(2));
 
-    let createdConsolidation = null;
-    const payload = {
+    const createdConsolidation = createdConsolidationFromApi || {
       ...consolidationData,
       id,
       consolidationNumber: id,
@@ -189,22 +189,6 @@ export const consolidationService = {
       assignedMasterBLId: blId,
       assignedManifestId: manifestId
     };
-
-    try {
-      const res = await apiFetch('/consolidations', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-      if (res && res.data) {
-        createdConsolidation = res.data;
-      }
-    } catch (err) {
-      console.warn('Backend createConsolidation failed, saving locally:', err.message);
-    }
-
-    if (!createdConsolidation) {
-      createdConsolidation = payload;
-    }
 
     const updatedConsolidations = [createdConsolidation, ...list.filter(c => c.id !== createdConsolidation.id && c.consolidationNumber !== createdConsolidation.consolidationNumber)];
     setStored(KEYS.CONSOLIDATIONS, updatedConsolidations);
@@ -501,6 +485,7 @@ export const consolidationService = {
       }
     } catch (err) {
       console.warn(`Backend updateConsolidation ${id} failed:`, err?.message || err);
+      throw err;
     }
 
     const list = getStored(KEYS.CONSOLIDATIONS, []);
@@ -530,6 +515,7 @@ export const consolidationService = {
       await apiClient.delete(`/consolidations/${encodeURIComponent(id)}`);
     } catch (err) {
       console.warn(`Backend deleteConsolidation ${id} failed:`, err?.message || err);
+      throw err;
     }
 
     const list = getStored(KEYS.CONSOLIDATIONS, []);
