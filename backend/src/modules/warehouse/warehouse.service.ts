@@ -69,8 +69,9 @@ export class WarehouseService {
     let totalCbm = 0;
 
     for (const pkg of packages) {
-      totalPieces += Number(pkg.pieces) || 1;
-      totalWeightLbs += Number(pkg.weightLbs) || 0;
+      const pcs = Number(pkg.pieces) || 1;
+      totalPieces += pcs;
+      totalWeightLbs += (Number(pkg.weightLbs) || 0) * pcs;
       totalCft += Number(pkg.cft) || 0;
       totalCbm += Number(pkg.cbm) || 0;
     }

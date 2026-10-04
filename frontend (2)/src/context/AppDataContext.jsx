@@ -57,7 +57,8 @@ export const AppDataProvider = ({ children }) => {
     setVessels(getStored(KEYS.VESSELS, []));
     setVoyages(getStored(KEYS.VOYAGES, []));
     setAgents(getStored(KEYS.AGENTS, []));
-    setPorts(getStored(KEYS.PORTS, []));
+    const initialPorts = getStored(KEYS.PORTS, []);
+    setPorts(Array.isArray(initialPorts) ? initialPorts.map(p => ({ ...p, code: p.code || p.portCode, portCode: p.portCode || p.code })) : []);
     setUsers(getStored(KEYS.USERS, []));
     setCustomDocuments(getStored(KEYS.DOCUMENTS, []));
     setAuditLogs(getStored(KEYS.AUDIT_LOGS, []));
@@ -107,7 +108,12 @@ export const AppDataProvider = ({ children }) => {
         ]);
 
         if (portsRes.status === 'fulfilled' && portsRes.value?.data) {
-          const apiPorts = portsRes.value.data;
+          const rawPorts = Array.isArray(portsRes.value.data) ? portsRes.value.data : (portsRes.value.data.items || portsRes.value.data.ports || []);
+          const apiPorts = rawPorts.map(p => ({
+            ...p,
+            code: p.code || p.portCode,
+            portCode: p.portCode || p.code,
+          }));
           setPorts(apiPorts);
           setStored(KEYS.PORTS, apiPorts);
         }
@@ -184,12 +190,16 @@ export const AppDataProvider = ({ children }) => {
           const apiAgents = Array.isArray(val) ? val : val.items || [];
           if (apiAgents.length > 0) { setAgents(apiAgents); setStored(KEYS.AGENTS, apiAgents); }
         }
-        try {
-          const liveLogs = await auditService.getLogs({ limit: 200 });
-          setAuditLogs(Array.isArray(liveLogs) ? liveLogs : []);
-          setStored(KEYS.AUDIT_LOGS, Array.isArray(liveLogs) ? liveLogs : []);
-        } catch (audErr) {
-          console.warn('[AppDataContext] Initial audit sync notice:', audErr.message);
+
+        const isSuperAdmin = currentRole === 'super_admin' || currentUser?.roleKey === 'super_admin';
+        if (isSuperAdmin) {
+          try {
+            const liveLogs = await auditService.getLogs({ limit: 200 });
+            setAuditLogs(Array.isArray(liveLogs) ? liveLogs : []);
+            setStored(KEYS.AUDIT_LOGS, Array.isArray(liveLogs) ? liveLogs : []);
+          } catch (audErr) {
+            console.warn('[AppDataContext] Initial audit sync notice:', audErr.message);
+          }
         }
       }
     } catch (e) {
@@ -199,7 +209,7 @@ export const AppDataProvider = ({ children }) => {
 
     if (syncUsers) syncUsers();
 
-  }, [syncUsers]);
+  }, [syncUsers, currentRole, currentUser?.roleKey]);
 
   // Helper to extract list from diverse API response shapes
   const extractListFromRes = (res) => {
@@ -219,8 +229,9 @@ export const AppDataProvider = ({ children }) => {
     try {
       switch (tabName) {
         case 'dashboard': {
-          if (currentRole === 'operations' || currentRole === 'warehouse') {
+          if (currentRole === 'warehouse') {
             await apiClient.get('/cfs-dashboard').catch(() => {});
+          } else if (currentRole === 'operations') {
             await apiClient.get('/ops-dashboard').catch(() => {});
           } else if (currentRole === 'documentation') {
             await apiClient.get('/docs-dashboard').catch(() => {});
@@ -387,6 +398,21 @@ export const AppDataProvider = ({ children }) => {
           if (val) {
             setSettings(val);
             setStored(KEYS.SETTINGS, val);
+          }
+          break;
+        }
+
+        case 'ports': {
+          const pRes = await apiClient.get('/ports').catch(() => null);
+          const raw = extractListFromRes(pRes);
+          if (raw !== null) {
+            const mapped = raw.map(p => ({
+              ...p,
+              code: p.code || p.portCode,
+              portCode: p.portCode || p.code,
+            }));
+            setPorts(mapped);
+            setStored(KEYS.PORTS, mapped);
           }
           break;
         }
@@ -949,7 +975,7 @@ export const AppDataProvider = ({ children }) => {
     const created = await portService.createPort(portData, currentUser?.name || "Super Admin");
     fetchMenuApi('ports');
     await refreshAll();
-    showToast(`Island Port Destination ${created.code} (${created.name}) registered.`, 'success', 'Port Added');
+    showToast(`Island Port Destination ${created.code || created.portCode} (${created.name}) registered.`, 'success', 'Port Added');
     return created;
   };
 

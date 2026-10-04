@@ -22,11 +22,12 @@ import {
   Shield,
   Building2,
   Tag,
-  Printer
+  Printer,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose }) => {
+export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose, isCollapsed = false }) => {
   const { currentUser, isAgent, switchUser, logout, usersList } = useAuth();
 
   const roleKey = currentUser?.roleKey || 'super_admin';
@@ -151,24 +152,33 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose }) => {
 
   return (
     <>
-      {/* Mobile Backdrop */}
+      {/* Mobile Drawer Backdrop */}
       {isOpen && (
         <div
-          className="modal-backdrop no-print"
-          style={{ zIndex: 998, background: 'rgba(10, 25, 47, 0.6)' }}
+          className="sidebar-backdrop no-print"
           onClick={onClose}
         />
       )}
 
       <aside
-        className={`sidebar no-print ${isOpen ? 'open' : ''}`}
+        className={`sidebar no-print ${isOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}
         style={{
           color: '#FFFFFF'
         }}
       >
         {/* Sidebar Header */}
-        <div style={{ padding: '1.25rem 2.5rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          <BrandLogo variant="light" size="default" />
+        <div style={{ padding: '1.25rem 1.5rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <BrandLogo variant="light" size="default" />
+            <button
+              onClick={onClose}
+              className="show-mobile-only btn btn-ghost btn-icon"
+              style={{ color: '#94A3B8', padding: '4px' }}
+              aria-label="Close navigation"
+            >
+              <X size={18} />
+            </button>
+          </div>
           <div style={{
             marginTop: '0.65rem',
             background: 'rgba(56, 189, 248, 0.1)',

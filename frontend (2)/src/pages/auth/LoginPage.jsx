@@ -146,104 +146,83 @@ export const LoginPage = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      width: '100%',
-      backgroundColor: '#0A192F',
-      backgroundImage: 'radial-gradient(circle at 15% 50%, rgba(2, 132, 199, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(217, 119, 6, 0.12), transparent 25%), linear-gradient(180deg, #061121 0%, #0A192F 50%, #0F172A 100%)',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: '1rem 0.75rem',
-      overflowY: 'auto',
-      fontFamily: 'Plus Jakarta Sans, sans-serif'
-    }}>
-      {/* Top Brand Header */}
-      <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
-        <div style={{ display: 'inline-block', transform: 'scale(0.95)', marginBottom: '0.25rem' }}>
-          <BrandLogo variant="light" size="default" />
+    <div className="login-page-wrapper">
+      <div className="login-inner-container">
+        {/* Top Brand Header */}
+        <div className="login-brand-header">
+          <div style={{ display: 'inline-block', transform: 'scale(0.95)', marginBottom: '0.25rem' }}>
+            <BrandLogo variant="light" size="default" />
+          </div>
+          <p style={{ color: '#94A3B8', fontSize: '0.78rem', maxWidth: '480px', margin: '0 auto', lineHeight: 1.3 }}>
+            Freight Forwarding, Cargo Consolidation &amp; Logistics Management System
+          </p>
         </div>
-        <p style={{ color: '#94A3B8', fontSize: '0.78rem', maxWidth: '480px', margin: '0 auto', lineHeight: 1.3 }}>
-          Freight Forwarding, Cargo Consolidation &amp; Logistics Management System
-        </p>
-      </div>
 
-      {/* Main Dual Box Container */}
-      <div className="login-card-container">
+        {/* Main Dual Box Container */}
+        <div className="login-card-container">
 
-        {/* LEFT COLUMN: Standard Form Sign-in */}
-        <div className="login-form-pane">
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0284C7', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              <Lock size={13} /> Portal Sign In
-            </div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0A192F', marginTop: '0.15rem', marginBottom: '0.15rem' }}>
-              Sign In to Your Workspace
-            </h2>
-            <p style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '0.65rem' }}>
-              Select a role icon below or enter your credentials:
-            </p>
-
-            {/* Quick 1-Tap Icon Logo Buttons */}
-            <div style={{ marginBottom: '0.75rem', background: '#F8FAFC', padding: '0.45rem 0.5rem', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#D97706', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0.15rem' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Sparkles size={12} /> Quick Select Role:
-                </span>
-                <span style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600 }}>
-                  Password: password123
-                </span>
+          {/* LEFT COLUMN: Standard Form Sign-in */}
+          <div className="login-form-pane">
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0284C7', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <Lock size={13} /> Portal Sign In
               </div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0A192F', marginTop: '0.15rem', marginBottom: '0.15rem' }}>
+                Sign In to Your Workspace
+              </h2>
+              <p style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '0.65rem' }}>
+                Select a role icon below or enter your credentials:
+              </p>
 
-              {/* 5-Column Clean Icon Buttons in Single Row */}
-              <div className="role-icon-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.3rem' }}>
-                {sortedUsers.map((u) => {
-                  const details = u.details || roleDetails[u.userCode] || roleDetails[u.id] || roleDetails['USR-001'];
-                  const isSelected = (selectedUser?.userCode || selectedUser?.id) === (u.userCode || u.id) || selectedUser?.email === u.email;
-                  const Icon = details.icon;
+              {/* Quick 1-Tap Icon Logo Buttons */}
+              <div style={{ marginBottom: '0.75rem', background: '#F8FAFC', padding: '0.45rem 0.5rem', borderRadius: '10px', border: '1px solid #E2E8F0', width: '100%', boxSizing: 'border-box' }}>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#D97706', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0.15rem', flexWrap: 'wrap', gap: '4px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                    <Sparkles size={12} /> Quick Select Role:
+                  </span>
+                  <span style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    Password: password123
+                  </span>
+                </div>
 
-                  return (
-                    <button
-                      key={u.personaKey}
-                      type="button"
-                      onClick={() => handleQuickLogin(u)}
-                      className={`role-icon-btn ${isSelected ? 'active' : ''}`}
-                      title={`Sign in as ${u.name} (${details.title})`}
-                      style={{ padding: '0.35rem 0.1rem' }}
-                    >
-                      <div style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
-                        backgroundColor: details.badgeColor,
-                        color: '#FFFFFF',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 800,
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                      }}>
-                        <Icon size={14} />
-                      </div>
-                      <span className="role-icon-label" style={{
-                        fontSize: '0.62rem',
-                        fontWeight: 700,
-                        color: isSelected ? '#FFFFFF' : '#334155',
-                        textAlign: 'center',
-                        lineHeight: 1.1,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        maxWidth: '100%'
-                      }}>
-                        {details.shortLabel}
-                      </span>
-                    </button>
-                  );
-                })}
+                {/* 5-Column Clean Icon Buttons in Single Row */}
+                <div className="role-icon-grid">
+                  {sortedUsers.map((u) => {
+                    const details = u.details || roleDetails[u.userCode] || roleDetails[u.id] || roleDetails['USR-001'];
+                    const isSelected = (selectedUser?.userCode || selectedUser?.id) === (u.userCode || u.id) || selectedUser?.email === u.email;
+                    const Icon = details.icon;
+
+                    return (
+                      <button
+                        key={u.personaKey}
+                        type="button"
+                        onClick={() => handleQuickLogin(u)}
+                        className={`role-icon-btn ${isSelected ? 'active' : ''}`}
+                        title={`Sign in as ${u.name} (${details.title})`}
+                      >
+                        <div style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          backgroundColor: details.badgeColor,
+                          color: '#FFFFFF',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                          flexShrink: 0
+                        }}>
+                          <Icon size={14} />
+                        </div>
+                        <span className="role-icon-label">
+                          {details.shortLabel}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
             <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -313,6 +292,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
                 className="btn btn-primary"
                 disabled={isLoading}
                 style={{
+                  width: '100%',
                   height: '40px',
                   justifyContent: 'center',
                   fontWeight: 700,
@@ -335,7 +315,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
             </form>
           </div>
 
-          <div style={{ marginTop: '0.85rem', paddingTop: '0.65rem', borderTop: '1px solid #F1F5F9', fontSize: '0.72rem', color: '#94A3B8', display: 'flex', justifyContent: 'space-between' }}>
+          <div style={{ marginTop: '0.85rem', paddingTop: '0.65rem', borderTop: '1px solid #F1F5F9', fontSize: '0.72rem', color: '#94A3B8', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
             <span>VI Logistics System</span>
             <span>CFS &amp; Maritime Hub</span>
           </div>
@@ -344,11 +324,11 @@ export const LoginPage = ({ onLoginSuccess }) => {
         {/* RIGHT COLUMN: 1-Click Role Login Hub (Demo Switcher) */}
         <div className="login-roles-pane">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem', flexWrap: 'wrap', gap: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#0284C7', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 <Users size={13} /> Workspaces by Role
               </div>
-              <span style={{ fontSize: '0.68rem', background: '#E0F2FE', color: '#0369A1', padding: '1px 7px', borderRadius: '4px', fontWeight: 700 }}>
+              <span style={{ fontSize: '0.68rem', background: '#E0F2FE', color: '#0369A1', padding: '1px 7px', borderRadius: '4px', fontWeight: 700, whiteSpace: 'nowrap' }}>
                 Role-Focused Menus
               </span>
             </div>
@@ -469,5 +449,6 @@ export const LoginPage = ({ onLoginSuccess }) => {
 
       </div>
     </div>
-  );
+  </div>
+);
 };

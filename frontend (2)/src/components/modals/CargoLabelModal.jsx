@@ -30,11 +30,11 @@ export const CargoLabelModal = ({ isOpen, onClose, cargo }) => {
 
         <div className="modal-body" style={{ background: '#F1F5F9', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem' }}>
           {totalPieces > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#FFFFFF', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#FFFFFF', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #E2E8F0', flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
                 Select Piece Label:
               </span>
-              <div style={{ display: 'flex', gap: '0.35rem' }}>
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                 {Array.from({ length: Math.min(totalPieces, 8) }).map((_, idx) => (
                   <button
                     key={idx}

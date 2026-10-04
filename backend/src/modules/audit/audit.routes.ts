@@ -6,9 +6,8 @@ import { ROLES } from '../../common/constants/roles.js';
 
 export async function auditRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', authenticate);
-  app.addHook('preHandler', requireRole(ROLES.SUPER_ADMIN));
 
-  app.get('/', auditController.list);
+  app.get('/', { preHandler: [requireRole(ROLES.SUPER_ADMIN)] }, auditController.list);
   app.post('/', auditController.create);
 }
 

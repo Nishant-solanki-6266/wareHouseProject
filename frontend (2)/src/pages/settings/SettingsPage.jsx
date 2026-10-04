@@ -195,9 +195,9 @@ export const SettingsPage = () => {
                 </thead>
                 <tbody>
                   {ports.map((port) => (
-                    <tr key={port.id || port.code}>
+                    <tr key={port.id || port.code || port.portCode}>
                       <td style={{ fontWeight: 800, color: '#0284C7', fontFamily: 'JetBrains Mono, monospace' }}>
-                        {port.code}
+                        {port.code || port.portCode}
                       </td>
                       <td style={{ fontWeight: 600 }}>{port.island}</td>
                       <td>
@@ -463,7 +463,7 @@ export const SettingsPage = () => {
       <DeleteConfirmModal
         isOpen={!!deletingPort}
         onClose={() => setDeletingPort(null)}
-        itemName={`${deletingPort?.code} - ${deletingPort?.name}`}
+        itemName={`${deletingPort?.code || deletingPort?.portCode} - ${deletingPort?.name}`}
         itemType="Island Port"
         onConfirm={async () => {
           await deletePort(deletingPort.id);
