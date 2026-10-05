@@ -926,6 +926,7 @@ export const AppDataProvider = ({ children }) => {
   const createUser = async (userData) => {
     const created = await userService.createUser(userData, currentUser?.name || "Super Admin");
     fetchMenuApi('users');
+    if (syncUsers) syncUsers();
     await refreshAll();
     showToast(`Staff Account for ${created.name} created.`, 'success', 'User Registered');
     return created;
@@ -934,8 +935,9 @@ export const AppDataProvider = ({ children }) => {
   const updateUser = async (id, updates) => {
     const updated = await userService.updateUser(id, updates, currentUser?.name || "Super Admin");
     fetchMenuApi('users');
+    if (syncUsers) syncUsers();
     await refreshAll();
-    showToast(`Staff Account for ${id} updated.`, 'success', 'User Updated');
+    showToast(`Staff Account for ${updated?.name || id} updated.`, 'success', 'User Updated');
     return updated;
   };
 
@@ -944,6 +946,7 @@ export const AppDataProvider = ({ children }) => {
     const success = await userService.deleteUser(id, currentUser?.name || "Super Admin");
     if (success) {
       fetchMenuApi('users');
+      if (syncUsers) syncUsers();
       await refreshAll();
       showToast(`Staff Account ${id} deleted.`, 'info', 'User Deleted');
     }
