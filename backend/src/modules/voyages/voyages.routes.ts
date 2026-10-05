@@ -14,4 +14,3 @@ export async function voyagesRoutes(app: FastifyInstance): Promise<void> {
   app.put('/:id', { preHandler: [requireRole(ROLES.SUPER_ADMIN, ROLES.OPERATIONS, ROLES.DOCUMENTATION_STAFF)] }, voyagesController.update);
   app.delete('/:id', { preHandler: [requireRole(ROLES.SUPER_ADMIN, ROLES.OPERATIONS, ROLES.DOCUMENTATION_STAFF)] }, voyagesController.delete);
 }
-
