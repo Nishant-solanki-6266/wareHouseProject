@@ -211,7 +211,14 @@ export const warehouseService = {
         updatedReceipt = res.data || res;
       }
     } catch (err) {
-      console.warn(`Backend updateReceipt ${id} failed:`, err?.message || err);
+      try {
+        const patchRes = await apiClient.patch(`warehouse-receipts/${encodeURIComponent(id)}`, updates);
+        if (patchRes) {
+          updatedReceipt = patchRes.data || patchRes;
+        }
+      } catch (patchErr) {
+        console.warn(`Backend updateReceipt ${id} failed:`, patchErr?.message || patchErr);
+      }
     }
 
     const list = getStored(KEYS.WAREHOUSE_RECEIPTS, []);

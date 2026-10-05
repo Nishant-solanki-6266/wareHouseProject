@@ -3,20 +3,30 @@
    ========================================================================== */
 
 @media print {
-  body {
+  html, body {
     background: #ffffff !important;
     color: #000000 !important;
-    font-size: 11pt !important;
+    font-size: 10pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
+  /* Hide entire UI chrome, navigation, headers, and buttons */
   .no-print,
   .sidebar,
+  .sidebar-backdrop,
   .top-header,
   .modal-backdrop:not(.print-label-modal-backdrop),
   .toast-container,
   .btn,
-  .page-header-actions,
-  .tabs-container {
+  .tabs-container,
+  .breadcrumb,
+  .workflow-indicator-card,
+  nav,
+  header {
     display: none !important;
   }
 
@@ -65,14 +75,30 @@
     z-index: 1000000 !important;
   }
 
-  .main-wrapper, .main-content, .app-container {
+  /* .main-wrapper, .main-content, .app-container {} */
+  /* Automatically hide any card that is NOT the official document being printed */
+  .card:not(.printable-document-hbl):not(.printable-document-bl):not(.print-document-card):not(.printable-manifest):not(.printable-label-4x6) {
+    display: none !important;
+  }
+
+  .main-wrapper, .main-content, .app-container, .house-bl-viewer-wrapper {
     padding: 0 !important;
     margin: 0 !important;
     max-width: 100% !important;
+    width: 100% !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Standard Letter / A4 Portrait for Documents */
+  @page {
+    size: letter portrait;
+    margin: 0.3in;
   }
 
   /* --------------------------------------------------------------------------
-     4x6 Roll Thermal Label Print Specifics (4in width x 6in height)
+     House B/L Document Print Specifics (Standard Letter Portrait)
      -------------------------------------------------------------------------- */
   @page cargo-label-page {
     size: 4in 6in;
@@ -85,7 +111,17 @@
     max-height: 5.7in !important;
     border: 2px solid #000000 !important;
     padding: 0.12in !important;
+
+  }
+
+  .printable-document-hbl {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    border: 2px solid #0A192F !important;
+    padding: 0.3in !important;
     box-sizing: border-box !important;
+    box-shadow: none !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     display: flex !important;
@@ -93,6 +129,9 @@
     justify-content: space-between !important;
     font-family: Arial, Helvetica, sans-serif !important;
     zoom: 0.80 !important;
+    page-break-after: avoid !important;
+    display: block !important;
+    background: #ffffff !important;
   }
 
   /* --------------------------------------------------------------------------
@@ -100,15 +139,22 @@
      -------------------------------------------------------------------------- */
   @page bl-document-page {
     size: letter portrait;
-    margin: 0.35in;
+    margin: 0.3in;
   }
 
   .printable-document-bl {
     page: bl-document-page;
     width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
     border: 2px solid #000000 !important;
-    padding: 0.25in !important;
-    page-break-after: always;
+    padding: 0.3in !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+    display: block !important;
+    background: #ffffff !important;
   }
 
   /* --------------------------------------------------------------------------
@@ -141,4 +187,4 @@
     page-break-inside: avoid;
     page-break-after: auto;
   }
-}
+  }   

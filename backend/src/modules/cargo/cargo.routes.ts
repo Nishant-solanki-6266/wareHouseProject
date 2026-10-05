@@ -21,6 +21,11 @@ export async function cargoRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [requireRole(ROLES.SUPER_ADMIN, ROLES.OPERATIONS_STAFF, ROLES.DOCUMENTATION_STAFF, ROLES.WAREHOUSE_STAFF)] },
     cargoController.update
   );
+  app.patch(
+    '/:id',
+    { preHandler: [requireRole(ROLES.SUPER_ADMIN, ROLES.OPERATIONS_STAFF, ROLES.DOCUMENTATION_STAFF, ROLES.WAREHOUSE_STAFF)] },
+    cargoController.update
+  );
   app.delete(
     '/:id',
     { preHandler: [requireRole(ROLES.SUPER_ADMIN)] },

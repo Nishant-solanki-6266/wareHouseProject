@@ -158,22 +158,23 @@ export const CreateHouseBill = ({ onNavigate }) => {
 
   const handleCreate = async () => {
     const firstWr = selectedWrs[0];
+    const customerName = selectedCustomer?.name || selectedCustomer?.companyName || firstWr?.consignee || firstWr?.customer || firstWr?.customerName || "Consignee Importer";
 
     const payload = {
       hblNumber: formData.hblNumber,
       customerId: selectedCustomer?.id,
-      customerName: selectedCustomer?.name,
+      customerName: customerName,
       shipper: {
         name: firstWr?.shipper || "Global Retail Suppliers Inc.",
         address: "Miami CFS Cargo Hub, FL"
       },
       consignee: {
-        name: selectedCustomer?.name,
-        address: selectedCustomer?.address,
-        taxId: selectedCustomer?.taxId
+        name: customerName,
+        address: selectedCustomer?.address || firstWr?.destinationPort || "Destination Port Area",
+        taxId: selectedCustomer?.taxId || ""
       },
       notifyParty: {
-        name: firstWr?.agentName || "Caribbean Express Freight Ltd.",
+        name: firstWr?.agentName || selectedCustomer?.agentName || "Caribbean Express Freight Ltd.",
         address: "Destination Port Cargo Terminal"
       },
       agentId: firstWr?.agentId || "AGT-001",
