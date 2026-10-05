@@ -11,6 +11,7 @@ import { manifestService } from '../services/manifestService';
 import { portService, containerService, vesselService, agentService, userService, documentService, settingsService } from '../services';
 
 import { auditService } from '../services/auditService';
+import { historyService } from '../services/historyService';
 import { apiClient } from '../services/apiClient';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
@@ -38,6 +39,9 @@ export const AppDataProvider = ({ children }) => {
   const [customDocuments, setCustomDocuments] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [settings, setSettings] = useState(null);
+  const [historyData, setHistoryData] = useState([]);
+  const [historySummary, setHistorySummary] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isBackendConnected, setIsBackendConnected] = useState(false);
   const [activeMenuTab, setActiveMenuTab] = useState('dashboard');
@@ -427,6 +431,17 @@ export const AppDataProvider = ({ children }) => {
             setPorts(mapped);
             setStored(KEYS.PORTS, mapped);
           }
+          break;
+        }
+
+        case 'history': {
+          setHistoryLoading(true);
+          const histRes = await historyService.getShipmentHistory().catch(() => null);
+          if (histRes && histRes.data) {
+            setHistoryData(histRes.data);
+            setHistorySummary(histRes.summary);
+          }
+          setHistoryLoading(false);
           break;
         }
 
@@ -1128,6 +1143,11 @@ export const AppDataProvider = ({ children }) => {
       updateSettings,
       clearAllData,
       resetDemoData,
+      // Shipment History & Lifecycle Flow
+      historyData,
+      historySummary,
+      historyLoading,
+      fetchShipmentHistory: historyService.getShipmentHistory,
       // Live Backend State
       isBackendConnected,
       activeMenuTab,
