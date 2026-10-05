@@ -122,8 +122,13 @@ export const LoginPage = ({ onLoginSuccess }) => {
       if (onLoginSuccess) {
         onLoginSuccess(loggedUser);
       }
-    } catch {
+    } catch (err) {
       setIsLoading(false);
+      showToast(
+        err.message || 'Invalid email or password. Please check your credentials.',
+        'danger',
+        'Authentication Failed'
+      );
     }
   };
 
@@ -140,8 +145,13 @@ export const LoginPage = ({ onLoginSuccess }) => {
       if (onLoginSuccess) {
         onLoginSuccess(loggedUser);
       }
-    } catch {
+    } catch (err) {
       setIsLoading(false);
+      showToast(
+        err.message || 'Login failed. Please check backend connection.',
+        'danger',
+        'Authentication Failed'
+      );
     }
   };
 
