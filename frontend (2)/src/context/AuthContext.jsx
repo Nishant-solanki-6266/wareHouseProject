@@ -125,7 +125,11 @@ export const AuthProvider = ({ children }) => {
         return loggedUser;
       }
     } catch (err) {
-      console.warn('[AuthContext] Login notice:', err.message);
+      console.warn('[AuthContext] Login failed:', err.message);
+      // If backend explicitly rejected credentials or rate-limited, do NOT fall back to local demo login
+      if (err.status || (err.message && err.message.toLowerCase().includes('invalid'))) {
+        throw err;
+      }
     }
 
     // Local fallback for offline/demo resilience
