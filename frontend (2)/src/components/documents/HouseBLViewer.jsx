@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrandLogo } from '../common/BrandLogo';
 import { StatusBadge } from '../common/StatusBadge';
 import { BarcodeVisual, QrVisual } from '../common/BarcodeVisual';
-import { Printer, Download, Building2, Package, Layers } from 'lucide-react';
+import { Printer, Download, Building2, Package, Layers, Loader2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { downloadPdfFromElement } from '../../services/pdfService';
 
 export const HouseBLViewer = ({ hbl, onNavigate }) => {
   const { showToast } = useToast();
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   if (!hbl) return null;
 
@@ -14,22 +16,39 @@ export const HouseBLViewer = ({ hbl, onNavigate }) => {
   const isReleased = hbl.status === 'Released' || hbl.status === 'Active';
 
   const handlePrint = () => {
+    const prevTitle = document.title;
+    document.title = `House_Bill_${hbl.hblNumber || 'Document'}`;
     window.print();
+    setTimeout(() => {
+      document.title = prevTitle;
+    }, 1000);
     showToast(`Print layout loaded for House B/L ${hbl.hblNumber}.`, 'info', 'Printing House B/L');
   };
 
-  const handleDownloadMock = () => {
+  const handleDownloadPdf = async () => {
     if (isOnHold) {
       showToast(`Cannot download document: House B/L is currently ON HOLD.`, 'danger', 'Download Restricted');
       return;
     }
-    showToast(`House Bill of Lading ${hbl.hblNumber}.pdf prepared for download.`, 'success', 'PDF Ready');
+    try {
+      setIsDownloadingPdf(true);
+      showToast(`Generating official PDF for House B/L ${hbl.hblNumber}...`, 'info', 'Preparing PDF');
+      const filename = `House_Bill_${hbl.hblNumber || 'Document'}.pdf`;
+      const docElement = document.getElementById('printable-house-bl-doc');
+      await downloadPdfFromElement(docElement, filename);
+      showToast(`House Bill of Lading ${hbl.hblNumber}.pdf downloaded successfully.`, 'success', 'Download Complete');
+    } catch (err) {
+      console.error('PDF download error:', err);
+      showToast(`PDF generation error: ${err.message}`, 'danger', 'Download Failed');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   const packages = hbl.packages && hbl.packages.length > 0 ? hbl.packages : [];
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+    <div className="house-bl-viewer-wrapper" style={{ maxWidth: '900px', margin: '0 auto' }}>
       {/* Top Action Bar (hidden in print) */}
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', background: '#FFFFFF', padding: '0.75rem 1.25rem', borderRadius: '8px', border: '1px solid #E2E8F0', flexWrap: 'wrap', gap: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -46,12 +65,21 @@ export const HouseBLViewer = ({ hbl, onNavigate }) => {
           </button>
           <button
             className={`btn btn-sm ${isOnHold ? 'btn-secondary disabled' : 'btn-primary'}`}
-            onClick={handleDownloadMock}
-            disabled={isOnHold}
+            onClick={handleDownloadPdf}
+            disabled={isOnHold || isDownloadingPdf}
             title={isOnHold ? 'Locked: HBL is on hold' : 'Download House B/L PDF'}
           >
-            <Download size={15} />
-            <span>Download Official PDF</span>
+            {isDownloadingPdf ? (
+              <>
+                <Loader2 size={15} className="spinner" style={{ animation: 'spin 1s linear infinite' }} />
+                <span>Downloading PDF...</span>
+              </>
+            ) : (
+              <>
+                <Download size={15} />
+                <span>Download Official PDF</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -102,6 +130,7 @@ export const HouseBLViewer = ({ hbl, onNavigate }) => {
 
       {/* Printable Document Container */}
       <div
+        id="printable-house-bl-doc"
         className="printable-document-hbl card"
         style={{
           background: '#FFFFFF',

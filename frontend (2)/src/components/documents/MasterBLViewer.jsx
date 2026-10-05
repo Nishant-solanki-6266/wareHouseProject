@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrandLogo } from '../common/BrandLogo';
 import { StatusBadge } from '../common/StatusBadge';
 import { BarcodeVisual } from '../common/BarcodeVisual';
-import { Printer, Download, Layers } from 'lucide-react';
+import { Printer, Download, Layers, Loader2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { downloadPdfFromElement } from '../../services/pdfService';
 
 export const MasterBLViewer = ({ bl, linkedHbls = [], onNavigate }) => {
   const { showToast } = useToast();
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   if (!bl) return null;
 
@@ -14,17 +16,33 @@ export const MasterBLViewer = ({ bl, linkedHbls = [], onNavigate }) => {
   const isReleased = bl.status === 'Released';
 
   const handlePrint = () => {
+    const prevTitle = document.title;
+    document.title = `Master_BL_${bl.blNumber || 'Document'}`;
     window.print();
+    setTimeout(() => {
+      document.title = prevTitle;
+    }, 1000);
     showToast(`Print layout loaded for Master B/L ${bl.blNumber}.`, 'info', 'Printing Document');
   };
 
-  const handleDownloadMock = () => {
+  const handleDownloadPdf = async () => {
     if (isOnHold) {
       showToast(`Cannot download document: Master B/L is currently ON HOLD.`, 'danger', 'Download Restricted');
       return;
     }
-    window.print();
-    showToast(`Opening Print dialog for Master Bill of Lading ${bl.blNumber}. Choose "Save as PDF" to download.`, 'success', 'Download PDF');
+    try {
+      setIsDownloadingPdf(true);
+      showToast(`Generating official PDF for Master B/L ${bl.blNumber}...`, 'info', 'Preparing PDF');
+      const filename = `Master_BL_${bl.blNumber || 'Document'}.pdf`;
+      const docElement = document.getElementById('printable-master-bl-doc');
+      await downloadPdfFromElement(docElement, filename);
+      showToast(`Master Bill of Lading ${bl.blNumber}.pdf downloaded successfully.`, 'success', 'Download Complete');
+    } catch (err) {
+      console.error('PDF download error:', err);
+      showToast(`PDF generation error: ${err.message}`, 'danger', 'Download Failed');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   return (
@@ -45,18 +63,28 @@ export const MasterBLViewer = ({ bl, linkedHbls = [], onNavigate }) => {
           </button>
           <button
             className={`btn btn-sm ${isOnHold ? 'btn-secondary disabled' : 'btn-primary'}`}
-            onClick={handleDownloadMock}
-            disabled={isOnHold}
+            onClick={handleDownloadPdf}
+            disabled={isOnHold || isDownloadingPdf}
             title={isOnHold ? 'Locked: B/L is on hold' : 'Download Master B/L PDF'}
           >
-            <Download size={15} />
-            <span>Download Official PDF</span>
+            {isDownloadingPdf ? (
+              <>
+                <Loader2 size={15} className="spinner" style={{ animation: 'spin 1s linear infinite' }} />
+                <span>Downloading PDF...</span>
+              </>
+            ) : (
+              <>
+                <Download size={15} />
+                <span>Download Official PDF</span>
+              </>
+            )}
           </button>
         </div>
       </div>
 
       {/* Printable B/L Document Container */}
       <div
+        id="printable-master-bl-doc"
         className="printable-document-bl card"
         style={{
           background: '#FFFFFF',
