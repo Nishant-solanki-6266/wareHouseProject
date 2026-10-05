@@ -161,14 +161,14 @@ export const HouseBillDetail = ({ hblId, onNavigate }) => {
                   style={{ cursor: 'pointer' }}
                 >
                   <td style={{ fontWeight: 800, color: '#D97706', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {wr.receiptNumber}
+                    {wr.receiptNumber || wr.receipt_number}
                   </td>
                   <td>{wr.date}</td>
-                  <td>{wr.cargoDescription}</td>
+                  <td>{wr.cargoDescription || wr.cargo_description}</td>
                   <td>{wr.packages?.length || wr.packageCount} lines</td>
-                  <td style={{ fontWeight: 700 }}>{wr.totalPieces || wr.packageCount} pcs</td>
-                  <td>{wr.weightLbs?.toLocaleString()} lbs</td>
-                  <td style={{ fontWeight: 700, color: '#D97706' }}>{wr.cft} CFT <span style={{ color: '#0284C7', fontWeight: 600 }}>({wr.cbm} CBM)</span></td>
+                  <td style={{ fontWeight: 700 }}>{wr.totalPieces || wr.total_pieces || wr.packageCount} pcs</td>
+                  <td>{(Number(wr.weightLbs || wr.weight_lbs || 0)).toLocaleString()} lbs</td>
+                  <td style={{ fontWeight: 700, color: '#D97706' }}>{Number(wr.totalCft || wr.total_cft || wr.cft || 0)} CFT <span style={{ color: '#0284C7', fontWeight: 600 }}>({Number(wr.totalCbm || wr.total_cbm || wr.cbm || 0)} CBM)</span></td>
                   <td style={{ textAlign: 'right' }}>
                     <button
                       onClick={(e) => {
