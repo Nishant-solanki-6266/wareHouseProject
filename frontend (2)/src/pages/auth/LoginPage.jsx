@@ -23,7 +23,7 @@ import { useToast } from '../../context/ToastContext';
 import { initialUsers } from '../../data/mock/usersData';
 
 export const LoginPage = ({ onLoginSuccess }) => {
-  const { login, usersList } = useAuth();
+  const { login, switchUser, usersList } = useAuth();
   const { showToast } = useToast();
 
   const roleDetails = {
@@ -96,7 +96,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
 
   const [selectedUser, setSelectedUser] = useState(() => sortedUsers[0]);
   const [email, setEmail] = useState(() => sortedUsers[0]?.email || 'marcus.vance@vicustoms.com');
-  const [password, setPassword] = useState('password123');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -104,7 +104,7 @@ export const LoginPage = ({ onLoginSuccess }) => {
   const handleSelectPersona = (u) => {
     setSelectedUser(u);
     setEmail(u.email);
-    setPassword('password123');
+    setPassword('');
   };
 
   const handleFormSubmit = async (e) => {
@@ -135,15 +135,17 @@ export const LoginPage = ({ onLoginSuccess }) => {
   const handleQuickLogin = async (u) => {
     setIsLoading(true);
     try {
-      const loggedUser = await login(u.email || u.id, 'password123');
+      const loggedUser = await switchUser(u.id || u.userCode || u.email);
       setIsLoading(false);
-      showToast(
-        `Signed in as ${loggedUser.name} (${loggedUser.role || loggedUser.roleKey}).`,
-        'success',
-        'Portal Access Granted'
-      );
-      if (onLoginSuccess) {
-        onLoginSuccess(loggedUser);
+      if (loggedUser) {
+        showToast(
+          `Signed in as ${loggedUser.name} (${loggedUser.role || loggedUser.roleKey}).`,
+          'success',
+          'Portal Access Granted'
+        );
+        if (onLoginSuccess) {
+          onLoginSuccess(loggedUser);
+        }
       }
     } catch (err) {
       setIsLoading(false);
@@ -189,9 +191,6 @@ export const LoginPage = ({ onLoginSuccess }) => {
                 <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#D97706', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0.15rem', flexWrap: 'wrap', gap: '4px' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
                     <Sparkles size={12} /> Quick Select Role:
-                  </span>
-                  <span style={{ fontSize: '0.62rem', color: '#64748B', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    Password: password123
                   </span>
                 </div>
 
@@ -254,7 +253,6 @@ export const LoginPage = ({ onLoginSuccess }) => {
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
                   <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 600, margin: 0 }}>Password</label>
-                  <span style={{ fontSize: '0.7rem', color: '#0284C7', cursor: 'pointer', fontWeight: 600 }}>Default: password123</span>
                 </div>
                 <div className="input-with-icon">
                   <Lock size={15} className="input-icon-left" style={{ color: '#94A3B8' }} />
