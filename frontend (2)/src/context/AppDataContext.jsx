@@ -348,7 +348,20 @@ export const AppDataProvider = ({ children }) => {
         }
 
         case 'tracking': {
-          const trkRes = await apiClient.get('/tracking').catch(() => null);
+          const [shpRes, wrRes] = await Promise.all([
+            apiClient.get('/shipments').catch(() => null),
+            apiClient.get('/warehouse-receipts').catch(() => null)
+          ]);
+          const shpList = extractListFromRes(shpRes);
+          const wrList = extractListFromRes(wrRes);
+          if (shpList !== null) {
+            setShipments(shpList);
+            setStored(KEYS.SHIPMENTS, shpList);
+          }
+          if (wrList !== null) {
+            setWarehouseReceipts(wrList);
+            setStored(KEYS.WAREHOUSE_RECEIPTS, wrList);
+          }
           break;
         }
 
