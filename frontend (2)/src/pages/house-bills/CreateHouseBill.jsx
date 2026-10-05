@@ -74,7 +74,7 @@ export const CreateHouseBill = ({ onNavigate }) => {
     oceanFreightRate: 3.50, // $3.50 per CFT default
     docFee: 50.00,
     terminalHandlingFee: 35.00,
-    customsAdminFee: 25.00
+    customsAdminFee: 0.00
   });
 
   // Calculate combined totals from selected WRs
@@ -90,11 +90,11 @@ export const CreateHouseBill = ({ onNavigate }) => {
       if (wr.packages && wr.packages.length > 0) {
         combinedPackages = [...combinedPackages, ...wr.packages];
       }
-      totalPieces += Number(wr.totalPieces || wr.packageCount || 0);
+      totalPieces += Number(wr.totalPieces || wr.total_pieces || wr.packageCount || 0);
       totalPackages += Number(wr.packages?.length || wr.packageCount || 1);
-      totalWeightLbs += Number(wr.weightLbs || 0);
-      totalCft += Number(wr.cft || 0);
-      totalCbm += Number(wr.cbm || 0);
+      totalWeightLbs += Number(wr.weightLbs || wr.weight_lbs || 0);
+      totalCft += Number(wr.totalCft || wr.total_cft || wr.cft || 0);
+      totalCbm += Number(wr.totalCbm || wr.total_cbm || wr.cbm || 0);
     });
 
     const totalWeightKg = Number((totalWeightLbs * 0.453592).toFixed(1));
@@ -447,10 +447,10 @@ export const CreateHouseBill = ({ onNavigate }) => {
                         <td>{wr.date}</td>
                         <td style={{ fontSize: '0.8rem', color: '#334155' }}>{wr.cargoDescription}</td>
                         <td>{wr.packages?.length || wr.packageCount} lines</td>
-                        <td style={{ fontWeight: 700 }}>{wr.totalPieces || wr.packageCount} pcs</td>
-                        <td>{wr.weightLbs?.toLocaleString()} lbs</td>
-                        <td style={{ fontWeight: 800, color: '#D97706' }}>{wr.cft} CFT</td>
-                        <td style={{ fontWeight: 700, color: '#0284C7' }}>{wr.cbm} CBM</td>
+                        <td style={{ fontWeight: 700 }}>{wr.totalPieces || wr.total_pieces || wr.packageCount} pcs</td>
+                        <td>{(Number(wr.weightLbs || wr.weight_lbs || 0)).toLocaleString()} lbs</td>
+                        <td style={{ fontWeight: 800, color: '#D97706' }}>{Number(wr.totalCft || wr.total_cft || wr.cft || 0)} CFT</td>
+                        <td style={{ fontWeight: 700, color: '#0284C7' }}>{Number(wr.totalCbm || wr.total_cbm || wr.cbm || 0)} CBM</td>
                         <td><StatusBadge status={wr.status} size="sm" /></td>
                       </tr>
                     );
@@ -534,11 +534,11 @@ export const CreateHouseBill = ({ onNavigate }) => {
             {selectedWrs.map(wr => (
               <div key={wr.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
                 <div>
-                  <strong style={{ color: '#D97706', fontFamily: 'JetBrains Mono, monospace' }}>{wr.receiptNumber}</strong> • {wr.customer || wr.consignee}
-                  <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{wr.cargoDescription}</div>
+                  <strong style={{ color: '#D97706', fontFamily: 'JetBrains Mono, monospace' }}>{wr.receiptNumber || wr.receipt_number}</strong> • {wr.customer || wr.customerName || wr.customer_name || wr.consignee}
+                  <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{wr.cargoDescription || wr.cargo_description}</div>
                 </div>
                 <div style={{ textAlign: 'right', fontSize: '0.8rem' }}>
-                  <strong>{wr.totalPieces || wr.packageCount} pieces</strong> • <span style={{ color: '#D97706', fontWeight: 700 }}>{wr.cft} CFT</span> ({wr.cbm} CBM)
+                  <strong>{wr.totalPieces || wr.total_pieces || wr.packageCount} pieces</strong> • <span style={{ color: '#D97706', fontWeight: 700 }}>{Number(wr.totalCft || wr.total_cft || wr.cft || 0)} CFT</span> ({Number(wr.totalCbm || wr.total_cbm || wr.cbm || 0)} CBM)
                 </div>
               </div>
             ))}
