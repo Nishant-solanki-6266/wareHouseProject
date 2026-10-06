@@ -31,7 +31,9 @@ export const HouseBillsList = ({ onNavigate }) => {
   const [deletingHBL, setDeletingHBL] = useState(null);
 
   useEffect(() => {
-    if (fetchMenuApi) fetchMenuApi('house-bills');
+    if ((!houseBills || houseBills.length === 0) && fetchMenuApi) {
+      fetchMenuApi('house-bills');
+    }
   }, [fetchMenuApi]);
 
   // Filter if Agent

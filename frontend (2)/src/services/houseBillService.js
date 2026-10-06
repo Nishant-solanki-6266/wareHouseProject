@@ -292,12 +292,13 @@ export const houseBillService = {
       list[index] = merged;
       setStored(KEYS.HOUSE_BILLS, list);
 
+      const refNumber = merged.hblNumber || id;
       await auditService.logAction(
         currentUser,
         "House Bill of Lading",
         "Updated House Bill of Lading",
-        id,
-        `Updated details for House B/L ${id}.`
+        refNumber,
+        `Updated details for House B/L ${refNumber}.`
       );
 
       return merged;
@@ -333,12 +334,13 @@ export const houseBillService = {
     });
     setStored(KEYS.WAREHOUSE_RECEIPTS, updatedWrs);
 
+    const refNumber = existing.hblNumber || id;
     await auditService.logAction(
       currentUser,
       "House Bill of Lading",
       "Deleted House Bill of Lading",
-      id,
-      `Deleted House B/L ${id} (${existing.customerName}).`
+      refNumber,
+      `Deleted House B/L ${refNumber} (${existing.customerName}).`
     );
 
     return true;
@@ -374,12 +376,13 @@ export const houseBillService = {
     list[index] = updatedHBL;
     setStored(KEYS.HOUSE_BILLS, list);
 
+    const refNumber = currentHBL.hblNumber || hblId;
     await auditService.logAction(
       currentUser,
       "House Bill of Lading",
       "Placed House B/L On Hold",
-      hblId,
-      `Placed House B/L ${hblId} on hold. Reason: ${reason}`
+      refNumber,
+      `Placed House B/L ${refNumber} on hold. Reason: ${reason}`
     );
 
     return updatedHBL;
@@ -415,12 +418,13 @@ export const houseBillService = {
     list[index] = updatedHBL;
     setStored(KEYS.HOUSE_BILLS, list);
 
+    const refNumber = currentHBL.hblNumber || hblId;
     await auditService.logAction(
       currentUser,
       "House Bill of Lading",
       "Cleared Hold on House B/L",
-      hblId,
-      `Cleared hold on House B/L ${hblId}. Status is now Active.`
+      refNumber,
+      `Cleared hold on House B/L ${refNumber}. Status is now Active.`
     );
 
     return updatedHBL;
@@ -435,12 +439,13 @@ export const houseBillService = {
     list[index].status = newStatus;
     setStored(KEYS.HOUSE_BILLS, list);
 
+    const refNumber = list[index].hblNumber || hblId;
     await auditService.logAction(
       currentUser,
       "House Bill of Lading",
       `Updated House B/L Status to ${newStatus}`,
-      hblId,
-      `House B/L ${hblId} status changed to ${newStatus}.`
+      refNumber,
+      `House B/L ${refNumber} status changed to ${newStatus}.`
     );
 
     return list[index];

@@ -60,9 +60,6 @@ export const ShipmentHistoryArchive = ({ onNavigate }) => {
 
   useEffect(() => {
     loadHistory();
-    if (fetchMenuApi) {
-      fetchMenuApi('history');
-    }
   }, [statusFilter]);
 
   // Handle Export CSV with all calculated flow columns

@@ -23,7 +23,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export const CreateWarehouseReceipt = ({ onNavigate }) => {
   const { createWarehouseReceipt, customers, agents, ports, warehouseReceipts, createCustomer } = useAppData();
-  const { isDocs, isSuperAdmin } = useAuth();
+  const { currentUser, isDocs, isSuperAdmin } = useAuth();
   const canEditWR = isDocs || isSuperAdmin;
 
   const maxSeq = warehouseReceipts.reduce((max, r) => {
@@ -37,6 +37,8 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
   const nasPort = ports.find(p => getPortCode(p) === 'NAS') || ports[0];
   const defaultPort = nasPort ? `${getPortCode(nasPort)} - ${nasPort.name}` : 'NAS - Nassau Container Port';
   const defaultPortCode = nasPort ? getPortCode(nasPort) : 'NAS';
+  const initialAgent = agents.find(a => a.assignedPortCode === defaultPortCode);
+  const initialAgentName = initialAgent?.name || nasPort?.defaultAgent || '';
 
   // Form Header State (Fresh Blank State)
   const [formData, setFormData] = useState({
@@ -47,8 +49,8 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
     customerName: '',
     shipper: '',
     consignee: '',
-    agentId: agents[0]?.id || null,
-    agentName: agents[0]?.name || 'Caribbean Express Freight Ltd.',
+    agentId: initialAgent?.id || null,
+    agentName: initialAgentName,
     destinationPort: defaultPort,
     destinationCode: defaultPortCode,
     warehouseLocation: 'Bay A-1 (CFS Staging)',
@@ -112,14 +114,23 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
     }
     const selected = customers.find(c => c.id === custId);
     if (selected) {
+      const destP = selected.destinationPort || formData.destinationPort;
+      const destC = selected.destinationCode || (destP && destP.includes(' - ') ? destP.split(' - ')[0].trim() : formData.destinationCode);
+      const portObj = ports.find(p => getPortCode(p) === destC);
+      const matchedAgent = agents.find(a => a.assignedPortCode === destC);
+      const matchedAgentName = matchedAgent?.name || portObj?.defaultAgent || '';
+      const matchedAgentId = matchedAgent?.id || null;
+
       setFormData(prev => ({
         ...prev,
         customerId: selected.id,
         customer: selected.name,
         customerName: selected.name,
         consignee: `${selected.name}\n${selected.address || ''}\nAttn: ${selected.contactPerson || ''} (${selected.telephone || ''})`.trim(),
-        destinationPort: selected.destinationPort || prev.destinationPort,
-        destinationCode: selected.destinationCode || prev.destinationCode
+        destinationPort: destP,
+        destinationCode: destC,
+        agentId: matchedAgentId,
+        agentName: matchedAgentName
       }));
     }
   };
@@ -252,6 +263,8 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
 
     const payload = {
       ...formData,
+      receivedBy: currentUser?.name ? `${currentUser.name} (${currentUser.role || 'Super Administrator'})` : 'CFS Receiving Operations',
+      receivedByRole: currentUser?.role || 'Receiving Officer',
       customer: formData.customer || formData.customerName || (formData.consignee ? formData.consignee.split('\n')[0] : 'General Consignee'),
       customerName: formData.customerName || formData.customer || (formData.consignee ? formData.consignee.split('\n')[0] : 'General Consignee'),
       packages,
@@ -336,7 +349,17 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
                     onChange={(e) => {
                       const dest = e.target.value;
                       const code = dest.includes(' - ') ? dest.split(' - ')[0].trim() : dest;
-                      setFormData(prev => ({ ...prev, destinationPort: dest, destinationCode: code }));
+                      const portObj = ports.find(p => getPortCode(p) === code);
+                      const matchedAgent = agents.find(a => a.assignedPortCode === code);
+                      const matchedAgentName = matchedAgent?.name || portObj?.defaultAgent || '';
+                      const matchedAgentId = matchedAgent?.id || null;
+                      setFormData(prev => ({
+                        ...prev,
+                        destinationPort: dest,
+                        destinationCode: code,
+                        agentId: matchedAgentId,
+                        agentName: matchedAgentName
+                      }));
                     }}
                     required
                   >

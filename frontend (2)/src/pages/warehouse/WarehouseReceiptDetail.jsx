@@ -11,7 +11,7 @@ import { useAppData } from '../../context/AppDataContext';
 import { warehouseService } from '../../services/warehouseService';
 
 export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
-  const { warehouseReceipts, updateWarehouseReceipt, deleteWarehouseReceipt, refreshAll } = useAppData();
+  const { warehouseReceipts, updateWarehouseReceipt, deleteWarehouseReceipt } = useAppData();
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -216,9 +216,6 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
           const res = await updateWarehouseReceipt(receipt.id || receipt.receiptNumber, updates);
           if (res) {
             setFetchedReceipt(res);
-          }
-          if (refreshAll) {
-            await refreshAll();
           }
           setShowEditModal(false);
         }}

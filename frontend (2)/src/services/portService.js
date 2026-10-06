@@ -148,11 +148,12 @@ export const portService = {
       };
       setStored(KEYS.PORTS, list);
 
+      const refNumber = list[index].code || list[index].portCode || id;
       await auditService.logAction(
         currentUser,
         "Port Management",
         "Updated Island Port Destination",
-        id,
+        refNumber,
         `Updated port destination details for ${list[index].code} - ${list[index].name}.`
       );
 
@@ -175,11 +176,12 @@ export const portService = {
     const filtered = list.filter(item => item.id !== id && item.code !== id);
     setStored(KEYS.PORTS, filtered);
 
+    const refNumber = existing.code || existing.portCode || id;
     await auditService.logAction(
       currentUser,
       "Port Management",
       "Deleted Island Port Destination",
-      id,
+      refNumber,
       `Deleted port destination ${existing.code} - ${existing.name}.`
     );
 

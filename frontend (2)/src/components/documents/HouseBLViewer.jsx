@@ -4,10 +4,12 @@ import { StatusBadge } from '../common/StatusBadge';
 import { BarcodeVisual, QrVisual } from '../common/BarcodeVisual';
 import { Printer, Download, Building2, Package, Layers, Loader2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { downloadPdfFromElement } from '../../services/pdfService';
 
 export const HouseBLViewer = ({ hbl, onNavigate }) => {
   const { showToast } = useToast();
+  const { currentUser } = useAuth() || {};
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   if (!hbl) return null;
@@ -375,7 +377,7 @@ export const HouseBLViewer = ({ hbl, onNavigate }) => {
 
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', textAlign: 'center' }}>
             <div style={{ width: '100%', borderBottom: '1px solid #0A192F', paddingBottom: '0.25rem', marginBottom: '0.25rem', fontFamily: 'Outfit, sans-serif', fontWeight: 700, fontSize: '0.85rem', color: '#0284C7' }}>
-              Sarah Jenkins (Documentation Officer)
+              {hbl.issuedBy || (currentUser?.name ? `${currentUser.name} (${currentUser.role || 'Documentation Officer'})` : 'Authorized Documentation Officer')}
             </div>
             <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B' }}>
               AUTHORIZED SIGNATURE FOR VI Logistics

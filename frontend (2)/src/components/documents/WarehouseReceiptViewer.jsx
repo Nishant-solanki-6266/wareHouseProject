@@ -4,9 +4,11 @@ import { StatusBadge } from '../common/StatusBadge';
 import { BarcodeVisual, QrVisual } from '../common/BarcodeVisual';
 import { Printer, Download, Building2, FileText, Layers } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
   const { showToast } = useToast();
+  const { currentUser } = useAuth() || {};
 
   if (!receipt) return null;
 
@@ -164,7 +166,11 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
           <div style={{ padding: '0.65rem' }}>
             <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748B' }}>CONSIGNEE &amp; DESTINATION AGENT</div>
             <div style={{ fontSize: '0.85rem', fontWeight: 700, marginTop: '2px' }}>{consigneeDisplayName}</div>
-            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '4px' }}>Assigned Port Agent: <strong>{receipt.agentName || 'Caribbean Express Freight Ltd.'}</strong></div>
+            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '4px' }}>Assigned Port Agent: <strong>{
+              (!receipt.agentName || (receipt.agentName === 'Caribbean Express Freight Ltd.' && receipt.destinationCode && receipt.destinationCode !== 'NAS'))
+                ? 'Unassigned (Direct Consignee Delivery)'
+                : receipt.agentName
+            }</strong></div>
           </div>
         </div>
 
@@ -243,7 +249,7 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
         <div className="grid grid-cols-2 doc-grid-2" style={{ border: '1px solid #0A192F', padding: '0.75rem', gap: '1.5rem', background: '#FFFFFF', fontSize: '0.7rem' }}>
           <div>
             <div style={{ borderBottom: '1px solid #0A192F', paddingBottom: '0.4rem', marginBottom: '0.25rem', fontWeight: 700, color: '#0A192F' }}>
-              Carlos Mendez (CFS Receiving Clerk)
+              {receipt.receivedBy || (currentUser?.name ? `${currentUser.name} (${currentUser.role || 'CFS Receiving Operations'})` : 'Authorized CFS Receiving Clerk')}
             </div>
             <div style={{ fontSize: '0.65rem', color: '#64748B' }}>
               RECEIVED BY VI CFS OPERATIONS

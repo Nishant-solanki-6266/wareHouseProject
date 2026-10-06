@@ -21,11 +21,15 @@ export class BillsOfLadingService {
   }
 
   async createBill(input: CreateBillOfLadingInput) {
-    const totalCount = await this.repo.countTotal();
-    const seq = String(totalCount + 1).padStart(4, '0');
-    const blNumber = input.blNumber && input.blNumber.trim()
-      ? input.blNumber.trim()
-      : `BL-VI-2026-${seq}`;
+    let blNumber = input.blNumber && input.blNumber.trim() ? input.blNumber.trim() : null;
+    if (!blNumber) {
+      blNumber = await this.repo.getNextBlNumber();
+    } else {
+      const existing = await this.repo.findById(blNumber);
+      if (existing) {
+        blNumber = await this.repo.getNextBlNumber();
+      }
+    }
 
     const createdDate = input.createdDate || new Date().toISOString().split('T')[0];
     const issueDate = input.issueDate || createdDate;

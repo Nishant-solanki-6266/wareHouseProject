@@ -14,8 +14,12 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     if (fetchMenuApi) {
-      fetchMenuApi('settings');
-      fetchMenuApi('ports');
+      if (!settings || Object.keys(settings).length === 0) {
+        fetchMenuApi('settings');
+      }
+      if (!ports || ports.length === 0) {
+        fetchMenuApi('ports');
+      }
     }
   }, [fetchMenuApi]);
 

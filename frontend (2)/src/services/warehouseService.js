@@ -123,6 +123,8 @@ export const warehouseService = {
       receiptNumber: receiptData.receiptNumber,
       date: receiptData.date || new Date().toISOString().split('T')[0],
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      receivedBy: receiptData.receivedBy || (currentUser ? `${currentUser} (CFS Receiving Operations)` : 'CFS Receiving Operations'),
+      receivedByRole: receiptData.receivedByRole || 'Receiving Officer',
       customerId: receiptData.customerId || null,
       customer: receiptData.customer || receiptData.customerName || "General Cargo Consignee",
       customerName: receiptData.customerName || receiptData.customer || "General Cargo Consignee",
@@ -282,12 +284,13 @@ export const warehouseService = {
         setStored(KEYS.CARGO, cargoList);
       }
 
+      const refNumber = list[index]?.receiptNumber || id;
       await auditService.logAction(
         currentUser,
         "Warehouse Receipt",
         "Updated Warehouse Receipt",
-        id,
-        `Updated details for ${id} (${list[index].customer || list[index].customerName}).`
+        refNumber,
+        `Updated details for ${refNumber} (${list[index].customer || list[index].customerName || 'Customer'}).`
       );
 
       return list[index];
@@ -313,12 +316,13 @@ export const warehouseService = {
     setStored(KEYS.CARGO, filteredCargo);
 
     if (existing) {
+      const refNumber = existing.receiptNumber || id;
       await auditService.logAction(
         currentUser,
         "Warehouse Receipt",
         "Deleted Warehouse Receipt",
-        id,
-        `Deleted ${id} for customer ${existing.customer || existing.customerName}.`
+        refNumber,
+        `Deleted ${refNumber} for customer ${existing.customer || existing.customerName || 'Customer'}.`
       );
     }
 

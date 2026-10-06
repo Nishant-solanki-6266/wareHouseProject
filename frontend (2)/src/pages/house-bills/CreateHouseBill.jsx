@@ -174,11 +174,11 @@ export const CreateHouseBill = ({ onNavigate }) => {
         taxId: selectedCustomer?.taxId || ""
       },
       notifyParty: {
-        name: firstWr?.agentName || selectedCustomer?.agentName || "Caribbean Express Freight Ltd.",
+        name: firstWr?.agentName || selectedCustomer?.agentName || (selectedCustomer?.destinationCode === 'NAS' ? "Caribbean Express Freight Ltd." : "Direct Consignee Delivery"),
         address: "Destination Port Cargo Terminal"
       },
-      agentId: firstWr?.agentId || "AGT-001",
-      agentName: firstWr?.agentName || "Caribbean Express Freight Ltd.",
+      agentId: firstWr?.agentId || (selectedCustomer?.destinationCode === 'NAS' ? "AGT-001" : null),
+      agentName: firstWr?.agentName || selectedCustomer?.agentName || (selectedCustomer?.destinationCode === 'NAS' ? "Caribbean Express Freight Ltd." : ""),
       originPort: "Port of Miami (USMIA), FL",
       destinationPort: selectedCustomer?.destinationPort || firstWr?.destinationPort || "NAS - Nassau, Bahamas",
       destinationCode: selectedCustomer?.destinationCode || firstWr?.destinationCode || "NAS",

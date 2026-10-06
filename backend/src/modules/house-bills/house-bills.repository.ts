@@ -74,6 +74,37 @@ export class HouseBillsRepository {
     return Number(total);
   }
 
+  async getNextHblNumber(): Promise<string> {
+    const existing = await db
+      .select({ hblNumber: houseBills.hblNumber })
+      .from(houseBills);
+
+    let maxSeq = 0;
+    const existingSet = new Set<string>();
+
+    for (const row of existing) {
+      if (row.hblNumber) {
+        existingSet.add(row.hblNumber.trim());
+        const match = row.hblNumber.match(/(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
+        }
+      }
+    }
+
+    let next = maxSeq + 1;
+    let candidate = `HBL-2026-${String(next).padStart(4, '0')}`;
+    while (existingSet.has(candidate)) {
+      next++;
+      candidate = `HBL-2026-${String(next).padStart(4, '0')}`;
+    }
+
+    return candidate;
+  }
+
   async create(data: NewHouseBill) {
     const [created] = await db.insert(houseBills).values(data).returning();
     return created;

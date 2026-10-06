@@ -1,4 +1,4 @@
-import { eq, ilike, or, count, and } from 'drizzle-orm';
+import { eq, ilike, or, count, and, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { customers } from '../../db/schema/index.js';
 import { CustomerFilterParams, CreateCustomerInput, UpdateCustomerInput } from './customers.types.js';
@@ -27,7 +27,37 @@ export class CustomersRepository {
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const data = await db
-      .select()
+      .select({
+        id: customers.id,
+        customerNumber: customers.customerNumber,
+        name: customers.name,
+        companyName: customers.companyName,
+        contactPerson: customers.contactPerson,
+        email: customers.email,
+        telephone: customers.telephone,
+        phone: customers.phone,
+        address: customers.address,
+        destinationPort: customers.destinationPort,
+        destinationCode: customers.destinationCode,
+        taxId: customers.taxId,
+        accountType: customers.accountType,
+        creditTerms: customers.creditTerms,
+        notes: customers.notes,
+        status: customers.status,
+        createdDate: customers.createdDate,
+        createdAt: customers.createdAt,
+        updatedAt: customers.updatedAt,
+        wrCount: sql<number>`(
+          SELECT COALESCE(COUNT(*), 0)::int FROM warehouse_receipts 
+          WHERE warehouse_receipts.customer_id = ${customers.id} 
+             OR LOWER(warehouse_receipts.customer_name) = LOWER(${customers.name})
+        )`,
+        hblCount: sql<number>`(
+          SELECT COALESCE(COUNT(*), 0)::int FROM house_bills 
+          WHERE house_bills.customer_id = ${customers.id} 
+             OR LOWER(house_bills.customer_name) = LOWER(${customers.name})
+        )`,
+      })
       .from(customers)
       .where(whereClause)
       .limit(filters.limit)
@@ -42,10 +72,45 @@ export class CustomersRepository {
   }
 
   async findById(id: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(customers.id, id), eq(customers.customerNumber, id))
+      : eq(customers.customerNumber, id);
+
     const result = await db
-      .select()
+      .select({
+        id: customers.id,
+        customerNumber: customers.customerNumber,
+        name: customers.name,
+        companyName: customers.companyName,
+        contactPerson: customers.contactPerson,
+        email: customers.email,
+        telephone: customers.telephone,
+        phone: customers.phone,
+        address: customers.address,
+        destinationPort: customers.destinationPort,
+        destinationCode: customers.destinationCode,
+        taxId: customers.taxId,
+        accountType: customers.accountType,
+        creditTerms: customers.creditTerms,
+        notes: customers.notes,
+        status: customers.status,
+        createdDate: customers.createdDate,
+        createdAt: customers.createdAt,
+        updatedAt: customers.updatedAt,
+        wrCount: sql<number>`(
+          SELECT COALESCE(COUNT(*), 0)::int FROM warehouse_receipts 
+          WHERE warehouse_receipts.customer_id = ${customers.id} 
+             OR LOWER(warehouse_receipts.customer_name) = LOWER(${customers.name})
+        )`,
+        hblCount: sql<number>`(
+          SELECT COALESCE(COUNT(*), 0)::int FROM house_bills 
+          WHERE house_bills.customer_id = ${customers.id} 
+             OR LOWER(house_bills.customer_name) = LOWER(${customers.name})
+        )`,
+      })
       .from(customers)
-      .where(or(eq(customers.id, id), eq(customers.customerNumber, id)))
+      .where(condition)
       .limit(1);
 
     return result[0] || null;
@@ -57,9 +122,34 @@ export class CustomersRepository {
   }
 
   async getNextCustomerNumber(): Promise<string> {
-    const total = await this.countTotal();
-    const nextSeq = String(total + 1).padStart(4, '0');
-    return `CUS-2026-${nextSeq}`;
+    const existing = await db
+      .select({ customerNumber: customers.customerNumber })
+      .from(customers);
+
+    let maxSeq = 0;
+    const existingSet = new Set<string>();
+
+    for (const row of existing) {
+      if (row.customerNumber) {
+        existingSet.add(row.customerNumber.trim());
+        const match = row.customerNumber.match(/(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxSeq) {
+            maxSeq = num;
+          }
+        }
+      }
+    }
+
+    let next = maxSeq + 1;
+    let candidate = `CUS-2026-${String(next).padStart(4, '0')}`;
+    while (existingSet.has(candidate)) {
+      next++;
+      candidate = `CUS-2026-${String(next).padStart(4, '0')}`;
+    }
+
+    return candidate;
   }
 
   async create(data: CreateCustomerInput & { customerNumber: string; createdDate: string }) {
@@ -72,19 +162,29 @@ export class CustomersRepository {
   }
 
   async update(id: string, data: UpdateCustomerInput) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(customers.id, id), eq(customers.customerNumber, id))
+      : eq(customers.customerNumber, id);
+
     const [updated] = await db
       .update(customers)
       .set({ ...data, updatedAt: new Date() })
-      .where(or(eq(customers.id, id), eq(customers.customerNumber, id)))
+      .where(condition)
       .returning();
 
     return updated || null;
   }
 
   async delete(id: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const condition = isUuid
+      ? or(eq(customers.id, id), eq(customers.customerNumber, id))
+      : eq(customers.customerNumber, id);
+
     const [deleted] = await db
       .delete(customers)
-      .where(or(eq(customers.id, id), eq(customers.customerNumber, id)))
+      .where(condition)
       .returning();
 
     return !!deleted;

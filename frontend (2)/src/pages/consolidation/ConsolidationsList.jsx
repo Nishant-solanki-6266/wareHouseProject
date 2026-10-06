@@ -11,21 +11,21 @@ import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 
 export const ConsolidationsList = ({ onNavigate }) => {
-  const { consolidations, updateConsolidation, deleteConsolidation, refreshAll, fetchMenuApi } = useAppData();
+  const { consolidations, updateConsolidation, deleteConsolidation, fetchMenuApi } = useAppData();
   const { isAgent, currentUser } = useAuth();
   const [editingConsolidation, setEditingConsolidation] = useState(null);
   const [deletingConsolidation, setDeletingConsolidation] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    if (fetchMenuApi) fetchMenuApi('consolidations');
-    if (refreshAll) refreshAll();
+    if ((!consolidations || consolidations.length === 0) && fetchMenuApi) {
+      fetchMenuApi('consolidations');
+    }
   }, []);
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     if (fetchMenuApi) await fetchMenuApi('consolidations');
-    if (refreshAll) await refreshAll();
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
