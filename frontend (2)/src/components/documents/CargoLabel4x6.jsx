@@ -136,7 +136,7 @@ export const CargoLabel4x6 = ({
             <BarcodeVisual value={cargo.barcode || `${wrNumber}-${pieceIndex}`} height={55} showText={true} />
           </div>
           <div style={{ flexShrink: 0 }}>
-            <QrVisual value={cargo.qrCode || `VI-CARGO-${wrNumber}-${pieceIndex}`} size={70} />
+            <QrVisual value={cargo.qrCode || cargo.barcode || cargo.cargoNumber || `VI-CARGO-${wrNumber}-${pieceIndex}`} size={70} />
           </div>
         </div>
 

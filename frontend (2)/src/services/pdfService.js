@@ -148,57 +148,36 @@ function buildPdfFromJpegBlob(jpegBytes, imgWidth, imgHeight, filename) {
 /**
  * Snapshot DOM element to canvas and export as PDF
  */
+/**
+ * Snapshot DOM element to canvas and export as PDF fallback
+ */
 async function exportElementViaCanvasFallback(element, filename) {
-  const rect = element.getBoundingClientRect();
-  const width = Math.max(rect.width, 850);
-  const height = Math.max(rect.height, 600);
-  const scale = 2;
+  // If html2canvas is bundled inside window.html2pdf or on window, use it directly
+  const html2canvasFn = window.html2canvas || (window.html2pdf && window.html2pdf.html2canvas);
 
-  // Use SVG ForeignObject snapshot
-  const clone = element.cloneNode(true);
-  clone.style.width = `${width}px`;
-  clone.style.margin = '0';
-  clone.style.background = '#FFFFFF';
+  if (typeof html2canvasFn === 'function') {
+    const canvas = await html2canvasFn(element, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      backgroundColor: '#FFFFFF',
+      letterRendering: true
+    });
+    const jpegBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.95));
+    const arrayBuffer = await jpegBlob.arrayBuffer();
+    const jpegBytes = new Uint8Array(arrayBuffer);
+    buildPdfFromJpegBlob(jpegBytes, canvas.width, canvas.height, filename);
+    return;
+  }
 
-  const wrapper = document.createElement('div');
-  wrapper.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-  wrapper.appendChild(clone);
-
-  const serialized = new XMLSerializer().serializeToString(wrapper);
-  const svgData = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-      <foreignObject width="100%" height="100%">
-        ${serialized}
-      </foreignObject>
-    </svg>
-  `;
-
-  const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-  const svgUrl = URL.createObjectURL(svgBlob);
-
-  const img = new Image();
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = reject;
-    img.src = svgUrl;
-  });
-
-  const canvas = document.createElement('canvas');
-  canvas.width = width * scale;
-  canvas.height = height * scale;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.scale(scale, scale);
-  ctx.drawImage(img, 0, 0);
-
-  URL.revokeObjectURL(svgUrl);
-
-  const jpegBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.95));
-  const arrayBuffer = await jpegBlob.arrayBuffer();
-  const jpegBytes = new Uint8Array(arrayBuffer);
-
-  buildPdfFromJpegBlob(jpegBytes, canvas.width, canvas.height, filename);
+  // Pure vector print-to-PDF trigger if canvas libraries are blocked
+  const prevTitle = document.title;
+  document.title = filename.replace(/\.pdf$/i, '');
+  window.print();
+  setTimeout(() => {
+    document.title = prevTitle;
+  }, 1000);
 }
 
 /**
@@ -215,42 +194,102 @@ export const downloadPdfFromElement = async (elementOrId, filename = 'document.p
 
   const cleanFilename = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
 
-  // 1. Primary method: html2pdf.js with jsPDF engine
-  try {
-    await loadHtml2Pdf();
-
-    const opt = {
-      margin: [0.2, 0.2, 0.2, 0.2],
-      filename: cleanFilename,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#FFFFFF',
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: 1000
-      },
-      jsPDF: {
-        unit: 'in',
-        format: 'letter',
-        orientation: 'portrait'
-      }
-    };
-
-    await window.html2pdf().set(opt).from(element).save();
-    return true;
-  } catch (err) {
-    console.warn('html2pdf attempt failed, activating direct PDF generator fallback:', err);
-    // 2. Guaranteed client-side fallback: captures element to canvas and generates valid PDF file
-    try {
-      await exportElementViaCanvasFallback(element, cleanFilename);
-      return true;
-    } catch (fallbackErr) {
-      console.error('All PDF generation methods failed:', fallbackErr);
-      throw new Error(`Failed to generate PDF: ${fallbackErr.message || err.message}`);
+  // Pre-load all images so html2canvas renders them immediately without blanks
+  const imgs = element.querySelectorAll('img');
+  for (let i = 0; i < imgs.length; i++) {
+    const img = imgs[i];
+    img.crossOrigin = 'anonymous';
+    if (!img.complete) {
+      await new Promise((res) => {
+        img.onload = res;
+        img.onerror = res;
+        setTimeout(res, 300);
+      });
     }
   }
+
+  // Ensure runtime CSS styles pin html2pdf containers strictly to (0, 0)
+  // This eliminates any screen-width centering or scroll offset horizontal shift!
+  let runtimeStyle = document.getElementById('html2pdf-runtime-pin-styles');
+  if (!runtimeStyle) {
+    runtimeStyle = document.createElement('style');
+    runtimeStyle.id = 'html2pdf-runtime-pin-styles';
+    runtimeStyle.textContent = `
+      .html2pdf__overlay {
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: transparent !important;
+        z-index: 999999 !important;
+      }
+      .html2pdf__container {
+        position: absolute !important;
+        left: 0 !important;
+        right: auto !important;
+        top: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 800px !important;
+        max-width: 800px !important;
+        background: #FFFFFF !important;
+        box-sizing: border-box !important;
+      }
+      .html2pdf__container .printable-document-receipt {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+      }
+    `;
+    document.head.appendChild(runtimeStyle);
+  }
+
+  // 1. Primary method: html2pdf.js with jsPDF engine
+  try {
+    const html2pdf = await loadHtml2Pdf();
+    if (html2pdf) {
+      const opt = {
+        margin: [0.25, 0.25, 0.25, 0.25], // 0.25 inch borders
+        filename: cleanFilename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          backgroundColor: '#FFFFFF',
+          letterRendering: true,
+          scrollX: 0,
+          scrollY: 0,
+          x: 0,
+          y: 0
+        },
+        jsPDF: {
+          unit: 'in',
+          format: 'letter',
+          orientation: 'portrait'
+        }
+      };
+
+      // Pass element directly - html2pdf clones it into .html2pdf__container at (0, 0)
+      await window.html2pdf().set(opt).from(element).save();
+      return true;
+    }
+  } catch (err) {
+    console.warn('html2pdf primary method failed, attempting fallback:', err);
+  }
+
+  // 2. Client-side fallback: captures element directly
+  try {
+    await exportElementViaCanvasFallback(element, cleanFilename);
+    return true;
+  } catch (fallbackErr) {
+    console.error('All PDF generation methods failed:', fallbackErr);
+    throw new Error(`Failed to generate PDF: ${fallbackErr.message}`);
+  }
 };
+
