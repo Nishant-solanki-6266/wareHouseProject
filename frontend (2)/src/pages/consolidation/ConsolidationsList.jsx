@@ -11,7 +11,7 @@ import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 
 export const ConsolidationsList = ({ onNavigate }) => {
-  const { consolidations, updateConsolidation, deleteConsolidation, refreshAll, fetchMenuApi } = useAppData();
+  const { consolidations, shipments, updateConsolidation, deleteConsolidation, refreshAll, fetchMenuApi } = useAppData();
   const { isAgent, currentUser } = useAuth();
   const [editingConsolidation, setEditingConsolidation] = useState(null);
   const [deletingConsolidation, setDeletingConsolidation] = useState(null);
@@ -118,7 +118,16 @@ export const ConsolidationsList = ({ onNavigate }) => {
     {
       header: 'Status',
       accessor: 'status',
-      render: (item) => <StatusBadge status={item.status} />
+      render: (item) => {
+        const linkedShipment = (shipments || []).find(s =>
+          s.id === item.assignedShipmentId ||
+          s.shipmentNumber === item.assignedShipmentId ||
+          s.consolidationId === item.id ||
+          s.consolidationId === item.consolidationNumber
+        );
+        const liveStatus = linkedShipment?.status || item.status || 'Planning';
+        return <StatusBadge status={liveStatus} />;
+      }
     },
     {
       header: 'Actions',

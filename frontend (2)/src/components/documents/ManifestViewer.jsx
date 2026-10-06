@@ -72,7 +72,7 @@ export const ManifestViewer = ({ manifest }) => {
     lineItems: resolvedLineItems,
     totalCft: manifest.totalCft && manifest.totalCft !== '0.00' && manifest.totalCft !== '0'
       ? manifest.totalCft
-      : (resolvedLineItems[0]?.cft || (manifest.totalCbm ? (parseFloat(manifest.totalCbm) * 35.3147).toFixed(2) : '18.36'))
+      : (resolvedLineItems[0]?.cft ? String(resolvedLineItems[0].cft) : (manifest.totalCbm ? (parseFloat(manifest.totalCbm) * 35.3147).toFixed(2) : '0.00'))
   };
 
   const handlePrint = () => {
