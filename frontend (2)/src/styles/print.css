@@ -10,6 +10,9 @@
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -19,6 +22,7 @@
   .sidebar,
   .sidebar-backdrop,
   .top-header,
+  .page-header,
   .modal-backdrop:not(.print-label-modal-backdrop),
   .toast-container,
   .btn,
@@ -75,26 +79,60 @@
     z-index: 1000000 !important;
   }
 
-  /* .main-wrapper, .main-content, .app-container {} */
   /* Automatically hide any card that is NOT the official document being printed */
-  .card:not(.printable-document-hbl):not(.printable-document-bl):not(.print-document-card):not(.printable-manifest):not(.printable-label-4x6) {
+  .card:not(.printable-document-hbl):not(.printable-document-bl):not(.print-document-card):not(.printable-manifest):not(.printable-label-4x6):not(.printable-document-receipt) {
     display: none !important;
   }
 
-  .main-wrapper, .main-content, .app-container, .house-bl-viewer-wrapper {
+  #root, .main-wrapper, .main-content, .app-container, .house-bl-viewer-wrapper, .receipt-viewer-wrapper, .wr-detail-container {
     padding: 0 !important;
     margin: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    position: static !important;
     background: transparent !important;
     box-shadow: none !important;
     border: none !important;
+    gap: 0 !important;
   }
 
-  /* Standard Letter / A4 Portrait for Documents */
+  /* Standard Letter Portrait for Documents */
   @page {
     size: letter portrait;
-    margin: 0.3in;
+    margin: 0.25in;
+  }
+
+  /* --------------------------------------------------------------------------
+     Warehouse Receipt Document Print Specifics (Single Page Fit, 100% Width)
+     -------------------------------------------------------------------------- */
+  .printable-document-receipt {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    border: 2px solid #0A192F !important;
+    padding: 0.18in !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-before: avoid !important;
+    break-before: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    display: block !important;
+    background: #ffffff !important;
+    zoom: 0.95;
+  }
+
+  /* Eliminate any blank second page */
+  body:has(.printable-document-receipt) {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
   }
 
   /* --------------------------------------------------------------------------
@@ -187,4 +225,40 @@
     page-break-inside: avoid;
     page-break-after: auto;
   }
-  }   
+}
+
+/* ==========================================================================
+   HTML2PDF CLIENT EXPORT RULES: PIN AT ORIGIN (0,0) TO PREVENT CROPPING
+   ========================================================================== */
+.html2pdf__overlay {
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  z-index: 999999 !important;
+}
+
+.html2pdf__container {
+  position: absolute !important;
+  left: 0 !important;
+  right: auto !important;
+  top: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 800px !important;
+  max-width: 800px !important;
+  background: #FFFFFF !important;
+  box-sizing: border-box !important;
+}
+
+.html2pdf__container .printable-document-receipt {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+   
