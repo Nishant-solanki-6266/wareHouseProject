@@ -1,4 +1,4 @@
-import { eq, ilike, or, count, and, sql } from 'drizzle-orm';
+import { eq, ilike, or, count, and } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { customers } from '../../db/schema/index.js';
 import { CustomerFilterParams, CreateCustomerInput, UpdateCustomerInput } from './customers.types.js';
@@ -27,37 +27,7 @@ export class CustomersRepository {
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const data = await db
-      .select({
-        id: customers.id,
-        customerNumber: customers.customerNumber,
-        name: customers.name,
-        companyName: customers.companyName,
-        contactPerson: customers.contactPerson,
-        email: customers.email,
-        telephone: customers.telephone,
-        phone: customers.phone,
-        address: customers.address,
-        destinationPort: customers.destinationPort,
-        destinationCode: customers.destinationCode,
-        taxId: customers.taxId,
-        accountType: customers.accountType,
-        creditTerms: customers.creditTerms,
-        notes: customers.notes,
-        status: customers.status,
-        createdDate: customers.createdDate,
-        createdAt: customers.createdAt,
-        updatedAt: customers.updatedAt,
-        wrCount: sql<number>`(
-          SELECT COALESCE(COUNT(*), 0)::int FROM warehouse_receipts 
-          WHERE warehouse_receipts.customer_id = ${customers.id} 
-             OR LOWER(warehouse_receipts.customer_name) = LOWER(${customers.name})
-        )`,
-        hblCount: sql<number>`(
-          SELECT COALESCE(COUNT(*), 0)::int FROM house_bills 
-          WHERE house_bills.customer_id = ${customers.id} 
-             OR LOWER(house_bills.customer_name) = LOWER(${customers.name})
-        )`,
-      })
+      .select()
       .from(customers)
       .where(whereClause)
       .limit(filters.limit)
@@ -78,37 +48,7 @@ export class CustomersRepository {
       : eq(customers.customerNumber, id);
 
     const result = await db
-      .select({
-        id: customers.id,
-        customerNumber: customers.customerNumber,
-        name: customers.name,
-        companyName: customers.companyName,
-        contactPerson: customers.contactPerson,
-        email: customers.email,
-        telephone: customers.telephone,
-        phone: customers.phone,
-        address: customers.address,
-        destinationPort: customers.destinationPort,
-        destinationCode: customers.destinationCode,
-        taxId: customers.taxId,
-        accountType: customers.accountType,
-        creditTerms: customers.creditTerms,
-        notes: customers.notes,
-        status: customers.status,
-        createdDate: customers.createdDate,
-        createdAt: customers.createdAt,
-        updatedAt: customers.updatedAt,
-        wrCount: sql<number>`(
-          SELECT COALESCE(COUNT(*), 0)::int FROM warehouse_receipts 
-          WHERE warehouse_receipts.customer_id = ${customers.id} 
-             OR LOWER(warehouse_receipts.customer_name) = LOWER(${customers.name})
-        )`,
-        hblCount: sql<number>`(
-          SELECT COALESCE(COUNT(*), 0)::int FROM house_bills 
-          WHERE house_bills.customer_id = ${customers.id} 
-             OR LOWER(house_bills.customer_name) = LOWER(${customers.name})
-        )`,
-      })
+      .select()
       .from(customers)
       .where(condition)
       .limit(1);
