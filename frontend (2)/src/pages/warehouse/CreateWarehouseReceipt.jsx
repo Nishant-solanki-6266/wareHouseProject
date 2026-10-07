@@ -22,16 +22,21 @@ import { CustomerModal } from '../../components/modals/CustomerModal';
 import { useAuth } from '../../context/AuthContext';
 
 export const CreateWarehouseReceipt = ({ onNavigate }) => {
-  const { createWarehouseReceipt, customers, agents, ports, warehouseReceipts, createCustomer } = useAppData();
+  const { createWarehouseReceipt, customers, agents, ports, warehouseReceipts, createCustomer, settings } = useAppData();
   const { currentUser, isDocs, isSuperAdmin } = useAuth();
   const canEditWR = isDocs || isSuperAdmin;
 
+  const configuredPrefix = settings?.numberingRules?.warehouseReceiptPrefix?.trim();
   const maxSeq = warehouseReceipts.reduce((max, r) => {
-    const num = parseInt(r.receiptNumber || r.sequenceNumber, 10);
+    const raw = String(r.receiptNumber || r.sequenceNumber || '');
+    const match = raw.match(/(\d+)$/);
+    const num = match ? parseInt(match[1], 10) : NaN;
     return !isNaN(num) && num > max ? num : max;
   }, 3099);
   const nextSeq = Math.max(3100, maxSeq + 1);
-  const initialReceiptNum = String(nextSeq);
+  const initialReceiptNum = configuredPrefix
+    ? (configuredPrefix.endsWith('-') ? `${configuredPrefix}${nextSeq}` : `${configuredPrefix}-${nextSeq}`)
+    : String(nextSeq);
 
   const getPortCode = (p) => p?.portCode || p?.code || 'NAS';
   const nasPort = ports.find(p => getPortCode(p) === 'NAS') || ports[0];

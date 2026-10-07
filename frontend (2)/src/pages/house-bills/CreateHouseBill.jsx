@@ -20,7 +20,7 @@ import {
 import { useAppData } from '../../context/AppDataContext';
 
 export const CreateHouseBill = ({ onNavigate }) => {
-  const { customers, warehouseReceipts, houseBills, createHouseBill } = useAppData();
+  const { customers, warehouseReceipts, houseBills, createHouseBill, settings } = useAppData();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id || 'CUS-2026-0001');
@@ -38,8 +38,16 @@ export const CreateHouseBill = ({ onNavigate }) => {
     );
   }, [customers, customerSearch]);
 
-  const nextSeq = houseBills.length + 1;
-  const initialHblNumber = `HBL-2026-${String(nextSeq).padStart(4, '0')}`;
+  const configuredHblPrefix = settings?.numberingRules?.houseBillPrefix?.trim() || 'HBL-2026-';
+  const prefix = configuredHblPrefix.endsWith('-') ? configuredHblPrefix : `${configuredHblPrefix}-`;
+  const maxHblSeq = houseBills.reduce((max, h) => {
+    const raw = String(h.hblNumber || '');
+    const match = raw.match(/(\d+)$/);
+    const num = match ? parseInt(match[1], 10) : NaN;
+    return !isNaN(num) && num > max ? num : max;
+  }, 0);
+  const nextSeq = Math.max(houseBills.length + 1, maxHblSeq + 1);
+  const initialHblNumber = `${prefix}${String(nextSeq).padStart(4, '0')}`;
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId) || customers[0];
 
@@ -182,7 +190,7 @@ export const CreateHouseBill = ({ onNavigate }) => {
       originPort: "Port of Miami (USMIA), FL",
       destinationPort: selectedCustomer?.destinationPort || firstWr?.destinationPort || "NAS - Nassau, Bahamas",
       destinationCode: selectedCustomer?.destinationCode || firstWr?.destinationCode || "NAS",
-      warehouseReceiptIds: selectedWrIds,
+      warehouseReceiptIds: selectedWrs.length > 0 ? selectedWrs.map(w => w.receiptNumber || w.id) : selectedWrIds,
       cargoDescription: combinedTotals.cargoDescriptions || "Commercial Cargo Goods",
       packages: combinedTotals.packages,
       totalPackages: combinedTotals.totalPackages,

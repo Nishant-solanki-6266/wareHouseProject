@@ -25,7 +25,7 @@ export class BillsOfLadingService {
     if (!blNumber) {
       blNumber = await this.repo.getNextBlNumber();
     } else {
-      const existing = await this.repo.findById(blNumber);
+      const existing = await this.repo.findByIdOrNumber(blNumber);
       if (existing) {
         blNumber = await this.repo.getNextBlNumber();
       }

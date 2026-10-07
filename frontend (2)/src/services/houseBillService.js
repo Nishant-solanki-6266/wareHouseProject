@@ -63,6 +63,7 @@ export const houseBillService = {
           totalCbm: item.totalCbm !== undefined ? Number(item.totalCbm) : 0,
           totalWeightLbs: item.totalWeightLbs !== undefined ? Number(item.totalWeightLbs) : 0,
           warehouseReceiptIds: Array.isArray(item.warehouseReceiptIds) ? item.warehouseReceiptIds : [],
+          freightCharges: item.freightCharges || item.charges || undefined,
         };
       }
     } catch (err) {
@@ -97,6 +98,7 @@ export const houseBillService = {
         totalCft: Number(data.totalCft) || 0,
         totalCbm: Number(data.totalCbm) || 0,
         freightTerms: data.freightTerms || 'Freight Prepaid',
+        freightCharges: data.freightCharges || data.charges || undefined,
         status: data.status || 'Active',
         notes: data.notes || '',
       };
@@ -107,7 +109,7 @@ export const houseBillService = {
           ...data,
           ...createdItem,
           customerName: createdItem.customerName || data.customerName,
-          freightCharges: data.freightCharges,
+          freightCharges: createdItem.freightCharges || data.freightCharges,
           warehouseReceiptIds: createdItem.warehouseReceiptIds || data.warehouseReceiptIds || [],
         };
         const list = getStored(KEYS.HOUSE_BILLS, []);

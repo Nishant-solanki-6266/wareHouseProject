@@ -7,7 +7,7 @@ import { useAppData } from '../../context/AppDataContext';
 
 export const ManifestViewer = ({ manifest }) => {
   const { showToast } = useToast();
-  const { billsOfLading = [], houseBills = [] } = useAppData() || {};
+  const { billsOfLading = [], houseBills = [], settings } = useAppData() || {};
   const [orientation, setOrientation] = useState('landscape'); // 'landscape' | 'portrait'
 
   if (!manifest) return null;
@@ -162,7 +162,7 @@ export const ManifestViewer = ({ manifest }) => {
           <div>
             <BrandLogo variant="dark" size="small" />
             <div style={{ fontSize: '0.7rem', color: '#475569', marginTop: '4px' }}>
-              VI Customs Brokers &amp; Logistics — Ocean Manifest Division
+              {settings?.companyProfile?.legalName || settings?.companyProfile?.companyName || 'VI Customs Brokers & Logistics'} — Ocean Manifest Division
             </div>
           </div>
 

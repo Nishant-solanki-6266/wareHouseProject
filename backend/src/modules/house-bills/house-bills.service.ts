@@ -60,7 +60,7 @@ export class HouseBillsService {
     if (!hblNumber) {
       hblNumber = await this.repo.getNextHblNumber();
     } else {
-      const existing = await this.repo.findById(hblNumber);
+      const existing = await this.repo.findByIdOrHblNumber(hblNumber);
       if (existing) {
         hblNumber = await this.repo.getNextHblNumber();
       }

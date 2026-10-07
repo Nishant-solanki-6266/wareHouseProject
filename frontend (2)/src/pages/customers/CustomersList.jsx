@@ -8,18 +8,11 @@ import { Users, Plus, Eye, Edit2, Trash2, Package, MapPin, Phone, Mail, Building
 import { useAppData } from '../../context/AppDataContext';
 
 export const CustomersList = ({ onNavigate }) => {
-  const { customers, warehouseReceipts = [], houseBills = [], createCustomer, updateCustomer, deleteCustomer, fetchMenuApi } = useAppData();
+  const { customers, warehouseReceipts = [], houseBills = [], createCustomer, updateCustomer, deleteCustomer } = useAppData();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [deletingCustomer, setDeletingCustomer] = useState(null);
-
-  React.useEffect(() => {
-    if (fetchMenuApi) {
-      if (!houseBills || houseBills.length === 0) fetchMenuApi('house-bills');
-      if (!warehouseReceipts || warehouseReceipts.length === 0) fetchMenuApi('warehouse-receipts');
-    }
-  }, [fetchMenuApi]);
 
   const columns = [
     {

@@ -47,9 +47,13 @@ export const AppDataProvider = ({ children }) => {
   const [activeMenuTab, setActiveMenuTab] = useState('dashboard');
 
   const customersRef = useRef(customers);
+  const warehouseReceiptsRef = useRef(warehouseReceipts);
+  const houseBillsRef = useRef(houseBills);
   useEffect(() => {
     customersRef.current = customers;
-  }, [customers]);
+    warehouseReceiptsRef.current = warehouseReceipts;
+    houseBillsRef.current = houseBills;
+  }, [customers, warehouseReceipts, houseBills]);
 
   // Helper to extract list from diverse API response shapes
   const extractListFromRes = (res) => {
@@ -91,19 +95,23 @@ export const AppDataProvider = ({ children }) => {
             setCustomers(list);
             setStored(KEYS.CUSTOMERS, list);
           }
-          apiClient.get('/warehouse-receipts').then(res => {
-            const wList = extractListFromRes(res);
-            if (wList) {
-              setWarehouseReceipts(wList);
-              setStored(KEYS.WAREHOUSE_RECEIPTS, wList);
-            }
-          }).catch(() => {});
-          houseBillService.getHouseBills().then(hbList => {
-            if (Array.isArray(hbList)) {
-              setHouseBills(hbList);
-              setStored(KEYS.HOUSE_BILLS, hbList);
-            }
-          }).catch(() => {});
+          if (!warehouseReceiptsRef.current || warehouseReceiptsRef.current.length === 0) {
+            apiClient.get('/warehouse-receipts').then(res => {
+              const wList = extractListFromRes(res);
+              if (wList) {
+                setWarehouseReceipts(wList);
+                setStored(KEYS.WAREHOUSE_RECEIPTS, wList);
+              }
+            }).catch(() => {});
+          }
+          if (!houseBillsRef.current || houseBillsRef.current.length === 0) {
+            houseBillService.getHouseBills().then(hbList => {
+              if (Array.isArray(hbList)) {
+                setHouseBills(hbList);
+                setStored(KEYS.HOUSE_BILLS, hbList);
+              }
+            }).catch(() => {});
+          }
           break;
         }
 

@@ -5,11 +5,13 @@ import { BarcodeVisual, QrVisual } from '../common/BarcodeVisual';
 import { Printer, Download, Building2, FileText, Layers, Loader2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
+import { useAppData } from '../../context/AppDataContext';
 import { downloadPdfFromElement } from '../../services/pdfService';
 
 export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
   const { showToast } = useToast();
   const { currentUser } = useAuth() || {};
+  const { settings } = useAppData() || {};
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   if (!receipt) return null;
@@ -170,8 +172,9 @@ export const WarehouseReceiptViewer = ({ receipt, onNavigate }) => {
           <div>
             <BrandLogo variant="dark" size="default" />
             <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '4px' }}>
-              CFS Miami Receiving Facility &amp; Cargo Hub<br />
-              8400 NW 36th Street, Miami, FL 33166 | Tel: +1 (305) 555-5377
+              {settings?.companyProfile?.companyName || 'CFS Miami Receiving Facility & Cargo Hub'}<br />
+              {settings?.companyProfile?.addressLine1 || '8400 NW 36th Street, Miami, FL 33166'}
+              {settings?.companyProfile?.phone ? ` | Tel: ${settings.companyProfile.phone}` : ' | Tel: +1 (305) 555-5377'}
             </div>
           </div>
 

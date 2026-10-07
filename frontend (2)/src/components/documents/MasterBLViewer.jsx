@@ -4,10 +4,12 @@ import { StatusBadge } from '../common/StatusBadge';
 import { BarcodeVisual } from '../common/BarcodeVisual';
 import { Printer, Download, Layers, Loader2 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { useAppData } from '../../context/AppDataContext';
 import { downloadPdfFromElement } from '../../services/pdfService';
 
 export const MasterBLViewer = ({ bl, linkedHbls = [], onNavigate }) => {
   const { showToast } = useToast();
+  const { settings } = useAppData() || {};
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   if (!bl) return null;
@@ -145,9 +147,9 @@ export const MasterBLViewer = ({ bl, linkedHbls = [], onNavigate }) => {
           <div>
             <BrandLogo variant="dark" size="default" />
             <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.4rem', lineHeight: 1.35 }}>
-              <strong>VI Customs Brokers &amp; Logistics</strong><br />
-              8400 NW 36th Street, Suite 500, Miami, FL 33166, USA<br />
-              Tel: +1 (305) 555-5377 | FMC-OTI #028914N
+              <strong>{settings?.companyProfile?.legalName || settings?.companyProfile?.companyName || 'VI Customs Brokers & Logistics'}</strong><br />
+              {settings?.companyProfile?.addressLine1 || '8400 NW 36th Street, Suite 500, Miami, FL 33166, USA'}<br />
+              Tel: {settings?.companyProfile?.phone || '+1 (305) 555-5377'} | {settings?.companyProfile?.fmcNumber || 'FMC-OTI #028914N'}
             </div>
           </div>
 
