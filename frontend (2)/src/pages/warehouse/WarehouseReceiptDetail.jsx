@@ -88,30 +88,30 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
               </button>
               <button
                 onClick={() => setShowLabelModal(true)}
-                className="btn btn-outline btn-sm"
+                className="btn btn-primary btn-sm"
                 id="btn-preview-label-wr"
               >
                 <Printer size={15} />
-                <span>Preview 4x6 Label</span>
+                <span>Print 4x6 Label</span>
               </button>
               {!receipt.assignedHouseBillId && (
                 <button
                   onClick={() => onNavigate('house-bills', 'create')}
-                  className="btn btn-outline btn-sm"
-                  style={{ borderColor: '#2563EB', color: '#2563EB' }}
+                  className="btn btn-sm"
+                  style={{ background: '#0284C7', color: '#FFFFFF', borderColor: '#0284C7' }}
                   id="btn-create-hbl-wr"
                 >
                   <FileText size={15} />
-                  <span>Create House B/L</span>
+                  <span>Prepare House B/L</span>
                 </button>
               )}
               <button
                 onClick={() => setShowEditModal(true)}
-                className="btn btn-secondary btn-sm"
+                className="btn btn-outline btn-sm"
                 id="btn-edit-wr"
               >
                 <Edit2 size={15} />
-                <span>Edit Receipt</span>
+                <span>Edit</span>
               </button>
               <button
                 onClick={() => setShowDeleteModal(true)}
@@ -119,12 +119,12 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
                 id="btn-delete-wr"
               >
                 <Trash2 size={15} />
-                <span>Delete Receipt</span>
+                <span>Delete</span>
               </button>
               {receipt.status === 'Ready for Consolidation' && (
                 <button
                   onClick={() => onNavigate('consolidations', 'create')}
-                  className="btn btn-primary btn-sm"
+                  className="btn btn-outline btn-sm"
                   id="btn-consolidate-wr"
                 >
                   <Layers size={15} />
@@ -179,6 +179,17 @@ export const WarehouseReceiptDetail = ({ receiptId, onNavigate }) => {
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {!receipt.assignedHouseBillId && (
+              <button
+                onClick={() => onNavigate('house-bills', 'create')}
+                className="btn btn-sm btn-outline"
+                style={{ borderColor: '#0284C7', color: '#0284C7' }}
+                id="btn-next-step-hbl"
+              >
+                <FileText size={14} />
+                <span>Prepare House B/L</span>
+              </button>
+            )}
             <button
               onClick={() => onNavigate('cargo')}
               className="btn btn-outline btn-sm"

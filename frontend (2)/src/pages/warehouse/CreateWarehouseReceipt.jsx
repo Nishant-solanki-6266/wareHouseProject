@@ -58,7 +58,7 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
     agentName: initialAgentName,
     destinationPort: defaultPort,
     destinationCode: defaultPortCode,
-    warehouseLocation: 'Bay A-1 (CFS Staging)',
+    warehouseLocation: 'General Staging',
     cargoDescription: '',
     unitType: 'inches', // 'inches' | 'cm'
     hazardous: false,
@@ -281,7 +281,7 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
       cbm: roundedCbm,
       volumetricWeightLbs,
       volumetricWeightKg,
-      warehouseLocation: formData.warehouseLocation || 'Bay A-1 (CFS Staging)',
+      warehouseLocation: formData.warehouseLocation || 'General Staging',
       cargoDescription: descSummary || formData.cargoDescription || 'General Cargo Merchandise',
       status: "Ready for Consolidation"
     };
@@ -419,19 +419,33 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <label className="form-label" style={{ margin: 0 }}>Shipper / Supplier Information</label>
-                    <select
-                      style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', border: '1px solid #CBD5E1', maxWidth: '200px' }}
-                      onChange={(e) => handleShipperSelect(e.target.value)}
-                      defaultValue=""
-                    >
-                      <option value="" disabled>Quick Fill Shipper...</option>
-                      {customers.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.customerNumber || c.id})
-                        </option>
-                      ))}
-                      <option value="CREATE_NEW" style={{ fontWeight: 'bold', color: '#0284C7' }}>+ Create New Customer</option>
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <select
+                        style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', border: '1px solid #CBD5E1', maxWidth: '170px' }}
+                        onChange={(e) => handleShipperSelect(e.target.value)}
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Quick Fill Shipper...</option>
+                        {customers.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.customerNumber || c.id})
+                          </option>
+                        ))}
+                        <option value="CREATE_NEW" style={{ fontWeight: 'bold', color: '#0284C7' }}>+ Create New Customer</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomerCreationTarget('shipper');
+                          setShowAddCustomerModal(true);
+                        }}
+                        className="btn btn-outline btn-xs"
+                        style={{ padding: '2px 6px', fontSize: '0.7rem', color: '#0284C7', borderColor: '#0284C7' }}
+                        title="Add New Customer Profile"
+                      >
+                        + New
+                      </button>
+                    </div>
                   </div>
                   <textarea
                     className="form-textarea"
@@ -445,19 +459,33 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <label className="form-label" style={{ margin: 0 }}>Consignee / Destination Importer <span className="required">*</span></label>
-                    <select
-                      style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', border: '1px solid #CBD5E1', maxWidth: '200px' }}
-                      onChange={(e) => handleConsigneeSelect(e.target.value)}
-                      defaultValue=""
-                    >
-                      <option value="" disabled>Quick Fill Consignee...</option>
-                      {customers.map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.destinationCode ? `${c.destinationCode} • ` : ''}{c.customerNumber || c.id})
-                        </option>
-                      ))}
-                      <option value="CREATE_NEW" style={{ fontWeight: 'bold', color: '#0284C7' }}>+ Create New Customer</option>
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <select
+                        style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', border: '1px solid #CBD5E1', maxWidth: '170px' }}
+                        onChange={(e) => handleConsigneeSelect(e.target.value)}
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Quick Fill Consignee...</option>
+                        {customers.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.destinationCode ? `${c.destinationCode} • ` : ''}{c.customerNumber || c.id})
+                          </option>
+                        ))}
+                        <option value="CREATE_NEW" style={{ fontWeight: 'bold', color: '#0284C7' }}>+ Create New Customer</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomerCreationTarget('consignee');
+                          setShowAddCustomerModal(true);
+                        }}
+                        className="btn btn-outline btn-xs"
+                        style={{ padding: '2px 6px', fontSize: '0.7rem', color: '#0284C7', borderColor: '#0284C7' }}
+                        title="Add New Customer Profile"
+                      >
+                        + New
+                      </button>
+                    </div>
                   </div>
                   <textarea
                     className="form-textarea"
@@ -669,8 +697,8 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
                   <span>Add Another Package Row</span>
                 </button>
 
-                <div style={{ fontSize: '0.75rem', color: '#64748B' }}>
-                  Formula: ({formData.unitType === 'inches' ? 'Length" × Width" × Height" × Pieces ÷ 1,728' : 'Length × Width × Height × Pieces ÷ 1,000,000'})
+                <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 500 }}>
+                  ✓ Live Automatic Volume Calculation (CFT &amp; CBM)
                 </div>
               </div>
 
@@ -702,36 +730,17 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
               </div>
             </div>
 
-            {/* Section 4: Warehouse Location & Staging */}
+            {/* Section 3: Handling Flags & Notes */}
             <div>
               <h3 style={{ fontSize: '1rem', color: '#0A192F', borderBottom: '1px solid #E2E8F0', paddingBottom: '0.5rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <MapPin size={18} style={{ color: '#0284C7' }} />
-                <span>3. Warehouse Staging Location &amp; Handling</span>
+                <span>3. Special Handling &amp; Receiving Remarks</span>
               </h3>
 
-              <div className="grid grid-cols-2 gap-4" style={{ marginBottom: '1rem' }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Warehouse Staging Bay / Bin Location <span className="required">*</span></label>
-                  <select
-                    className="form-select"
-                    value={formData.warehouseLocation}
-                    onChange={(e) => handleInputChange('warehouseLocation', e.target.value)}
-                    required
-                  >
-                    <option value="Bay A-1 (CFS Staging)">Bay A-1 (CFS Staging)</option>
-                    <option value="Bay A-2 (Pallet Staging)">Bay A-2 (Pallet Staging)</option>
-                    <option value="Bay B-1 (Loose Cargo)">Bay B-1 (Loose Cargo)</option>
-                    <option value="Bay B-2 (Consolidation Area)">Bay B-2 (Consolidation Area)</option>
-                    <option value="Rack C-01 (High Shelf)">Rack C-01 (High Shelf)</option>
-                    <option value="Rack C-04 (Hardware/Parts)">Rack C-04 (Hardware/Parts)</option>
-                    <option value="Secure Cage (High-Value)">Secure Cage (High-Value)</option>
-                    <option value="Cold Storage Room">Cold Storage Room</option>
-                  </select>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Handling &amp; Cargo Flags</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginTop: '0.4rem' }}>
+              <div style={{ marginBottom: '1rem' }}>
+                <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                  <label className="form-label">Cargo Flags</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', marginTop: '0.2rem' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
                       <input
                         type="checkbox"
@@ -746,7 +755,7 @@ export const CreateWarehouseReceipt = ({ onNavigate }) => {
                         checked={formData.hazardous}
                         onChange={(e) => handleInputChange('hazardous', e.target.checked)}
                       />
-                      <span>HAZMAT</span>
+                      <span>HAZMAT / Dangerous Goods</span>
                     </label>
                   </div>
                 </div>

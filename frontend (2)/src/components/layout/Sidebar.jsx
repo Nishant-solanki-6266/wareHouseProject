@@ -38,16 +38,21 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose, isCollapsed =
     if (roleKey === 'warehouse') {
       return [
         {
-          title: 'WAREHOUSE INTAKE & OPS',
+          title: 'CARGO INTAKE & INVENTORY',
           items: [
-            { id: 'dashboard', label: 'Operations Dashboard', icon: LayoutDashboard },
-            { id: 'customers', label: 'Customers', icon: Users },
+            { id: 'dashboard', label: 'Overview Dashboard', icon: LayoutDashboard },
+            { id: 'customers', label: 'Customers & Consignees', icon: Users },
             { id: 'warehouse-receipts', label: 'Warehouse Receipts', icon: Package },
             { id: 'cargo', label: 'Cargo Inventory', icon: Box },
-            { id: 'house-bills', label: 'House B/Ls (Prepare & View)', icon: FileText },
-            { id: 'consolidations', label: 'Consolidations & Stuffing', icon: Layers },
-            { id: 'documents', label: 'Labels & Documents', icon: Tag },
-            { id: 'tracking', label: 'Tracking', icon: Search }
+            { id: 'documents', label: 'Labels & Printouts', icon: Tag }
+          ]
+        },
+        {
+          title: 'PACKING & TRACKING',
+          items: [
+            { id: 'house-bills', label: 'House Bills of Lading', icon: FileText },
+            { id: 'consolidations', label: 'Container Packing', icon: Layers },
+            { id: 'tracking', label: 'Search & Track Cargo', icon: Search }
           ]
         }
       ];
@@ -57,19 +62,24 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose, isCollapsed =
     if (roleKey === 'operations') {
       return [
         {
-          title: 'OPERATIONS & LOGISTICS',
+          title: 'WAREHOUSE & CARGO',
           items: [
-            { id: 'dashboard', label: 'Operations Dashboard', icon: LayoutDashboard },
-            { id: 'customers', label: 'Customers', icon: Users },
+            { id: 'dashboard', label: 'Operations Overview', icon: LayoutDashboard },
+            { id: 'customers', label: 'Customers & Consignees', icon: Users },
             { id: 'warehouse-receipts', label: 'Warehouse Receipts', icon: Package },
             { id: 'cargo', label: 'Cargo Inventory', icon: Box },
-            { id: 'house-bills', label: 'House B/Ls', icon: FileText },
-            { id: 'consolidations', label: 'Consolidations & Stuffing', icon: Layers },
-            { id: 'shipments', label: 'Shipments', icon: Ship },
+            { id: 'documents', label: 'Labels & Printouts', icon: Tag }
+          ]
+        },
+        {
+          title: 'SHIPMENTS & CONSOLIDATION',
+          items: [
+            { id: 'house-bills', label: 'House Bills of Lading', icon: FileText },
+            { id: 'consolidations', label: 'Container Consolidation', icon: Layers },
+            { id: 'shipments', label: 'Ocean Shipments', icon: Ship },
             { id: 'containers', label: 'Containers', icon: Box },
-            { id: 'vessels', label: 'Vessels & Voyages', icon: Anchor },
-            { id: 'documents', label: 'Labels & Documents', icon: Tag },
-            { id: 'tracking', label: 'Tracking', icon: Search },
+            { id: 'vessels', label: 'Vessels & Trips', icon: Anchor },
+            { id: 'tracking', label: 'Cargo Tracking', icon: Search },
             { id: 'history', label: 'Shipment History', icon: History }
           ]
         }
@@ -80,19 +90,24 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose, isCollapsed =
     if (roleKey === 'documentation') {
       return [
         {
-          title: 'DOCUMENTATION DESK',
+          title: 'CARGO & RECEIPTS',
           items: [
             { id: 'dashboard', label: 'Documentation Desk', icon: LayoutDashboard },
-            { id: 'customers', label: 'Customers', icon: Users },
+            { id: 'customers', label: 'Customers & Consignees', icon: Users },
             { id: 'warehouse-receipts', label: 'Warehouse Receipts', icon: Package },
+            { id: 'documents', label: 'PDF Archive & Labels', icon: FileStack }
+          ]
+        },
+        {
+          title: 'BILLS & MANIFESTS',
+          items: [
             { id: 'house-bills', label: 'House Bills of Lading', icon: FileText },
-            { id: 'bills-of-lading', label: 'Master Bills of Lading (MBL)', icon: FileText },
-            { id: 'manifests', label: 'Ocean Manifests', icon: FileSpreadsheet },
+            { id: 'bills-of-lading', label: 'Master Bills (MBL)', icon: FileText },
+            { id: 'manifests', label: 'Customs Manifests', icon: FileSpreadsheet },
             { id: 'consolidations', label: 'Consolidations', icon: Layers },
             { id: 'containers', label: 'Containers', icon: Box },
-            { id: 'vessels', label: 'Vessels & Voyages', icon: Anchor },
-            { id: 'history', label: 'Shipment History', icon: History },
-            { id: 'documents', label: 'PDF Archive & Labels', icon: FileStack }
+            { id: 'vessels', label: 'Vessels & Trips', icon: Anchor },
+            { id: 'history', label: 'Shipment History', icon: History }
           ]
         }
       ];
@@ -102,14 +117,14 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose, isCollapsed =
     if (roleKey === 'agent') {
       return [
         {
-          title: 'AGENT PORTAL',
+          title: 'AGENT OPERATIONS',
           items: [
             { id: 'agent-dashboard', label: 'Agent Dashboard', icon: LayoutDashboard },
             { id: 'shipments', label: 'My Assigned Shipments', icon: Ship },
-            { id: 'consolidations', label: 'My Consolidations', icon: Layers },
+            { id: 'consolidations', label: 'Container Arrivals', icon: Layers },
             { id: 'manifests', label: 'Port Manifests & Docs', icon: FileSpreadsheet },
             { id: 'bills-of-lading', label: 'Release Documents & B/Ls', icon: FileText },
-            { id: 'cargo', label: 'Cargo Receiving at Port', icon: Box },
+            { id: 'cargo', label: 'Cargo Intake at Port', icon: Box },
             { id: 'tracking', label: 'Port Tracking', icon: Search }
           ]
         }
@@ -119,30 +134,35 @@ export const Sidebar = ({ activeTab, onSelectTab, isOpen, onClose, isCollapsed =
     // 5. SUPER ADMIN (Marcus Vance - Full HQ Access)
     return [
       {
-        title: 'ADMINISTRATION & AUDIT',
+        title: 'CARGO & INTAKE',
         items: [
-          { id: 'dashboard', label: 'Admin Dashboard', icon: LayoutDashboard },
-          { id: 'users', label: 'Users & Roles', icon: ShieldCheck },
-          { id: 'audit', label: 'Audit Trail', icon: Activity },
-          { id: 'history', label: 'Shipment History', icon: History },
-          { id: 'settings', label: 'Settings', icon: Settings }
+          { id: 'dashboard', label: 'System Overview', icon: LayoutDashboard },
+          { id: 'customers', label: 'Customers & Consignees', icon: Users },
+          { id: 'warehouse-receipts', label: 'Warehouse Receipts', icon: Package },
+          { id: 'cargo', label: 'Cargo Inventory', icon: Box },
+          { id: 'documents', label: 'Labels & Printouts', icon: FileStack }
         ]
       },
       {
-        title: 'OPERATIONS OVERVIEW',
+        title: 'LOGISTICS & DOCUMENTATION',
         items: [
-          { id: 'customers', label: 'Customers', icon: Users },
-          { id: 'warehouse-receipts', label: 'Warehouse Receipts', icon: Package },
-          { id: 'cargo', label: 'Cargo Inventory', icon: Box },
-          { id: 'house-bills', label: 'House B/Ls', icon: FileText },
-          { id: 'consolidations', label: 'Consolidations', icon: Layers },
-          { id: 'shipments', label: 'Shipments', icon: Ship },
+          { id: 'house-bills', label: 'House Bills of Lading', icon: FileText },
+          { id: 'consolidations', label: 'Container Consolidation', icon: Layers },
+          { id: 'shipments', label: 'Ocean Shipments', icon: Ship },
           { id: 'bills-of-lading', label: 'Master Bills of Lading', icon: FileText },
-          { id: 'manifests', label: 'Ocean Manifests', icon: FileSpreadsheet },
+          { id: 'manifests', label: 'Customs Manifests', icon: FileSpreadsheet },
           { id: 'containers', label: 'Containers', icon: Box },
-          { id: 'vessels', label: 'Vessels & Voyages', icon: Anchor },
-          { id: 'documents', label: 'Documents & Labels', icon: FileStack },
-          { id: 'tracking', label: 'Tracking', icon: Search }
+          { id: 'vessels', label: 'Vessels & Trips', icon: Anchor },
+          { id: 'tracking', label: 'Tracking Portal', icon: Search }
+        ]
+      },
+      {
+        title: 'SYSTEM & GOVERNANCE',
+        items: [
+          { id: 'users', label: 'Users & Roles', icon: ShieldCheck },
+          { id: 'audit', label: 'Activity Logs', icon: Activity },
+          { id: 'history', label: 'Shipment Archive', icon: History },
+          { id: 'settings', label: 'System Settings', icon: Settings }
         ]
       }
     ];
